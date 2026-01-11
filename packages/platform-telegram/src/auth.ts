@@ -13,7 +13,6 @@ export async function handleLogin(ctx: Context) {
     await ctx.reply('❌ Unable to identify user')
     return
   }
-  console.log('telegramUserId', telegramUserId)
 
   // Parse command arguments
   const args = ctx.message && 'text' in ctx.message 
@@ -31,7 +30,6 @@ export async function handleLogin(ctx: Context) {
 
   const [username, password] = args
 
-  try {
     const storage = await getTokenStorage(telegramUserId)
 
     // Attempt login
@@ -49,10 +47,6 @@ export async function handleLogin(ctx: Context) {
     } else {
       await ctx.reply('❌ Login failed: Invalid response from server')
     }
-  } catch (error) {
-    const message = error instanceof Error ? error.message : 'Unknown error'
-    await ctx.reply(`❌ Login failed: ${message}`)
-  }
 }
 
 /**

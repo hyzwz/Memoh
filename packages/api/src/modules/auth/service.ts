@@ -76,11 +76,11 @@ export const validateUser = async (username: string, password: string) => {
     return null
   }
 
-  // 查询数据库中的用户
+  // 查询数据库中的用户（使用 username 而不是 id）
   const [user] = await db
     .select()
     .from(users)
-    .where(eq(users.id, userId!))
+    .where(eq(users.username, username))
 
   if (!user) {
     return null

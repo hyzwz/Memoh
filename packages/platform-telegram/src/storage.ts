@@ -3,7 +3,8 @@ import Redis from 'ioredis'
 
 export const getTokenStorage = async (telegramUserId: string): Promise<TokenStorage> => {
   const redis = new Redis(process.env.REDIS_URL || 'redis://localhost:6379')
-  const token = await redis.get(`memohome:telegram:${telegramUserId}:token`)
+  const isExists = await redis.exists(`memohome:telegram:${telegramUserId}:token`)
+  const token = isExists ? await redis.get(`memohome:telegram:${telegramUserId}:token`) : null
   return {
     getApiUrl: () => process.env.API_URL || 'http://localhost:7002',
     setApiUrl: () => {},

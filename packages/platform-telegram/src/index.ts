@@ -35,7 +35,7 @@ export class TelegramPlatform extends BasePlatform {
     this.registerCommands()
 
     // Start bot
-    await this.bot.launch()
+    this.bot.launch()
     console.log('✅ Telegram bot started successfully')
   }
 

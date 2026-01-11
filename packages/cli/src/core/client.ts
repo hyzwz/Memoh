@@ -7,11 +7,13 @@ import { createClient as createClientApi } from '@memohome/api/client'
  */
 export function createClient(context?: MemoHomeContext) {
   const ctx = context || getContext()
-  const storage = ctx.storage
-  
+  const storage = ctx.storage 
+
+
   const apiUrlResult = typeof storage.getApiUrl === 'function' 
     ? storage.getApiUrl() 
     : (storage as unknown as Record<string, string>).apiUrl
+
   
   if (apiUrlResult instanceof Promise) {
     throw new Error('createClient does not support async storage. Use createClientAsync instead.')
@@ -23,12 +25,15 @@ export function createClient(context?: MemoHomeContext) {
     ? storage.getToken(ctx.currentUserId)
     : null
 
+
   // Handle async token retrieval
   if (token instanceof Promise) {
     throw new Error('createClient does not support async token storage. Use createClientAsync instead.')
   }
+  
 
   const client = createClientApi(apiUrl, token ?? undefined)
+
 
   return client
 }
