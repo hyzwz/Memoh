@@ -167,7 +167,7 @@ export class TelegramPlatform extends BasePlatform {
     try {      
       // Send typing indicator
       await ctx.sendChatAction('typing')
-      await getTokenStorage(ctx)
+      const storage = await getTokenStorage(ctx)
 
       let responseText = ''
       let lastUpdateTime = Date.now()
@@ -240,6 +240,7 @@ export class TelegramPlatform extends BasePlatform {
             }
           }
         },
+        { storage }
       )
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error'
