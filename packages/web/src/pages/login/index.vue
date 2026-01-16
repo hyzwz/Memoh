@@ -86,7 +86,7 @@ const router = useRouter()
 const login = async () => {
   // 先模拟一下数据
   localStorage.setItem('token','afewfewf')
-  await router.push('/chat')
+  await router.push('/main')
   console.log('登录')
 }
 
