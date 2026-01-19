@@ -94,3 +94,5 @@ docs/docs/.vitepress/cache
 
 dump.rdb
 memory.db
+
+config.toml

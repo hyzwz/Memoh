@@ -1,0 +1,52 @@
+## Service configuration
+[server]
+# HTTP listen address
+addr = ":8080"
+
+## Auth configuration
+[auth]
+jwt_secret = "your-jwt-secret-key-change-in-production-use-long-random-string"
+jwt_expires_in = "168h"
+
+## Containerd configuration
+[containerd]
+socket_path = "/run/containerd/containerd.sock"
+namespace = "default"
+
+[mcp]
+busybox_image = "docker.io/library/busybox:latest"
+snapshotter = ""
+data_root = "data"
+data_mount = "/data"
+
+## Postgres configuration
+[postgres]
+host = "127.0.0.1"
+port = 5432
+user = "postgres"
+password = ""
+database = "memoh"
+sslmode = "disable"
+
+## memory configuration
+[memory]
+base_url = "https://api.openai.com/v1"
+api_key = ""
+model = "gpt-4.1-nano"
+timeout_seconds = 10
+
+## Qdrant configuration
+[qdrant]
+base_url = "http://127.0.0.1:6334"
+api_key = ""
+collection = "mem0"
+timeout_seconds = 10
+
+## Embeddings configuration
+[embeddings]
+provider = "openai"
+openai_api_key = ""
+openai_base_url = "https://api.openai.com/v1"
+model = "text-embedding-3-small"
+dimensions = 1536
+timeout_seconds = 10

@@ -1,0 +1,604 @@
+basePath: /
+definitions:
+  handlers.ApplyPatchRequest:
+    properties:
+      patch:
+        type: string
+      path:
+        type: string
+    type: object
+  handlers.CommitResponse:
+    properties:
+      created_at:
+        type: string
+      id:
+        type: string
+      snapshot_id:
+        type: string
+      version:
+        type: integer
+    type: object
+  handlers.DiffResponse:
+    properties:
+      diff:
+        type: string
+      path:
+        type: string
+      version:
+        type: integer
+    type: object
+  handlers.ErrorResponse:
+    properties:
+      message:
+        type: string
+    type: object
+  handlers.FileEntry:
+    properties:
+      is_dir:
+        type: boolean
+      mod_time:
+        type: string
+      mode:
+        type: integer
+      path:
+        type: string
+      size:
+        type: integer
+    type: object
+  handlers.ListResponse:
+    properties:
+      entries:
+        items:
+          $ref: '#/definitions/handlers.FileEntry'
+        type: array
+      path:
+        type: string
+    type: object
+  handlers.LoginRequest:
+    properties:
+      password:
+        type: string
+      username:
+        type: string
+    type: object
+  handlers.LoginResponse:
+    properties:
+      access_token:
+        type: string
+      expires_at:
+        type: string
+      token_type:
+        type: string
+      user_id:
+        type: string
+      username:
+        type: string
+    type: object
+  handlers.ReadResponse:
+    properties:
+      content:
+        type: string
+      encoding:
+        type: string
+      mod_time:
+        type: string
+      mode:
+        type: integer
+      path:
+        type: string
+      size:
+        type: integer
+    type: object
+  handlers.WriteAtomicRequest:
+    properties:
+      content:
+        type: string
+      encoding:
+        type: string
+      mode:
+        type: integer
+      mtime:
+        type: string
+      path:
+        type: string
+    type: object
+  memory.AddRequest:
+    properties:
+      agent_id:
+        type: string
+      filters:
+        additionalProperties: true
+        type: object
+      infer:
+        type: boolean
+      message:
+        type: string
+      messages:
+        items:
+          $ref: '#/definitions/memory.Message'
+        type: array
+      metadata:
+        additionalProperties: true
+        type: object
+      run_id:
+        type: string
+      user_id:
+        type: string
+    type: object
+  memory.DeleteAllRequest:
+    properties:
+      agent_id:
+        type: string
+      run_id:
+        type: string
+      user_id:
+        type: string
+    type: object
+  memory.DeleteResponse:
+    properties:
+      message:
+        type: string
+    type: object
+  memory.MemoryItem:
+    properties:
+      agentId:
+        type: string
+      createdAt:
+        type: string
+      hash:
+        type: string
+      id:
+        type: string
+      memory:
+        type: string
+      metadata:
+        additionalProperties: true
+        type: object
+      runId:
+        type: string
+      score:
+        type: number
+      updatedAt:
+        type: string
+      userId:
+        type: string
+    type: object
+  memory.Message:
+    properties:
+      content:
+        type: string
+      role:
+        type: string
+    type: object
+  memory.SearchRequest:
+    properties:
+      agent_id:
+        type: string
+      filters:
+        additionalProperties: true
+        type: object
+      limit:
+        type: integer
+      query:
+        type: string
+      run_id:
+        type: string
+      user_id:
+        type: string
+    type: object
+  memory.SearchResponse:
+    properties:
+      relations:
+        items: {}
+        type: array
+      results:
+        items:
+          $ref: '#/definitions/memory.MemoryItem'
+        type: array
+    type: object
+  memory.UpdateRequest:
+    properties:
+      memory:
+        type: string
+      memory_id:
+        type: string
+    type: object
+info:
+  contact: {}
+  description: User-scoped filesystem API for containerd-backed data.
+  title: Memoh Go API
+  version: "1.0"
+paths:
+  /auth/login:
+    post:
+      description: Validate user credentials and issue a JWT
+      parameters:
+      - description: Login request
+        in: body
+        name: payload
+        required: true
+        schema:
+          $ref: '#/definitions/handlers.LoginRequest'
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/handlers.LoginResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+      summary: Login
+      tags:
+      - auth
+  /fs/apply_patch:
+    post:
+      description: Apply a unified diff patch to a file under the user data mount
+      parameters:
+      - description: Patch payload
+        in: body
+        name: payload
+        required: true
+        schema:
+          $ref: '#/definitions/handlers.ApplyPatchRequest'
+      responses:
+        "204":
+          description: No Content
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+      summary: Apply unified diff patch
+      tags:
+      - fs
+  /fs/commit:
+    post:
+      description: Create a new version snapshot for the user container
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/handlers.CommitResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+      summary: Commit a filesystem snapshot
+      tags:
+      - fs
+  /fs/diff:
+    get:
+      description: Produce a unified diff between a version snapshot and current data
+      parameters:
+      - description: Path under data mount
+        in: query
+        name: path
+        type: string
+      - description: Version number
+        in: query
+        name: version
+        required: true
+        type: integer
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/handlers.DiffResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+      summary: Diff against a version snapshot
+      tags:
+      - fs
+  /fs/list:
+    get:
+      description: List files under the user data mount
+      parameters:
+      - description: Path under data mount
+        in: query
+        name: path
+        type: string
+      - description: Recursive listing
+        in: query
+        name: recursive
+        type: boolean
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/handlers.ListResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+      summary: List directory contents
+      tags:
+      - fs
+  /fs/read:
+    get:
+      description: Read a file under the user data mount
+      parameters:
+      - description: Path under data mount
+        in: query
+        name: path
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/handlers.ReadResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+      summary: Read file content
+      tags:
+      - fs
+  /fs/write_atomic:
+    put:
+      description: Atomically replace a file under the user data mount
+      parameters:
+      - description: Write payload
+        in: body
+        name: payload
+        required: true
+        schema:
+          $ref: '#/definitions/handlers.WriteAtomicRequest'
+      responses:
+        "204":
+          description: No Content
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+      summary: Write file atomically
+      tags:
+      - fs
+  /memory/add:
+    post:
+      description: Add memory for a user via memory
+      parameters:
+      - description: Add request
+        in: body
+        name: payload
+        required: true
+        schema:
+          $ref: '#/definitions/memory.AddRequest'
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/memory.SearchResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+      summary: Add memory
+      tags:
+      - memory
+  /memory/memories:
+    delete:
+      description: Delete all memories for a user via memory
+      parameters:
+      - description: Delete all request
+        in: body
+        name: payload
+        required: true
+        schema:
+          $ref: '#/definitions/memory.DeleteAllRequest'
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/memory.DeleteResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+      summary: Delete memories
+      tags:
+      - memory
+    get:
+      description: List memories for a user via memory
+      parameters:
+      - description: User ID
+        in: query
+        name: user_id
+        type: string
+      - description: Agent ID
+        in: query
+        name: agent_id
+        type: string
+      - description: Run ID
+        in: query
+        name: run_id
+        type: string
+      - description: Limit
+        in: query
+        name: limit
+        type: integer
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/memory.SearchResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+      summary: List memories
+      tags:
+      - memory
+  /memory/memories/{memoryId}:
+    delete:
+      description: Delete a memory by ID via memory
+      parameters:
+      - description: Memory ID
+        in: path
+        name: memoryId
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/memory.DeleteResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+      summary: Delete memory
+      tags:
+      - memory
+    get:
+      description: Get a memory by ID via memory
+      parameters:
+      - description: Memory ID
+        in: path
+        name: memoryId
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/memory.MemoryItem'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+      summary: Get memory
+      tags:
+      - memory
+  /memory/search:
+    post:
+      description: Search memories for a user via memory
+      parameters:
+      - description: Search request
+        in: body
+        name: payload
+        required: true
+        schema:
+          $ref: '#/definitions/memory.SearchRequest'
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/memory.SearchResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+      summary: Search memories
+      tags:
+      - memory
+  /memory/update:
+    post:
+      description: Update a memory by ID via memory
+      parameters:
+      - description: Update request
+        in: body
+        name: payload
+        required: true
+        schema:
+          $ref: '#/definitions/memory.UpdateRequest'
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/memory.MemoryItem'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+      summary: Update memory
+      tags:
+      - memory
+schemes:
+- http
+swagger: "2.0"

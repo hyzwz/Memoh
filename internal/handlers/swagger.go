@@ -1,0 +1,65 @@
+package handlers
+
+import (
+	"net/http"
+	"os"
+	"sync"
+
+	"github.com/labstack/echo/v4"
+)
+
+//go:generate go run github.com/swaggo/swag/cmd/swag@latest init -g ../../cmd/agent/docs.go -o ../../docs --parseDependency --parseInternal
+
+var (
+	swaggerSpec []byte
+	swaggerOnce sync.Once
+	swaggerErr  error
+)
+
+type SwaggerHandler struct{}
+
+func NewSwaggerHandler() *SwaggerHandler {
+	return &SwaggerHandler{}
+}
+
+func (h *SwaggerHandler) Register(e *echo.Echo) {
+	e.GET("api/swagger.json", h.Spec)
+	e.GET("api/docs", h.UI)
+	e.GET("api/docs/", h.UI)
+}
+
+func (h *SwaggerHandler) Spec(c echo.Context) error {
+	swaggerOnce.Do(func() {
+		swaggerSpec, swaggerErr = os.ReadFile("docs/swagger.json")
+	})
+	if swaggerErr != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, swaggerErr.Error())
+	}
+	return c.Blob(http.StatusOK, "application/json", swaggerSpec)
+}
+
+func (h *SwaggerHandler) UI(c echo.Context) error {
+	return c.HTML(http.StatusOK, swaggerUIHTML)
+}
+
+const swaggerUIHTML = `<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>memoh-go Swagger UI</title>
+    <link rel="stylesheet" href="https://unpkg.com/swagger-ui-dist@5/swagger-ui.css" />
+  </head>
+  <body>
+    <div id="swagger-ui"></div>
+    <script src="https://unpkg.com/swagger-ui-dist@5/swagger-ui-bundle.js"></script>
+    <script>
+      window.onload = () => {
+        window.ui = SwaggerUIBundle({
+          url: '/api/swagger.json',
+          dom_id: '#swagger-ui'
+        });
+      };
+    </script>
+  </body>
+</html>`

@@ -1,0 +1,6 @@
+DROP TABLE IF EXISTS lifecycle_events;
+DROP TABLE IF EXISTS container_versions;
+DROP TABLE IF EXISTS snapshots;
+DROP TABLE IF EXISTS containers;
+DROP TABLE IF EXISTS users;
+DROP TYPE IF EXISTS user_role;
