@@ -96,7 +96,7 @@ const columns: ComputedRef<ColumnDef<ModelType>[]> = computed(() => [
     accessorKey: 'modelId',
     header: () => h('div', { class: 'text-left py-4' }, 'Name'),
     cell({ row }) {
-      return h('div', { class: 'text-left py-4' }, row.getValue('modelId'))
+      return h('div', { class: 'text-left' }, row.getValue('modelId'))
     }
   },
   {

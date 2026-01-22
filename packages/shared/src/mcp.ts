@@ -28,3 +28,21 @@ export type MCPConnection =
   | StdioMCPConnection
   | HTTPMCPConnection
   | SSEMCPConnection
+
+
+export interface MCPListItem{
+  id: string;
+  type: string;
+  name: string;
+  config: {
+    cwd: string;
+    env: Record<string, string>;
+    args: string[];
+    type: string;
+    command: string;
+  };
+  active: boolean;
+  user: string;
+  createdAt: string;
+  updatedAt: string;
+}

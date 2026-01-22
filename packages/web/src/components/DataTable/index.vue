@@ -46,7 +46,7 @@ const table = useVueTable({
           </TableHead>
         </TableRow>
       </TableHeader>
-      <TableBody>
+      <TableBody class="[&_td]:py-4!">
         <template v-if="table.getRowModel().rows?.length">
           <TableRow
             v-for="row in table.getRowModel().rows"

@@ -196,10 +196,7 @@
               <FormItem>
                 <FormControl>
                   <section class="flex gap-4">
-                    <Label
-                   
-                      for="airplane-mode"
-                    >开启</Label>
+                    <Label for="airplane-mode">开启</Label>
                     <Switch
                       id="airplane-mode"
                       :model-value="componentField.modelValue"
@@ -262,9 +259,10 @@ import {
 import z from 'zod'
 import { toTypedSchema } from '@vee-validate/zod'
 import { useForm } from 'vee-validate'
-import { ref,inject } from 'vue'
-import { useMutation,useQueryCache } from '@pinia/colada'
+import { ref, inject, watch } from 'vue'
+import { useMutation, useQueryCache } from '@pinia/colada'
 import request from '@/utils/request'
+import { type MCPListItem as MCPType } from '@memoh/shared'
 
 const validateSchema = toTypedSchema(z.object({
   name: z.string().min(1),
@@ -273,9 +271,9 @@ const validateSchema = toTypedSchema(z.object({
     command: z.string().min(1),
     args: z.array(z.coerce.string().check(z.minLength(1))).min(1),
     env: z.looseObject({}),
-    cwd:z.string().min(1)
+    cwd: z.string().min(1)
   }),
-  active:z.coerce.boolean()
+  active: z.coerce.boolean()
 }))
 
 const envList = ref<string[]>([])
@@ -284,22 +282,41 @@ const form = useForm({
 })
 
 
-const queryCache=useQueryCache()
+const queryCache = useQueryCache()
 const { mutate: fetchMCP } = useMutation({
   mutation: (data: Parameters<(Parameters<typeof form.handleSubmit>)[0]>[0]) => request({
-    url: '/mcp/',
-    method: 'post',
+    url: mcpEditData.value?.id ? `/mcp/${mcpEditData.value.id}` : '/mcp/',
+    method: mcpEditData.value?.id ? 'put' : 'post',
     data
   }),
-  onSettled:()=>queryCache.invalidateQueries({key:['mcp']})
+  onSettled: () => queryCache.invalidateQueries({ key: ['mcp'] })
 })
 
-const open=inject('open',ref(false))
+const open = inject('open', ref(false))
+const mcpEditData = inject('mcpEditData', ref<{
+  name: string,
+  config: MCPType['config'],
+  active: boolean
+  id: string
+} | null>(null))
+
+watch(open, () => {
+  if (open.value && mcpEditData.value) {   
+    form.setValues(mcpEditData.value)
+  }
+
+  if (!open.value) {
+    mcpEditData.value = null
+  }
+}, {
+  immediate: true
+})
+
 const createMCP = form.handleSubmit(async (value) => {
-  // console.log(value)
   try {
+    console.log(mcpEditData.value)
     fetchMCP(value)
-    open.value=false
+    open.value = false
   } catch {
     return
   }
