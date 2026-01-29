@@ -49,7 +49,18 @@
           </SidebarGroupContent>
         </SidebarGroup>
       </SidebarContent>
-
+      <SidebarHeader>
+        <SidebarMenu>
+          <SidebarMenuItem class="flex justify-center">
+            <Button
+              class="flex-[0.7] mb-10"
+              @click="exit"
+            >
+              退出登录
+            </Button>
+          </SidebarMenuItem>
+        </SidebarMenu>
+      </SidebarHeader>
       <SidebarRail />
     </Sidebar>
   </aside>
@@ -67,13 +78,15 @@ import {
   SidebarMenuItem,
   SidebarRail,
   CollapsibleTrigger,
-  Collapsible
-
+  Collapsible,
+  Button
 } from '@memoh/ui'
 import { reactive } from 'vue'
 import SvgIcon from '@jamescoyle/vue-icon'
 import { mdiRobot, mdiChatOutline, mdiCogBox, mdiListBox, mdiHome, mdiBookArrowDown } from '@mdi/js'
 import { useRouter } from 'vue-router'
+import {useUserStore} from '@/store/User.ts'
+
 
 const router = useRouter()
 
@@ -102,5 +115,11 @@ const sidebarInfo = reactive([{
   title: '平台',
   name: 'platform',
   icon: mdiBookArrowDown
-}])
+  }])
+
+  const {exitLogin}=useUserStore()
+const exit = () => {
+  exitLogin()
+  router.replace({name:'Login'})
+}
 </script>

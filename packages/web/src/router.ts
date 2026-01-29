@@ -75,7 +75,7 @@ router.beforeEach((to) => {
   if (to.fullPath !== '/login') {
     return token ? true : { name: 'Login' }
   } else {
-    return token ? { name: 'Main' } : true
+    return token ? { path:'Main' } : true
   }
 })
 
