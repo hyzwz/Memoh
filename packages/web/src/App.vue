@@ -14,14 +14,14 @@ import { mdiTranslate } from '@mdi/js'
 <template>
   <section>
     <div
-      class="fixed top-8 right-2 z-9999 [&:is(:has([data-state=open]),:hover)_.translate-icon]:opacity-100"
+      class="fixed top-8 right-2 z-9999 [&:is(:has([data-state=open]))_.translate-icon]:opacity-100"
     >
       <DropdownMenu>
         <DropdownMenuTrigger class="ml-auto mr-4 cursor-pointer">
           <svg-icon
             type="mdi"
             :path="mdiTranslate"
-            class="translate-icon opacity-30"
+            class="translate-icon opacity-30 hover:opacity-100"
           />
         </DropdownMenuTrigger>
         <DropdownMenuContent>

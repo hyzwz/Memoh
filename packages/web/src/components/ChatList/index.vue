@@ -24,7 +24,8 @@ import UserChat from './UserChat/index.vue'
 import RobotChat from './RobotChat/index.vue'
 import { inject, ref, watch } from 'vue'
 import { useElementBounding } from '@vueuse/core'
-import {useChatList} from '@/store/ChatList'
+import { useChatList } from '@/store/ChatList'
+import { onBeforeRouteLeave } from 'vue-router'
 // 模拟一下数据
 const {chatList,add} = useChatList()
 
@@ -56,17 +57,21 @@ watch(chatSay, () => {
 const displayContainer = ref()
 const { height,top } = useElementBounding(displayContainer)
 
-let prevScroll = 0, curScroll = 0, autoScroll = true
+let prevScroll = 0, curScroll = 0, autoScroll = true,cacheScroll=0
 
 watch(top, () => {
   const container = displayContainer.value?.parentElement?.parentElement
+  if (height.value === 0) {
+    autoScroll = false
+    prevScroll = curScroll=0
+  }
   if ((container?.scrollHeight - container.clientHeight - container.scrollTop) < 1) {
     autoScroll = true
     prevScroll=curScroll=container.scrollTop
-  }
+  }  
 })
 
-watch(height, () => {
+watch(height, (newVal,oldVal) => {
   const container = displayContainer.value?.parentElement?.parentElement
   if (container) {
     curScroll = container.scrollTop
@@ -75,7 +80,12 @@ watch(height, () => {
     }
     prevScroll = curScroll
   }
- 
+  if (oldVal === 0 && newVal > container.clientHeight) {   
+    container.scrollTo({
+      top: cacheScroll,
+    }) 
+    return
+  }  
   if (!(container && (container?.scrollHeight - container.clientHeight - container.scrollTop) < 1)&&autoScroll) {
     container.scrollTo({
       top: container?.scrollHeight - container.clientHeight,
@@ -84,5 +94,12 @@ watch(height, () => {
   } 
 })
 
+onBeforeRouteLeave(() => {
+  const container = displayContainer.value?.parentElement?.parentElement
+  if (container) {
+    cacheScroll = container.scrollTop  
+  }
+  
+})
 
 </script>
