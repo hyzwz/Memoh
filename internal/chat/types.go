@@ -11,6 +11,7 @@ type GatewayMessage map[string]interface{}
 
 type ChatRequest struct {
 	UserID             string           `json:"-"`
+	Token              string           `json:"-"`
 	Query              string           `json:"query"`
 	Model              string           `json:"model,omitempty"`
 	Provider           string           `json:"provider,omitempty"`
@@ -30,3 +31,12 @@ type ChatResponse struct {
 }
 
 type StreamChunk = json.RawMessage
+
+type SchedulePayload struct {
+	ID          string `json:"id"`
+	Name        string `json:"name"`
+	Description string `json:"description"`
+	Pattern     string `json:"pattern"`
+	MaxCalls    *int   `json:"maxCalls,omitempty"`
+	Command     string `json:"command"`
+}

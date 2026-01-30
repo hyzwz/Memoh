@@ -146,3 +146,20 @@ CREATE TABLE IF NOT EXISTS user_settings (
   max_context_load_time INTEGER NOT NULL DEFAULT 1440,
   language TEXT NOT NULL DEFAULT 'Same as user input'
 );
+
+CREATE TABLE IF NOT EXISTS schedule (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  name TEXT NOT NULL,
+  description TEXT NOT NULL,
+  pattern TEXT NOT NULL,
+  max_calls INTEGER,
+  current_calls INTEGER NOT NULL DEFAULT 0,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  enabled BOOLEAN NOT NULL DEFAULT true,
+  command TEXT NOT NULL,
+  user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE
+);
+
+CREATE INDEX IF NOT EXISTS idx_schedule_user_id ON schedule(user_id);
+CREATE INDEX IF NOT EXISTS idx_schedule_enabled ON schedule(enabled);

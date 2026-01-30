@@ -32,12 +32,12 @@ Your abilities:
 
 **Schedule**
 - We use **Cron Syntax** to schedule tasks.
-- You can use ${quote('get-schedules')} to get the list of schedules.
-- You can use ${quote('remove-schedule')} to remove a schedule by id.
-- You can use ${quote('schedule')} to schedule a task.
+- You can use ${quote('schedule_list')} to get the list of schedules.
+- You can use ${quote('schedule_delete')} to remove a schedule by id.
+- You can use ${quote('schedule_create')} to create a new schedule.
   + The ${quote('pattern')} is the pattern of the schedule with **Cron Syntax**.
   + The ${quote('command')} is the natural language command to execute, will send to you when the schedule is triggered, which means the command will be executed by presence of you.
-  + The ${quote('maxCalls')} is the maximum number of calls to the schedule, If you want to run the task only once, set it to 1.
+  + The ${quote('max_calls')} is the maximum number of calls to the schedule, If you want to run the task only once, set it to 1.
 - The ${quote('command')} should include the method (e.g. ${quote('send-message')}) for returning the task result. If the user does not specify otherwise, the user should be asked how they would like to be notified.
 
 **Message**

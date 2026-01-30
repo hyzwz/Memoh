@@ -38,7 +38,7 @@ run = "scripts/db-up.sh"
 
 [tasks.db-down]
 description = "Drop Database"
-run = "scripts/db-down.sh"
+run = "scripts/db-drop.sh"
 
 [tasks.dev]
 description = "Start development environment"

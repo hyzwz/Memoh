@@ -53,6 +53,8 @@ func (h *ChatHandler) Chat(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusBadRequest, "query is required")
 	}
 	req.UserID = userID
+	req.Token = c.Request().Header.Get("Authorization")
+	req.Token = c.Request().Header.Get("Authorization")
 
 	resp, err := h.resolver.Chat(c.Request().Context(), req)
 	if err != nil {
@@ -88,6 +90,8 @@ func (h *ChatHandler) StreamChat(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusBadRequest, "query is required")
 	}
 	req.UserID = userID
+	req.Token = c.Request().Header.Get("Authorization")
+	req.Token = c.Request().Header.Get("Authorization")
 
 	// Set headers for SSE
 	c.Response().Header().Set(echo.HeaderContentType, "text/event-stream")

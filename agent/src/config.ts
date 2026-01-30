@@ -5,6 +5,9 @@ type AgentGatewayConfig = {
   'agent_gateway': {
     host?: string
     port?: number
+  },
+  'server': {
+    addr?: string
   }
 }
 

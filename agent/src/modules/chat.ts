@@ -1,8 +1,10 @@
 import { Elysia, sse } from 'elysia'
 import z from 'zod'
 import { createAgent } from '../agent'
+import { createAuthFetcher } from '../index'
 import { ClientType } from '../types'
 import { ModelMessage } from 'ai'
+import { bearerMiddleware } from '../middlewares/bearer'
 
 const ChatBody = z.object({
   apiKey: z.string().min(1, 'API key is required'),
@@ -36,13 +38,8 @@ const ScheduleBody = z.object({
 }).and(ChatBody)
 
 export const chatModule = new Elysia({ prefix: '/chat' })
-  .post('/', async ({ body }) => {
-    console.log('[Chat] request', {
-      type: 'chat',
-      clientType: body.clientType,
-      model: body.model,
-      baseUrl: body.baseUrl,
-    })
+  .use(bearerMiddleware)
+  .post('/', async ({ body, bearer }) => {
     const { ask } = createAgent({
       apiKey: body.apiKey,
       baseUrl: body.baseUrl,
@@ -54,7 +51,7 @@ export const chatModule = new Elysia({ prefix: '/chat' })
       maxContextLoadTime: body.maxContextLoadTime,
       platforms: body.platforms,
       currentPlatform: body.currentPlatform,
-    })
+    }, createAuthFetcher(bearer))
     try {
       const result = await ask({
         messages: body.messages as unknown as ModelMessage[],
@@ -75,12 +72,13 @@ export const chatModule = new Elysia({ prefix: '/chat' })
   }, {
     body: ChatBody,
   })
-  .post('/stream', async function* ({ body }) {
+  .post('/stream', async function* ({ body, bearer }) {
     console.log('[Chat] request', {
       type: 'stream',
       clientType: body.clientType,
       model: body.model,
       baseUrl: body.baseUrl,
+      bearer,
     })
     const { stream } = createAgent({
       apiKey: body.apiKey,
@@ -93,7 +91,7 @@ export const chatModule = new Elysia({ prefix: '/chat' })
       maxContextLoadTime: body.maxContextLoadTime,
       platforms: body.platforms,
       currentPlatform: body.currentPlatform,
-    })
+    }, createAuthFetcher(bearer))
     try {
       const streanGenerator = stream({
         messages: body.messages as unknown as ModelMessage[],
@@ -127,7 +125,12 @@ export const chatModule = new Elysia({ prefix: '/chat' })
   }, {
     body: ChatBody,
   })
-  .post('/schedule', async ({ body }) => {
+  .post('/schedule', async ({ body, bearer }) => {
+    console.log('[Chat] schedule request', {
+      type: 'schedule',
+      bearer,
+      body,
+    })
     const { triggerSchedule } = createAgent({
       apiKey: body.apiKey,
       baseUrl: body.baseUrl,
@@ -139,11 +142,21 @@ export const chatModule = new Elysia({ prefix: '/chat' })
       maxContextLoadTime: body.maxContextLoadTime,
       platforms: body.platforms,
       currentPlatform: body.currentPlatform,
-    })
-    return await triggerSchedule({
-      messages: body.messages as unknown as ModelMessage[],
-      query: body.query,
-    }, body.schedule)
+    }, createAuthFetcher(bearer))
+    try {
+      return await triggerSchedule({
+        messages: body.messages as unknown as ModelMessage[],
+        query: body.query,
+      }, body.schedule)
+    } catch (error) {
+      console.error('[Chat] schedule error', {
+        type: 'schedule',
+        bearer,
+        body,
+        error,
+      })
+      throw error
+    }
   }, {
     body: ScheduleBody,
   })

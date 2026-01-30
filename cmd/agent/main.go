@@ -20,6 +20,7 @@ import (
 	"github.com/memohai/memoh/internal/memory"
 	"github.com/memohai/memoh/internal/models"
 	"github.com/memohai/memoh/internal/providers"
+	"github.com/memohai/memoh/internal/schedule"
 	"github.com/memohai/memoh/internal/settings"
 	"github.com/memohai/memoh/internal/server"
 
@@ -162,7 +163,12 @@ func main() {
 	settingsHandler := handlers.NewSettingsHandler(settingsService)
 	historyService := history.NewService(queries)
 	historyHandler := handlers.NewHistoryHandler(historyService)
-	srv := server.NewServer(addr, cfg.Auth.JWTSecret, pingHandler, authHandler, memoryHandler, embeddingsHandler, chatHandler, swaggerHandler, providersHandler, modelsHandler, settingsHandler, historyHandler, containerdHandler)
+	scheduleService := schedule.NewService(queries, chatResolver, cfg.Auth.JWTSecret)
+	if err := scheduleService.Bootstrap(ctx); err != nil {
+		log.Fatalf("schedule bootstrap: %v", err)
+	}
+	scheduleHandler := handlers.NewScheduleHandler(scheduleService)
+	srv := server.NewServer(addr, cfg.Auth.JWTSecret, pingHandler, authHandler, memoryHandler, embeddingsHandler, chatHandler, swaggerHandler, providersHandler, modelsHandler, settingsHandler, historyHandler, scheduleHandler, containerdHandler)
 
 	if err := srv.Start(); err != nil {
 		log.Fatalf("server failed: %v", err)

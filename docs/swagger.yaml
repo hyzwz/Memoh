@@ -487,6 +487,68 @@ definitions:
       name:
         type: string
     type: object
+  schedule.CreateRequest:
+    properties:
+      command:
+        type: string
+      description:
+        type: string
+      enabled:
+        type: boolean
+      max_calls:
+        type: integer
+      name:
+        type: string
+      pattern:
+        type: string
+    type: object
+  schedule.ListResponse:
+    properties:
+      items:
+        items:
+          $ref: '#/definitions/schedule.Schedule'
+        type: array
+    type: object
+  schedule.Schedule:
+    properties:
+      command:
+        type: string
+      created_at:
+        type: string
+      current_calls:
+        type: integer
+      description:
+        type: string
+      enabled:
+        type: boolean
+      id:
+        type: string
+      max_calls:
+        type: integer
+      name:
+        type: string
+      pattern:
+        type: string
+      updated_at:
+        type: string
+      user_id:
+        type: string
+    type: object
+  schedule.UpdateRequest:
+    properties:
+      command:
+        type: string
+      description:
+        type: string
+      enabled:
+        type: boolean
+      max_calls:
+        type: integer
+      name:
+        type: string
+      pattern:
+        type: string
+    type: object
   settings.Settings:
     properties:
       language:
@@ -1556,6 +1618,131 @@ paths:
       summary: Get provider by name
       tags:
       - providers
+  /schedule:
+    get:
+      description: List schedules for current user
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/schedule.ListResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+      summary: List schedules
+      tags:
+      - schedule
+    post:
+      description: Create a schedule for current user
+      parameters:
+      - description: Schedule payload
+        in: body
+        name: payload
+        required: true
+        schema:
+          $ref: '#/definitions/schedule.CreateRequest'
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/schedule.Schedule'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+      summary: Create schedule
+      tags:
+      - schedule
+  /schedule/{id}:
+    delete:
+      description: Delete a schedule by ID
+      parameters:
+      - description: Schedule ID
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "204":
+          description: No Content
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+      summary: Delete schedule
+      tags:
+      - schedule
+    get:
+      description: Get a schedule by ID
+      parameters:
+      - description: Schedule ID
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/schedule.Schedule'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+      summary: Get schedule
+      tags:
+      - schedule
+    put:
+      description: Update a schedule by ID
+      parameters:
+      - description: Schedule ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Schedule payload
+        in: body
+        name: payload
+        required: true
+        schema:
+          $ref: '#/definitions/schedule.UpdateRequest'
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/schedule.Schedule'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+      summary: Update schedule
+      tags:
+      - schedule
   /settings:
     delete:
       description: Remove agent settings for current user

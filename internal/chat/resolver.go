@@ -131,7 +131,7 @@ func (r *Resolver) Chat(ctx context.Context, req ChatRequest) (ChatResponse, err
 	}, nil
 }
 
-func (r *Resolver) TriggerSchedule(ctx context.Context, userID string, schedule SchedulePayload) error {
+func (r *Resolver) TriggerSchedule(ctx context.Context, userID string, schedule SchedulePayload, token string) error {
 	if strings.TrimSpace(userID) == "" {
 		return fmt.Errorf("user id is required")
 	}
@@ -180,7 +180,7 @@ func (r *Resolver) TriggerSchedule(ctx context.Context, userID string, schedule 
 		Schedule:           schedule,
 	}
 
-	resp, err := r.postSchedule(ctx, payload, "")
+	resp, err := r.postSchedule(ctx, payload, token)
 	if err != nil {
 		return err
 	}
@@ -482,12 +482,7 @@ func (r *Resolver) storeHistory(ctx context.Context, userID, query string, respo
 	if strings.TrimSpace(query) == "" && len(responseMessages) == 0 {
 		return nil
 	}
-	userMessage := GatewayMessage{
-		"role":    "user",
-		"content": query,
-	}
-	messages := append([]GatewayMessage{userMessage}, responseMessages...)
-	payload, err := json.Marshal(messages)
+	payload, err := json.Marshal(responseMessages)
 	if err != nil {
 		return err
 	}

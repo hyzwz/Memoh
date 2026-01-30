@@ -15,6 +15,7 @@ require (
 	github.com/modelcontextprotocol/go-sdk v1.2.0
 	github.com/opencontainers/runtime-spec v1.3.0
 	github.com/qdrant/go-client v1.16.2
+	github.com/robfig/cron/v3 v3.0.1
 	github.com/stretchr/testify v1.11.1
 	github.com/swaggo/swag v1.16.6
 	golang.org/x/crypto v0.47.0

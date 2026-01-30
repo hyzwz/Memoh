@@ -1,5 +1,6 @@
 DROP TABLE IF EXISTS user_settings;
 DROP TABLE IF EXISTS history;
+DROP TABLE IF EXISTS schedule;
 DROP TABLE IF EXISTS lifecycle_events;
 DROP TABLE IF EXISTS container_versions;
 DROP TABLE IF EXISTS models;
