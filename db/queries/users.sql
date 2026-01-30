@@ -38,5 +38,23 @@ RETURNING *;
 -- name: GetUserByUsername :one
 SELECT * FROM users WHERE username = sqlc.arg(username);
 
+-- name: GetUserByID :one
+SELECT * FROM users WHERE id = sqlc.arg(id);
+
+-- name: CreateUserWithID :one
+INSERT INTO users (id, username, email, password_hash, role, display_name, avatar_url, is_active, data_root)
+VALUES (
+  sqlc.arg(id),
+  sqlc.arg(username),
+  sqlc.arg(email),
+  sqlc.arg(password_hash),
+  sqlc.arg(role),
+  sqlc.arg(display_name),
+  sqlc.arg(avatar_url),
+  sqlc.arg(is_active),
+  sqlc.arg(data_root)
+)
+RETURNING *;
+
 -- name: CountUsers :one
 SELECT COUNT(*)::bigint AS count FROM users;

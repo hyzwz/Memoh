@@ -82,6 +82,20 @@ type ModelVariant struct {
 	UpdatedAt pgtype.Timestamptz `json:"updated_at"`
 }
 
+type Schedule struct {
+	ID           pgtype.UUID        `json:"id"`
+	Name         string             `json:"name"`
+	Description  string             `json:"description"`
+	Pattern      string             `json:"pattern"`
+	MaxCalls     pgtype.Int4        `json:"max_calls"`
+	CurrentCalls int32              `json:"current_calls"`
+	CreatedAt    pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt    pgtype.Timestamptz `json:"updated_at"`
+	Enabled      bool               `json:"enabled"`
+	Command      string             `json:"command"`
+	UserID       pgtype.UUID        `json:"user_id"`
+}
+
 type Snapshot struct {
 	ID               string             `json:"id"`
 	ContainerID      string             `json:"container_id"`

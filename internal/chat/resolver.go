@@ -8,7 +8,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"log"
 	"net/http"
 	"strings"
 	"time"
@@ -16,6 +15,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
+	"golang.org/x/crypto/bcrypt"
 
 	"github.com/memohai/memoh/internal/db/sqlc"
 	"github.com/memohai/memoh/internal/memory"
@@ -94,6 +94,7 @@ func (r *Resolver) Chat(ctx context.Context, req ChatRequest) (ChatResponse, err
 	if len(req.Messages) > 0 {
 		messages = append(messages, req.Messages...)
 	}
+	messages = sanitizeGatewayMessages(messages)
 
 	payload := agentGatewayRequest{
 		APIKey:             provider.ApiKey,
@@ -111,7 +112,7 @@ func (r *Resolver) Chat(ctx context.Context, req ChatRequest) (ChatResponse, err
 	}
 	payload.Language = language
 
-	resp, err := r.postChat(ctx, payload)
+	resp, err := r.postChat(ctx, payload, req.Token)
 	if err != nil {
 		return ChatResponse{}, err
 	}
@@ -128,6 +129,68 @@ func (r *Resolver) Chat(ctx context.Context, req ChatRequest) (ChatResponse, err
 		Model:    chatModel.ModelID,
 		Provider: provider.ClientType,
 	}, nil
+}
+
+func (r *Resolver) TriggerSchedule(ctx context.Context, userID string, schedule SchedulePayload) error {
+	if strings.TrimSpace(userID) == "" {
+		return fmt.Errorf("user id is required")
+	}
+	if strings.TrimSpace(schedule.Command) == "" {
+		return fmt.Errorf("schedule command is required")
+	}
+
+	req := ChatRequest{
+		UserID:   userID,
+		Query:    schedule.Command,
+		Locale:   "",
+		Language: "",
+	}
+	chatModel, provider, err := r.selectChatModel(ctx, req)
+	if err != nil {
+		return err
+	}
+	clientType, err := normalizeClientType(provider.ClientType)
+	if err != nil {
+		return err
+	}
+
+	maxContextLoadTime, language, err := r.loadUserSettings(ctx, userID)
+	if err != nil {
+		return err
+	}
+
+	messages, err := r.loadHistoryMessages(ctx, userID, maxContextLoadTime)
+	if err != nil {
+		return err
+	}
+
+	payload := agentGatewayScheduleRequest{
+		APIKey:             provider.ApiKey,
+		BaseURL:            provider.BaseUrl,
+		Model:              chatModel.ModelID,
+		ClientType:         clientType,
+		Locale:             "",
+		Language:           language,
+		MaxSteps:           0,
+		MaxContextLoadTime: normalizeMaxContextLoad(maxContextLoadTime),
+		Platforms:          nil,
+		CurrentPlatform:    "",
+		Messages:           messages,
+		Query:              schedule.Command,
+		Schedule:           schedule,
+	}
+
+	resp, err := r.postSchedule(ctx, payload, "")
+	if err != nil {
+		return err
+	}
+	if err := r.storeHistory(ctx, userID, schedule.Command, resp.Messages); err != nil {
+		return err
+	}
+	if err := r.storeMemory(ctx, userID, schedule.Command, resp.Messages); err != nil {
+		return err
+	}
+	return nil
 }
 
 func (r *Resolver) StreamChat(ctx context.Context, req ChatRequest) (<-chan StreamChunk, <-chan error) {
@@ -182,6 +245,7 @@ func (r *Resolver) StreamChat(ctx context.Context, req ChatRequest) (<-chan Stre
 		if len(req.Messages) > 0 {
 			messages = append(messages, req.Messages...)
 		}
+		messages = sanitizeGatewayMessages(messages)
 
 		payload := agentGatewayRequest{
 			APIKey:             provider.ApiKey,
@@ -199,7 +263,7 @@ func (r *Resolver) StreamChat(ctx context.Context, req ChatRequest) (<-chan Stre
 		}
 		payload.Language = language
 
-		if err := r.streamChat(ctx, payload, req.UserID, req.Query, chunkChan); err != nil {
+		if err := r.streamChat(ctx, payload, req.UserID, req.Query, req.Token, chunkChan); err != nil {
 			errChan <- err
 			return
 		}
@@ -223,22 +287,40 @@ type agentGatewayRequest struct {
 	Query              string           `json:"query"`
 }
 
+type agentGatewayScheduleRequest struct {
+	APIKey             string           `json:"apiKey"`
+	BaseURL            string           `json:"baseUrl"`
+	Model              string           `json:"model"`
+	ClientType         string           `json:"clientType"`
+	Locale             string           `json:"locale,omitempty"`
+	Language           string           `json:"language,omitempty"`
+	MaxSteps           int              `json:"maxSteps,omitempty"`
+	MaxContextLoadTime int              `json:"maxContextLoadTime"`
+	Platforms          []string         `json:"platforms,omitempty"`
+	CurrentPlatform    string           `json:"currentPlatform,omitempty"`
+	Messages           []GatewayMessage `json:"messages"`
+	Query              string           `json:"query"`
+	Schedule           SchedulePayload  `json:"schedule"`
+}
+
 type agentGatewayResponse struct {
 	Messages []GatewayMessage `json:"messages"`
 }
 
-func (r *Resolver) postChat(ctx context.Context, payload agentGatewayRequest) (agentGatewayResponse, error) {
+func (r *Resolver) postChat(ctx context.Context, payload agentGatewayRequest, token string) (agentGatewayResponse, error) {
 	body, err := json.Marshal(payload)
 	if err != nil {
 		return agentGatewayResponse{}, err
 	}
 	url := r.gatewayBaseURL + "/chat"
-	fmt.Println("url", url)
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewReader(body))
 	if err != nil {
 		return agentGatewayResponse{}, err
 	}
 	req.Header.Set("Content-Type", "application/json")
+	if strings.TrimSpace(token) != "" {
+		req.Header.Set("Authorization", token)
+	}
 
 	resp, err := r.httpClient.Do(req)
 	if err != nil {
@@ -258,7 +340,39 @@ func (r *Resolver) postChat(ctx context.Context, payload agentGatewayRequest) (a
 	return parsed, nil
 }
 
-func (r *Resolver) streamChat(ctx context.Context, payload agentGatewayRequest, userID, query string, chunkChan chan<- StreamChunk) error {
+func (r *Resolver) postSchedule(ctx context.Context, payload agentGatewayScheduleRequest, token string) (agentGatewayResponse, error) {
+	body, err := json.Marshal(payload)
+	if err != nil {
+		return agentGatewayResponse{}, err
+	}
+	url := r.gatewayBaseURL + "/chat/schedule"
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewReader(body))
+	if err != nil {
+		return agentGatewayResponse{}, err
+	}
+	req.Header.Set("Content-Type", "application/json")
+	if strings.TrimSpace(token) != "" {
+		req.Header.Set("Authorization", token)
+	}
+
+	resp, err := r.httpClient.Do(req)
+	if err != nil {
+		return agentGatewayResponse{}, err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		payload, _ := io.ReadAll(resp.Body)
+		return agentGatewayResponse{}, fmt.Errorf("agent gateway error: %s", strings.TrimSpace(string(payload)))
+	}
+
+	var parsed agentGatewayResponse
+	if err := json.NewDecoder(resp.Body).Decode(&parsed); err != nil {
+		return agentGatewayResponse{}, err
+	}
+	return parsed, nil
+}
+func (r *Resolver) streamChat(ctx context.Context, payload agentGatewayRequest, userID, query, token string, chunkChan chan<- StreamChunk) error {
 	body, err := json.Marshal(payload)
 	if err != nil {
 		return err
@@ -270,6 +384,9 @@ func (r *Resolver) streamChat(ctx context.Context, payload agentGatewayRequest, 
 	}
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Accept", "text/event-stream")
+	if strings.TrimSpace(token) != "" {
+		req.Header.Set("Authorization", token)
+	}
 
 	resp, err := r.streamingClient.Do(req)
 	if err != nil {
@@ -287,7 +404,6 @@ func (r *Resolver) streamChat(ctx context.Context, payload agentGatewayRequest, 
 
 	currentEventType := ""
 	stored := false
-	log.Printf("chat stream started user_id=%s", userID)
 	for scanner.Scan() {
 		line := strings.TrimSpace(scanner.Text())
 		if line == "" {
@@ -295,7 +411,6 @@ func (r *Resolver) streamChat(ctx context.Context, payload agentGatewayRequest, 
 		}
 		if strings.HasPrefix(line, "event:") {
 			currentEventType = strings.TrimSpace(strings.TrimPrefix(line, "event:"))
-			log.Printf("chat stream event=%s", currentEventType)
 			continue
 		}
 		if !strings.HasPrefix(line, "data:") {
@@ -380,6 +495,9 @@ func (r *Resolver) storeHistory(ctx context.Context, userID, query string, respo
 	if err != nil {
 		return err
 	}
+	if err := r.ensureUserExists(ctx, pgUserID); err != nil {
+		return err
+	}
 	_, err = r.queries.CreateHistory(ctx, sqlc.CreateHistoryParams{
 		Messages: payload,
 		Timestamp: pgtype.Timestamptz{
@@ -388,9 +506,39 @@ func (r *Resolver) storeHistory(ctx context.Context, userID, query string, respo
 		},
 		User: pgUserID,
 	})
-	if err == nil {
-		log.Printf("history saved user_id=%s messages=%d", userID, len(messages))
+	if err != nil {
+		return err
 	}
+	return err
+}
+
+func (r *Resolver) ensureUserExists(ctx context.Context, userID pgtype.UUID) error {
+	if !userID.Valid {
+		return fmt.Errorf("invalid user id")
+	}
+	if _, err := r.queries.GetUserByID(ctx, userID); err == nil {
+		return nil
+	} else if !errors.Is(err, pgx.ErrNoRows) {
+		return err
+	}
+
+	username := "user-" + uuid.UUID(userID.Bytes).String()
+	password := uuid.NewString()
+	hashed, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
+	if err != nil {
+		return err
+	}
+	_, err = r.queries.CreateUserWithID(ctx, sqlc.CreateUserWithIDParams{
+		ID:           userID,
+		Username:     username,
+		Email:        pgtype.Text{Valid: false},
+		PasswordHash: string(hashed),
+		Role:         "member",
+		DisplayName:  pgtype.Text{String: username, Valid: true},
+		AvatarUrl:    pgtype.Text{Valid: false},
+		IsActive:     true,
+		DataRoot:     pgtype.Text{Valid: false},
+	})
 	return err
 }
 
@@ -436,7 +584,6 @@ func (r *Resolver) tryStoreFromStreamPayload(ctx context.Context, userID, query,
 	// Case 1: event: done + data: {messages: [...]}
 	if eventType == "done" {
 		if parsed, ok := parseGatewayResponse([]byte(data)); ok {
-			log.Printf("chat stream done payload messages=%d", len(parsed.Messages))
 			return r.storeRound(ctx, userID, query, parsed.Messages)
 		}
 	}
@@ -449,7 +596,6 @@ func (r *Resolver) tryStoreFromStreamPayload(ctx context.Context, userID, query,
 	if err := json.Unmarshal([]byte(data), &envelope); err == nil {
 		if envelope.Type == "done" && len(envelope.Data) > 0 {
 			if parsed, ok := parseGatewayResponse(envelope.Data); ok {
-				log.Printf("chat stream done envelope messages=%d", len(parsed.Messages))
 				return r.storeRound(ctx, userID, query, parsed.Messages)
 			}
 		}
@@ -457,7 +603,6 @@ func (r *Resolver) tryStoreFromStreamPayload(ctx context.Context, userID, query,
 
 	// Case 3: data: {messages:[...]} without event
 	if parsed, ok := parseGatewayResponse([]byte(data)); ok {
-		log.Printf("chat stream done implicit messages=%d", len(parsed.Messages))
 		return r.storeRound(ctx, userID, query, parsed.Messages)
 	}
 	return false, nil
@@ -476,11 +621,9 @@ func parseGatewayResponse(payload []byte) (agentGatewayResponse, bool) {
 
 func (r *Resolver) storeRound(ctx context.Context, userID, query string, messages []GatewayMessage) (bool, error) {
 	if err := r.storeHistory(ctx, userID, query, messages); err != nil {
-		log.Printf("chat stream storeHistory error=%v", err)
 		return true, err
 	}
 	if err := r.storeMemory(ctx, userID, query, messages); err != nil {
-		log.Printf("chat stream storeMemory error=%v", err)
 		return true, err
 	}
 	return true, nil
@@ -505,6 +648,78 @@ func gatewayMessageToMemory(msg GatewayMessage) (string, string) {
 		return role, string(encoded)
 	}
 	return role, ""
+}
+
+func sanitizeGatewayMessages(messages []GatewayMessage) []GatewayMessage {
+	if len(messages) == 0 {
+		return messages
+	}
+	cleaned := make([]GatewayMessage, 0, len(messages))
+	for _, msg := range messages {
+		if !isMeaningfulGatewayMessage(msg) {
+			continue
+		}
+		cleaned = append(cleaned, msg)
+	}
+	return cleaned
+}
+
+func isMeaningfulGatewayMessage(msg GatewayMessage) bool {
+	if len(msg) == 0 {
+		return false
+	}
+	if raw, ok := msg["role"].(string); ok && strings.TrimSpace(raw) != "" {
+		return true
+	}
+	if raw, ok := msg["content"]; ok {
+		switch v := raw.(type) {
+		case string:
+			if strings.TrimSpace(v) != "" {
+				return true
+			}
+		default:
+			if !isEmptyValue(v) {
+				return true
+			}
+		}
+	}
+	for _, value := range msg {
+		if !isEmptyValue(value) {
+			return true
+		}
+	}
+	return false
+}
+
+func isEmptyValue(value interface{}) bool {
+	switch v := value.(type) {
+	case nil:
+		return true
+	case string:
+		return strings.TrimSpace(v) == ""
+	case []interface{}:
+		if len(v) == 0 {
+			return true
+		}
+		for _, item := range v {
+			if !isEmptyValue(item) {
+				return false
+			}
+		}
+		return true
+	case map[string]interface{}:
+		if len(v) == 0 {
+			return true
+		}
+		for _, item := range v {
+			if !isEmptyValue(item) {
+				return false
+			}
+		}
+		return true
+	default:
+		return false
+	}
 }
 
 func (r *Resolver) selectChatModel(ctx context.Context, req ChatRequest) (models.GetResponse, sqlc.LlmProvider, error) {

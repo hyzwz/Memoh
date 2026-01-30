@@ -77,6 +77,88 @@ func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) (User, e
 	return i, err
 }
 
+const createUserWithID = `-- name: CreateUserWithID :one
+INSERT INTO users (id, username, email, password_hash, role, display_name, avatar_url, is_active, data_root)
+VALUES (
+  $1,
+  $2,
+  $3,
+  $4,
+  $5,
+  $6,
+  $7,
+  $8,
+  $9
+)
+RETURNING id, username, email, password_hash, role, display_name, avatar_url, is_active, data_root, created_at, updated_at, last_login_at
+`
+
+type CreateUserWithIDParams struct {
+	ID           pgtype.UUID `json:"id"`
+	Username     string      `json:"username"`
+	Email        pgtype.Text `json:"email"`
+	PasswordHash string      `json:"password_hash"`
+	Role         interface{} `json:"role"`
+	DisplayName  pgtype.Text `json:"display_name"`
+	AvatarUrl    pgtype.Text `json:"avatar_url"`
+	IsActive     bool        `json:"is_active"`
+	DataRoot     pgtype.Text `json:"data_root"`
+}
+
+func (q *Queries) CreateUserWithID(ctx context.Context, arg CreateUserWithIDParams) (User, error) {
+	row := q.db.QueryRow(ctx, createUserWithID,
+		arg.ID,
+		arg.Username,
+		arg.Email,
+		arg.PasswordHash,
+		arg.Role,
+		arg.DisplayName,
+		arg.AvatarUrl,
+		arg.IsActive,
+		arg.DataRoot,
+	)
+	var i User
+	err := row.Scan(
+		&i.ID,
+		&i.Username,
+		&i.Email,
+		&i.PasswordHash,
+		&i.Role,
+		&i.DisplayName,
+		&i.AvatarUrl,
+		&i.IsActive,
+		&i.DataRoot,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.LastLoginAt,
+	)
+	return i, err
+}
+
+const getUserByID = `-- name: GetUserByID :one
+SELECT id, username, email, password_hash, role, display_name, avatar_url, is_active, data_root, created_at, updated_at, last_login_at FROM users WHERE id = $1
+`
+
+func (q *Queries) GetUserByID(ctx context.Context, id pgtype.UUID) (User, error) {
+	row := q.db.QueryRow(ctx, getUserByID, id)
+	var i User
+	err := row.Scan(
+		&i.ID,
+		&i.Username,
+		&i.Email,
+		&i.PasswordHash,
+		&i.Role,
+		&i.DisplayName,
+		&i.AvatarUrl,
+		&i.IsActive,
+		&i.DataRoot,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.LastLoginAt,
+	)
+	return i, err
+}
+
 const getUserByUsername = `-- name: GetUserByUsername :one
 SELECT id, username, email, password_hash, role, display_name, avatar_url, is_active, data_root, created_at, updated_at, last_login_at FROM users WHERE username = $1
 `
