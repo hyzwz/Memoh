@@ -40,6 +40,11 @@ run = "scripts/db-up.sh"
 description = "Drop Database"
 run = "scripts/db-drop.sh"
 
+[tasks.install-cli]
+description = "Install CLI"
+depends = ["//:pnpm-install"]
+run = "cd packages/cli && npm install -g"
+
 [tasks.dev]
 description = "Start development environment"
 depends = [
@@ -56,6 +61,7 @@ depends = [
   "//:db-up",
   "//:pnpm-install",
   "//:go-install",
+  "//:install-cli",
 ]
 run = "echo '✓ Setup complete! Next: Copy config.toml.example to config.toml and configure, then run: mise run dev'"
 
