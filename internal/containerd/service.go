@@ -1,24 +1,33 @@
 package containerd
 
 import (
+	"bytes"
+	"compress/gzip"
 	"context"
 	"errors"
 	"fmt"
+	"io"
+	"os"
+	"path/filepath"
 	"runtime"
-	"syscall"
 	"strings"
+	"syscall"
 	"time"
 
 	tasksv1 "github.com/containerd/containerd/api/services/tasks/v1"
 	tasktypes "github.com/containerd/containerd/api/types/task"
 	containerd "github.com/containerd/containerd/v2/client"
+	"github.com/containerd/containerd/v2/core/content"
 	"github.com/containerd/containerd/v2/core/images"
 	"github.com/containerd/containerd/v2/core/mount"
-	"github.com/containerd/containerd/v2/defaults"
+	"github.com/containerd/containerd/v2/core/snapshots"
 	"github.com/containerd/containerd/v2/pkg/cio"
 	"github.com/containerd/containerd/v2/pkg/namespaces"
-	"github.com/containerd/errdefs"
 	"github.com/containerd/containerd/v2/pkg/oci"
+	"github.com/containerd/errdefs"
+	"github.com/containerd/platforms"
+	"github.com/opencontainers/go-digest"
+	"github.com/opencontainers/image-spec/identity"
 	"github.com/opencontainers/runtime-spec/specs-go"
 )
 
@@ -71,6 +80,18 @@ type ExecTaskRequest struct {
 	WorkDir  string
 	Terminal bool
 	UseStdio bool
+	FIFODir  string
+	Stdin    io.Reader
+	Stdout   io.Writer
+	Stderr   io.Writer
+}
+
+type ExecTaskSession struct {
+	Stdin  io.WriteCloser
+	Stdout io.ReadCloser
+	Stderr io.ReadCloser
+	Wait   func() (ExecTaskResult, error)
+	Close  func() error
 }
 
 type ExecTaskResult struct {
@@ -111,8 +132,10 @@ type Service interface {
 	StopTask(ctx context.Context, containerID string, opts *StopTaskOptions) error
 	DeleteTask(ctx context.Context, containerID string, opts *DeleteTaskOptions) error
 	ExecTask(ctx context.Context, containerID string, req ExecTaskRequest) (ExecTaskResult, error)
+	ExecTaskStreaming(ctx context.Context, containerID string, req ExecTaskRequest) (*ExecTaskSession, error)
 	ListContainersByLabel(ctx context.Context, key, value string) ([]containerd.Container, error)
 	CommitSnapshot(ctx context.Context, snapshotter, name, key string) error
+	ListSnapshots(ctx context.Context, snapshotter string) ([]snapshots.Info, error)
 	PrepareSnapshot(ctx context.Context, snapshotter, key, parent string) error
 	CreateContainerFromSnapshot(ctx context.Context, req CreateContainerRequest) (containerd.Container, error)
 	SnapshotMounts(ctx context.Context, snapshotter, key string) ([]mount.Mount, error)
@@ -181,6 +204,11 @@ func (s *DefaultService) CreateContainer(ctx context.Context, req CreateContaine
 	}
 
 	ctx = s.withNamespace(ctx)
+	ctx, done, err := s.client.WithLease(ctx)
+	if err != nil {
+		return nil, err
+	}
+	defer done(ctx)
 	image, err := s.getImageWithFallback(ctx, req.ImageRef)
 	if err != nil {
 		pullOpts := &PullImageOptions{
@@ -192,12 +220,6 @@ func (s *DefaultService) CreateContainer(ctx context.Context, req CreateContaine
 			return nil, err
 		}
 	}
-	if req.Snapshotter != "" {
-		if err := image.Unpack(ctx, req.Snapshotter); err != nil && !errdefs.IsAlreadyExists(err) {
-			return nil, err
-		}
-	}
-
 	snapshotID := req.SnapshotID
 	if snapshotID == "" {
 		snapshotID = req.ID
@@ -213,25 +235,104 @@ func (s *DefaultService) CreateContainer(ctx context.Context, req CreateContaine
 
 	containerOpts := []containerd.NewContainerOpts{
 		containerd.WithImage(image),
-		containerd.WithNewSnapshot(snapshotID, image),
-		containerd.WithNewSpec(specOpts...),
 	}
-	runtimeName := s.client.Runtime()
-	if runtimeName == "" {
-		runtimeName = defaults.DefaultRuntime
-		if runtimeName == "" {
-			runtimeName = "io.containerd.runc.v2"
-		}
-	}
-	containerOpts = append(containerOpts, containerd.WithRuntime(runtimeName, nil))
 	if req.Snapshotter != "" {
 		containerOpts = append(containerOpts, containerd.WithSnapshotter(req.Snapshotter))
 	}
+	if req.Snapshotter != "" {
+		parent, err := s.snapshotParentFromLayers(ctx, image)
+		if err != nil {
+			return nil, err
+		}
+		ok, err := s.snapshotExists(ctx, req.Snapshotter, parent)
+		if err != nil {
+			return nil, err
+		}
+		if !ok {
+			return nil, fmt.Errorf("parent snapshot %s does not exist", parent)
+		}
+		if err := s.prepareSnapshot(ctx, req.Snapshotter, snapshotID, parent); err != nil {
+			return nil, err
+		}
+		containerOpts = append(containerOpts, containerd.WithSnapshot(snapshotID))
+	} else {
+		containerOpts = append(containerOpts, containerd.WithNewSnapshot(snapshotID, image))
+	}
+	containerOpts = append(containerOpts, containerd.WithNewSpec(specOpts...))
+	runtimeName := "io.containerd.runc.v2"
+	containerOpts = append(containerOpts, containerd.WithRuntime(runtimeName, nil))
 	if len(req.Labels) > 0 {
 		containerOpts = append(containerOpts, containerd.WithContainerLabels(req.Labels))
 	}
 
 	return s.client.NewContainer(ctx, req.ID, containerOpts...)
+}
+
+func (s *DefaultService) snapshotParentFromLayers(ctx context.Context, image containerd.Image) (string, error) {
+	manifest, err := images.Manifest(ctx, s.client.ContentStore(), image.Target(), platforms.Default())
+	if err != nil {
+		return "", err
+	}
+	if len(manifest.Layers) == 0 {
+		return "", fmt.Errorf("image has no layer descriptors")
+	}
+	diffIDs := make([]digest.Digest, 0, len(manifest.Layers))
+	for _, layer := range manifest.Layers {
+		blob, err := content.ReadBlob(ctx, s.client.ContentStore(), layer)
+		if err != nil {
+			return "", err
+		}
+		reader := bytes.NewReader(blob)
+		var r io.ReadCloser
+		if strings.Contains(layer.MediaType, "gzip") {
+			r, err = gzip.NewReader(reader)
+			if err != nil {
+				return "", err
+			}
+		} else {
+			r = io.NopCloser(reader)
+		}
+
+		digester := digest.Canonical.Digester()
+		if _, err := io.Copy(digester.Hash(), r); err != nil {
+			_ = r.Close()
+			return "", err
+		}
+		_ = r.Close()
+		diffIDs = append(diffIDs, digester.Digest())
+	}
+	chainIDs := identity.ChainIDs(diffIDs)
+	return chainIDs[len(chainIDs)-1].String(), nil
+}
+
+func (s *DefaultService) snapshotExists(ctx context.Context, snapshotter, key string) (bool, error) {
+	if snapshotter == "" || key == "" {
+		return false, ErrInvalidArgument
+	}
+	_, err := s.client.SnapshotService(snapshotter).Stat(ctx, key)
+	if err == nil {
+		return true, nil
+	}
+	if errdefs.IsNotFound(err) {
+		return false, nil
+	}
+	return false, err
+}
+
+func (s *DefaultService) prepareSnapshot(ctx context.Context, snapshotter, key, parent string) error {
+	if snapshotter == "" || key == "" || parent == "" {
+		return ErrInvalidArgument
+	}
+	sn := s.client.SnapshotService(snapshotter)
+	if _, err := sn.Stat(ctx, key); err == nil {
+		if err := sn.Remove(ctx, key); err != nil {
+			return err
+		}
+	} else if !errdefs.IsNotFound(err) {
+		return err
+	}
+	_, err := sn.Prepare(ctx, key, parent)
+	return err
 }
 
 func (s *DefaultService) getImageWithFallback(ctx context.Context, ref string) (containerd.Image, error) {
@@ -481,11 +582,19 @@ func (s *DefaultService) ExecTask(ctx context.Context, containerID string, req E
 	}
 
 	ioOpts := []cio.Opt{}
-	if req.UseStdio {
+	if req.Stdin != nil || req.Stdout != nil || req.Stderr != nil {
+		ioOpts = append(ioOpts, cio.WithStreams(req.Stdin, req.Stdout, req.Stderr))
+	} else if req.UseStdio {
 		ioOpts = append(ioOpts, cio.WithStdio)
 	}
 	if req.Terminal {
 		ioOpts = append(ioOpts, cio.WithTerminal)
+	}
+	if strings.TrimSpace(req.FIFODir) != "" {
+		if err := os.MkdirAll(req.FIFODir, 0o755); err != nil {
+			return ExecTaskResult{}, err
+		}
+		ioOpts = append(ioOpts, cio.WithFIFODir(req.FIFODir))
 	}
 	ioCreator := cio.NewCreator(ioOpts...)
 
@@ -511,6 +620,131 @@ func (s *DefaultService) ExecTask(ctx context.Context, containerID string, req E
 	}
 
 	return ExecTaskResult{ExitCode: code}, nil
+}
+
+func (s *DefaultService) ExecTaskStreaming(ctx context.Context, containerID string, req ExecTaskRequest) (*ExecTaskSession, error) {
+	if containerID == "" || len(req.Args) == 0 {
+		return nil, ErrInvalidArgument
+	}
+
+	ctx = s.withNamespace(ctx)
+	container, err := s.client.LoadContainer(ctx, containerID)
+	if err != nil {
+		return nil, err
+	}
+
+	spec, err := container.Spec(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if spec.Process == nil {
+		spec.Process = &specs.Process{}
+	}
+	if len(req.Env) > 0 {
+		if err := oci.WithEnv(req.Env)(ctx, nil, nil, spec); err != nil {
+			return nil, err
+		}
+	}
+	spec.Process.Args = req.Args
+	if req.WorkDir != "" {
+		spec.Process.Cwd = req.WorkDir
+	}
+	if req.Terminal {
+		spec.Process.Terminal = true
+	}
+
+	task, err := container.Task(ctx, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	stdinR, stdinW := io.Pipe()
+	stdoutR, stdoutW := io.Pipe()
+	stderrR, stderrW := io.Pipe()
+
+	ioOpts := []cio.Opt{
+		cio.WithStreams(stdinR, stdoutW, stderrW),
+	}
+	if req.Terminal {
+		ioOpts = append(ioOpts, cio.WithTerminal)
+	}
+	fifoDir := strings.TrimSpace(req.FIFODir)
+	if fifoDir == "" {
+		if homeDir, err := os.UserHomeDir(); err == nil && homeDir != "" {
+			fifoDir = filepath.Join(homeDir, ".memoh", "containerd-fifo")
+		} else {
+			fifoDir = "/tmp/memoh-containerd-fifo"
+		}
+	}
+	if err := os.MkdirAll(fifoDir, 0o755); err != nil {
+		_ = stdinR.Close()
+		_ = stdinW.Close()
+		_ = stdoutR.Close()
+		_ = stdoutW.Close()
+		_ = stderrR.Close()
+		_ = stderrW.Close()
+		return nil, err
+	}
+	ioOpts = append(ioOpts, cio.WithFIFODir(fifoDir))
+	ioCreator := cio.NewCreator(ioOpts...)
+
+	execID := fmt.Sprintf("exec-%d", time.Now().UnixNano())
+	process, err := task.Exec(ctx, execID, spec.Process, ioCreator)
+	if err != nil {
+		_ = stdinR.Close()
+		_ = stdinW.Close()
+		_ = stdoutR.Close()
+		_ = stdoutW.Close()
+		_ = stderrR.Close()
+		_ = stderrW.Close()
+		return nil, err
+	}
+
+	if err := process.Start(ctx); err != nil {
+		_, _ = process.Delete(ctx)
+		_ = stdinR.Close()
+		_ = stdinW.Close()
+		_ = stdoutR.Close()
+		_ = stdoutW.Close()
+		_ = stderrR.Close()
+		_ = stderrW.Close()
+		return nil, err
+	}
+
+	wait := func() (ExecTaskResult, error) {
+		statusC, err := process.Wait(ctx)
+		if err != nil {
+			return ExecTaskResult{}, err
+		}
+		status := <-statusC
+		code, _, err := status.Result()
+		if err != nil {
+			return ExecTaskResult{}, err
+		}
+		_, _ = process.Delete(ctx)
+		_ = stdoutW.Close()
+		_ = stderrW.Close()
+		return ExecTaskResult{ExitCode: code}, nil
+	}
+
+	closeFn := func() error {
+		_ = stdinW.Close()
+		_ = stdoutR.Close()
+		_ = stderrR.Close()
+		_ = stdinR.Close()
+		_ = stdoutW.Close()
+		_ = stderrW.Close()
+		_, err := process.Delete(ctx)
+		return err
+	}
+
+	return &ExecTaskSession{
+		Stdin:  stdinW,
+		Stdout: stdoutR,
+		Stderr: stderrR,
+		Wait:   wait,
+		Close:  closeFn,
+	}, nil
 }
 
 func (s *DefaultService) ListContainersByLabel(ctx context.Context, key, value string) ([]containerd.Container, error) {
@@ -543,6 +777,21 @@ func (s *DefaultService) CommitSnapshot(ctx context.Context, snapshotter, name, 
 	}
 	ctx = s.withNamespace(ctx)
 	return s.client.SnapshotService(snapshotter).Commit(ctx, name, key)
+}
+
+func (s *DefaultService) ListSnapshots(ctx context.Context, snapshotter string) ([]snapshots.Info, error) {
+	if snapshotter == "" {
+		return nil, ErrInvalidArgument
+	}
+	ctx = s.withNamespace(ctx)
+	infos := []snapshots.Info{}
+	if err := s.client.SnapshotService(snapshotter).Walk(ctx, func(ctx context.Context, info snapshots.Info) error {
+		infos = append(infos, info)
+		return nil
+	}); err != nil {
+		return nil, err
+	}
+	return infos, nil
 }
 
 func (s *DefaultService) PrepareSnapshot(ctx context.Context, snapshotter, key, parent string) error {
@@ -587,23 +836,19 @@ func (s *DefaultService) CreateContainerFromSnapshot(ctx context.Context, req Cr
 
 	containerOpts := []containerd.NewContainerOpts{
 		containerd.WithImage(image),
-		containerd.WithSnapshot(req.SnapshotID),
-		containerd.WithNewSpec(specOpts...),
 	}
 	if req.Snapshotter != "" {
 		containerOpts = append(containerOpts, containerd.WithSnapshotter(req.Snapshotter))
 	}
+	containerOpts = append(containerOpts,
+		containerd.WithSnapshot(req.SnapshotID),
+		containerd.WithNewSpec(specOpts...),
+	)
 	if len(req.Labels) > 0 {
 		containerOpts = append(containerOpts, containerd.WithContainerLabels(req.Labels))
 	}
 
-	runtimeName := s.client.Runtime()
-	if runtimeName == "" {
-		runtimeName = defaults.DefaultRuntime
-		if runtimeName == "" {
-			runtimeName = "io.containerd.runc.v2"
-		}
-	}
+	runtimeName := "io.containerd.runc.v2"
 	containerOpts = append(containerOpts, containerd.WithRuntime(runtimeName, nil))
 
 	return s.client.NewContainer(ctx, req.ID, containerOpts...)
@@ -620,4 +865,3 @@ func (s *DefaultService) SnapshotMounts(ctx context.Context, snapshotter, key st
 func (s *DefaultService) withNamespace(ctx context.Context) context.Context {
 	return namespaces.WithNamespace(ctx, s.namespace)
 }
-

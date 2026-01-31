@@ -30,7 +30,7 @@ func NewServer(addr string, jwtSecret string, pingHandler *handlers.PingHandler,
 			return true
 		}
 		if strings.HasPrefix(path, "/mcp/") {
-			return true
+			return false
 		}
 		if strings.HasPrefix(path, "/api/docs") {
 			return true

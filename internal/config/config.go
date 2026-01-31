@@ -26,13 +26,13 @@ const (
 )
 
 type Config struct {
-	Server     ServerConfig     `toml:"server"`
-	Admin      AdminConfig      `toml:"admin"`
-	Auth       AuthConfig       `toml:"auth"`
-	Containerd ContainerdConfig `toml:"containerd"`
-	MCP        MCPConfig        `toml:"mcp"`
-	Postgres   PostgresConfig   `toml:"postgres"`
-	Qdrant     QdrantConfig     `toml:"qdrant"`
+	Server       ServerConfig       `toml:"server"`
+	Admin        AdminConfig        `toml:"admin"`
+	Auth         AuthConfig         `toml:"auth"`
+	Containerd   ContainerdConfig   `toml:"containerd"`
+	MCP          MCPConfig          `toml:"mcp"`
+	Postgres     PostgresConfig     `toml:"postgres"`
+	Qdrant       QdrantConfig       `toml:"qdrant"`
 	AgentGateway AgentGatewayConfig `toml:"agent_gateway"`
 }
 

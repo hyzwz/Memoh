@@ -40,6 +40,25 @@ definitions:
   chat.GatewayMessage:
     additionalProperties: true
     type: object
+  handlers.ContainerInfo:
+    properties:
+      created_at:
+        type: string
+      id:
+        type: string
+      image:
+        type: string
+      labels:
+        additionalProperties:
+          type: string
+        type: object
+      snapshot_key:
+        type: string
+      snapshotter:
+        type: string
+      updated_at:
+        type: string
+    type: object
   handlers.CreateContainerRequest:
     properties:
       container_id:
@@ -131,6 +150,22 @@ definitions:
       message:
         type: string
     type: object
+  handlers.ListContainersResponse:
+    properties:
+      containers:
+        items:
+          $ref: '#/definitions/handlers.ContainerInfo'
+        type: array
+    type: object
+  handlers.ListSnapshotsResponse:
+    properties:
+      snapshots:
+        items:
+          $ref: '#/definitions/handlers.SnapshotInfo'
+        type: array
+      snapshotter:
+        type: string
+    type: object
   handlers.LoginRequest:
     properties:
       password:
@@ -153,6 +188,25 @@ definitions:
       user_id:
         type: string
       username:
+        type: string
+    type: object
+  handlers.SnapshotInfo:
+    properties:
+      created_at:
+        type: string
+      kind:
+        type: string
+      labels:
+        additionalProperties:
+          type: string
+        type: object
+      name:
+        type: string
+      parent:
+        type: string
+      snapshotter:
+        type: string
+      updated_at:
         type: string
     type: object
   history.CreateRequest:
@@ -918,6 +972,19 @@ paths:
       tags:
       - history
   /mcp/containers:
+    get:
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/handlers.ListContainersResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+      summary: List containers
+      tags:
+      - containerd
     post:
       parameters:
       - description: Create container payload
@@ -968,7 +1035,78 @@ paths:
       summary: Delete MCP container
       tags:
       - containerd
+  /mcp/fs/{id}:
+    post:
+      description: |-
+        Forwards MCP JSON-RPC requests to the MCP server inside the container.
+        Required:
+        - container task is running
+        - container has data mount (default /data) bound to <data_root>/users/<user_id>
+        - container image contains the "mcp" binary
+        Auth: Bearer JWT is used to determine user_id (sub or user_id).
+        Paths must be relative (no leading slash) and must not contain "..".
+
+        Example: tools/list
+        {"jsonrpc":"2.0","id":1,"method":"tools/list"}
+
+        Example: tools/call (fs.read)
+        {"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"fs.read","arguments":{"path":"notes.txt"}}}
+      parameters:
+      - description: Bearer <token>
+        in: header
+        name: Authorization
+        required: true
+        type: string
+      - description: Container ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: JSON-RPC request
+        in: body
+        name: payload
+        required: true
+        schema:
+          type: object
+      responses:
+        "200":
+          description: 'JSON-RPC response: {jsonrpc,id,result|error}'
+          schema:
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+      summary: MCP filesystem tools (JSON-RPC)
+      tags:
+      - containerd
   /mcp/snapshots:
+    get:
+      parameters:
+      - description: Snapshotter name
+        in: query
+        name: snapshotter
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/handlers.ListSnapshotsResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+      summary: List snapshots
+      tags:
+      - containerd
     post:
       parameters:
       - description: Create snapshot payload

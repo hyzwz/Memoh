@@ -1,22 +1,35 @@
 package handlers
 
 import (
+	"context"
+	"log"
 	"net/http"
+	"os"
+	"path/filepath"
+	"sort"
 	"strings"
+	"sync"
 	"time"
 
-	"github.com/containerd/errdefs"
+	tasktypes "github.com/containerd/containerd/api/types/task"
 	"github.com/containerd/containerd/v2/pkg/namespaces"
+	"github.com/containerd/containerd/v2/pkg/oci"
+	"github.com/containerd/errdefs"
+	"github.com/google/uuid"
 	"github.com/labstack/echo/v4"
+	"github.com/opencontainers/runtime-spec/specs-go"
 
 	"github.com/memohai/memoh/internal/config"
 	ctr "github.com/memohai/memoh/internal/containerd"
+	"github.com/memohai/memoh/internal/mcp"
 )
 
 type ContainerdHandler struct {
-	service ctr.Service
-	cfg     config.MCPConfig
+	service   ctr.Service
+	cfg       config.MCPConfig
 	namespace string
+	mcpMu     sync.Mutex
+	mcpSess   map[string]*mcpSession
 }
 
 type CreateContainerRequest struct {
@@ -43,19 +56,52 @@ type CreateSnapshotResponse struct {
 	Snapshotter  string `json:"snapshotter"`
 }
 
+type ContainerInfo struct {
+	ID          string            `json:"id"`
+	Image       string            `json:"image,omitempty"`
+	Snapshotter string            `json:"snapshotter,omitempty"`
+	SnapshotKey string            `json:"snapshot_key,omitempty"`
+	CreatedAt   time.Time         `json:"created_at,omitempty"`
+	UpdatedAt   time.Time         `json:"updated_at,omitempty"`
+	Labels      map[string]string `json:"labels,omitempty"`
+}
+
+type ListContainersResponse struct {
+	Containers []ContainerInfo `json:"containers"`
+}
+
+type SnapshotInfo struct {
+	Snapshotter string            `json:"snapshotter"`
+	Name        string            `json:"name"`
+	Parent      string            `json:"parent,omitempty"`
+	Kind        string            `json:"kind"`
+	CreatedAt   time.Time         `json:"created_at,omitempty"`
+	UpdatedAt   time.Time         `json:"updated_at,omitempty"`
+	Labels      map[string]string `json:"labels,omitempty"`
+}
+
+type ListSnapshotsResponse struct {
+	Snapshotter string         `json:"snapshotter"`
+	Snapshots   []SnapshotInfo `json:"snapshots"`
+}
+
 func NewContainerdHandler(service ctr.Service, cfg config.MCPConfig, namespace string) *ContainerdHandler {
 	return &ContainerdHandler{
 		service:   service,
 		cfg:       cfg,
 		namespace: namespace,
+		mcpSess:   make(map[string]*mcpSession),
 	}
 }
 
 func (h *ContainerdHandler) Register(e *echo.Echo) {
 	group := e.Group("/mcp")
 	group.POST("/containers", h.CreateContainer)
+	group.GET("/containers", h.ListContainers)
 	group.DELETE("/containers/:id", h.DeleteContainer)
 	group.POST("/snapshots", h.CreateSnapshot)
+	group.GET("/snapshots", h.ListSnapshots)
+	group.POST("/fs/:id", h.HandleMCPFS)
 }
 
 // CreateContainer godoc
@@ -67,12 +113,18 @@ func (h *ContainerdHandler) Register(e *echo.Echo) {
 // @Failure 500 {object} ErrorResponse
 // @Router /mcp/containers [post]
 func (h *ContainerdHandler) CreateContainer(c echo.Context) error {
+	userID, err := h.requireUserID(c)
+	if err != nil {
+		return err
+	}
+
 	var req CreateContainerRequest
 	if err := c.Bind(&req); err != nil {
 		return echo.NewHTTPError(http.StatusBadRequest, err.Error())
 	}
-	if strings.TrimSpace(req.ContainerID) == "" {
-		return echo.NewHTTPError(http.StatusBadRequest, "container_id is required")
+	req.ContainerID = strings.TrimSpace(req.ContainerID)
+	if req.ContainerID == "" {
+		req.ContainerID = uuid.NewString()
 	}
 
 	image := strings.TrimSpace(req.Image)
@@ -86,24 +138,59 @@ func (h *ContainerdHandler) CreateContainer(c echo.Context) error {
 	if snapshotter == "" {
 		snapshotter = h.cfg.Snapshotter
 	}
-	if snapshotter == "" {
-		snapshotter = "overlayfs"
+
+	ctx := c.Request().Context()
+	if strings.TrimSpace(h.namespace) != "" {
+		ctx = namespaces.WithNamespace(ctx, h.namespace)
+	}
+	dataRoot := strings.TrimSpace(h.cfg.DataRoot)
+	if dataRoot == "" {
+		dataRoot = config.DefaultDataRoot
+	}
+	dataMount := strings.TrimSpace(h.cfg.DataMount)
+	if dataMount == "" {
+		dataMount = config.DefaultDataMount
+	}
+	dataDir := filepath.Join(dataRoot, "users", userID)
+	if err := os.MkdirAll(dataDir, 0o755); err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
 
-	_, err := h.service.CreateContainer(c.Request().Context(), ctr.CreateContainerRequest{
+	specOpts := []oci.SpecOpts{
+		oci.WithMounts([]specs.Mount{{
+			Destination: dataMount,
+			Type:        "bind",
+			Source:      dataDir,
+			Options:     []string{"rbind", "rw"},
+		}}),
+		oci.WithProcessArgs("/bin/sh", "-lc", "sleep 2147483647"),
+	}
+
+	_, err = h.service.CreateContainer(ctx, ctr.CreateContainerRequest{
 		ID:          req.ContainerID,
 		ImageRef:    image,
 		Snapshotter: snapshotter,
+		Labels: map[string]string{
+			mcp.UserLabelKey: userID,
+		},
+		SpecOpts: specOpts,
 	})
 	if err != nil && !errdefs.IsAlreadyExists(err) {
 		return echo.NewHTTPError(http.StatusInternalServerError, "snapshotter="+snapshotter+" image="+image+" err="+err.Error())
 	}
 
 	started := false
+	fifoDir, err := h.taskFIFODir()
+	if err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+	}
 	if _, err := h.service.StartTask(c.Request().Context(), req.ContainerID, &ctr.StartTaskOptions{
 		UseStdio: false,
+		FIFODir:  fifoDir,
 	}); err == nil {
 		started = true
+	} else {
+		log.Printf("mcp container start failed: id=%s err=%v", req.ContainerID, err)
 	}
 
 	return c.JSON(http.StatusOK, CreateContainerResponse{
@@ -112,6 +199,84 @@ func (h *ContainerdHandler) CreateContainer(c echo.Context) error {
 		Snapshotter: snapshotter,
 		Started:     started,
 	})
+}
+
+func (h *ContainerdHandler) taskFIFODir() (string, error) {
+	if homeDir, err := os.UserHomeDir(); err == nil && homeDir != "" {
+		fifoDir := filepath.Join(homeDir, ".memoh", "containerd-fifo")
+		if err := os.MkdirAll(fifoDir, 0o755); err != nil {
+			return "", err
+		}
+		return fifoDir, nil
+	}
+	fifoDir := "/tmp/memoh-containerd-fifo"
+	if err := os.MkdirAll(fifoDir, 0o755); err != nil {
+		return "", err
+	}
+	return fifoDir, nil
+}
+
+func (h *ContainerdHandler) ensureTaskRunning(ctx context.Context, containerID string) error {
+	tasks, err := h.service.ListTasks(ctx, &ctr.ListTasksOptions{
+		Filter: "container.id==" + containerID,
+	})
+	if err != nil {
+		return err
+	}
+	if len(tasks) > 0 {
+		if tasks[0].Status == tasktypes.Status_RUNNING {
+			return nil
+		}
+		_ = h.service.DeleteTask(ctx, containerID, &ctr.DeleteTaskOptions{Force: true})
+	}
+
+	fifoDir, err := h.taskFIFODir()
+	if err != nil {
+		return err
+	}
+	_, err = h.service.StartTask(ctx, containerID, &ctr.StartTaskOptions{
+		UseStdio: false,
+		FIFODir:  fifoDir,
+	})
+	return err
+}
+
+// ListContainers godoc
+// @Summary List containers
+// @Tags containerd
+// @Success 200 {object} ListContainersResponse
+// @Failure 500 {object} ErrorResponse
+// @Router /mcp/containers [get]
+func (h *ContainerdHandler) ListContainers(c echo.Context) error {
+	ctx := c.Request().Context()
+	containers, err := h.service.ListContainers(ctx)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+	}
+	infoCtx := ctx
+	if strings.TrimSpace(h.namespace) != "" {
+		infoCtx = namespaces.WithNamespace(ctx, h.namespace)
+	}
+	items := make([]ContainerInfo, 0, len(containers))
+	for _, container := range containers {
+		info, err := container.Info(infoCtx)
+		if err != nil {
+			return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+		}
+		items = append(items, ContainerInfo{
+			ID:          info.ID,
+			Image:       info.Image,
+			Snapshotter: info.Snapshotter,
+			SnapshotKey: info.SnapshotKey,
+			CreatedAt:   info.CreatedAt,
+			UpdatedAt:   info.UpdatedAt,
+			Labels:      info.Labels,
+		})
+	}
+	sort.Slice(items, func(i, j int) bool {
+		return items[i].ID < items[j].ID
+	})
+	return c.JSON(http.StatusOK, ListContainersResponse{Containers: items})
 }
 
 // DeleteContainer godoc
@@ -184,5 +349,48 @@ func (h *ContainerdHandler) CreateSnapshot(c echo.Context) error {
 		ContainerID:  req.ContainerID,
 		SnapshotName: snapshotName,
 		Snapshotter:  info.Snapshotter,
+	})
+}
+
+// ListSnapshots godoc
+// @Summary List snapshots
+// @Tags containerd
+// @Param snapshotter query string false "Snapshotter name"
+// @Success 200 {object} ListSnapshotsResponse
+// @Failure 500 {object} ErrorResponse
+// @Router /mcp/snapshots [get]
+func (h *ContainerdHandler) ListSnapshots(c echo.Context) error {
+	snapshotter := strings.TrimSpace(c.QueryParam("snapshotter"))
+	if snapshotter == "" {
+		snapshotter = strings.TrimSpace(h.cfg.Snapshotter)
+	}
+	if snapshotter == "" {
+		snapshotter = "overlayfs"
+	}
+	snapshots, err := h.service.ListSnapshots(c.Request().Context(), snapshotter)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+	}
+	items := make([]SnapshotInfo, 0, len(snapshots))
+	for _, info := range snapshots {
+		items = append(items, SnapshotInfo{
+			Snapshotter: snapshotter,
+			Name:        info.Name,
+			Parent:      info.Parent,
+			Kind:        info.Kind.String(),
+			CreatedAt:   info.Created,
+			UpdatedAt:   info.Updated,
+			Labels:      info.Labels,
+		})
+	}
+	sort.Slice(items, func(i, j int) bool {
+		if items[i].CreatedAt.Equal(items[j].CreatedAt) {
+			return items[i].Name < items[j].Name
+		}
+		return items[i].CreatedAt.Before(items[j].CreatedAt)
+	})
+	return c.JSON(http.StatusOK, ListSnapshotsResponse{
+		Snapshotter: snapshotter,
+		Snapshots:   items,
 	})
 }
