@@ -6,7 +6,7 @@
 <div align="center">
   <img src="./assets/logo.png" alt="Memoh" width="100" height="100">
   <h1>Memoh</h1>
-  <p>Multi-Member, Structured Long-Memory, Containerized AI Agent System.</p>
+  <p>多用户，结构化记忆，容器化的AI Agent系统</p>
   <div align="center">
     <img src="https://img.shields.io/github/package-json/v/memohai/Memoh" alt="Version" />
     <img src="https://img.shields.io/github/license/memohai/Memoh" alt="License" />
@@ -17,21 +17,3 @@
   </div>
   <hr>
 </div>
-
-## Roadmap
-
-Please refer to the [Roadmap Version 0.1](https://github.com/memohai/Memoh/issues/2) for more details.
-
-## Development
-
-Refer to [CONTRIBUTING.md](CONTRIBUTING.md) for more details.
-
-## Star History
-
-[![Star History Chart](https://api.star-history.com/svg?repos=memohai/Memoh&type=date&legend=top-left)](https://www.star-history.com/#memohai/Memoh&type=date&legend=top-left)
-
----
-
-**LICENSE**: AGPLv3
-
-Copyright (C) 2026 Memoh. All rights reserved.
