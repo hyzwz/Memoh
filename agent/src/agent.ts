@@ -8,6 +8,7 @@ import { getWebTools } from './tools/web'
 import { subagentSystem } from './prompts/subagent'
 import { getSubagentTools } from './tools/subagent'
 import { getSkillTools } from './tools/skill'
+import { getMemoryTools } from './tools/memory'
 
 export enum AgentAction {
   WebSearch = 'web_search',
@@ -15,6 +16,7 @@ export enum AgentAction {
   Subagent = 'subagent',
   Schedule = 'schedule',
   Skill = 'skill',
+  Memory = 'memory',
 }
 
 export interface AgentParams extends BaseModelConfig {
@@ -97,6 +99,11 @@ export const createAgent = (
         braveBaseUrl: params.braveBaseUrl,
       })
       Object.assign(tools, subagentTools)
+    }
+
+    if (allowedActions.includes(AgentAction.Memory)) {
+      const memoryTools = getMemoryTools({ fetch: fetcher })
+      Object.assign(tools, memoryTools)
     }
     
     return tools

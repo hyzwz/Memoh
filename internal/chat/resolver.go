@@ -625,13 +625,8 @@ func (r *Resolver) storeMemory(ctx context.Context, userID, query string, respon
 		return nil
 	}
 
-	userMessage := GatewayMessage{
-		"role":    "user",
-		"content": query,
-	}
-	messages := append([]GatewayMessage{userMessage}, responseMessages...)
-	memoryMessages := make([]memory.Message, 0, len(messages))
-	for _, msg := range messages {
+	memoryMessages := make([]memory.Message, 0, len(responseMessages))
+	for _, msg := range responseMessages {
 		role, content := gatewayMessageToMemory(msg)
 		if strings.TrimSpace(content) == "" {
 			continue
