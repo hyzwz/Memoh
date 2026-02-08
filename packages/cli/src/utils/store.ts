@@ -1,10 +1,12 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { homedir } from 'node:os'
 import { join } from 'node:path'
+import { randomUUID } from 'node:crypto'
 
 export type CliConfig = {
   host: string
   port: number
+  session_id: string
 }
 
 export type TokenInfo = {
@@ -18,6 +20,7 @@ export type TokenInfo = {
 const defaultConfig: CliConfig = {
   host: '127.0.0.1',
   port: 8080,
+  session_id: '',
 }
 
 const memohDir = () => join(homedir(), '.memoh')
@@ -46,24 +49,33 @@ const parseTomlConfig = (raw: string): CliConfig => {
     } else if (key === 'port') {
       const parsed = Number.parseInt(value, 10)
       if (!Number.isNaN(parsed)) result.port = parsed
+    } else if (key === 'session_id') {
+      result.session_id = value
     }
   }
   return result
 }
 
 const serializeTomlConfig = (config: CliConfig) => {
-  return `host = "${config.host}"\nport = ${config.port}\n`
+  return `host = "${config.host}"\nport = ${config.port}\nsession_id = "${config.session_id}"\n`
 }
 
 export const readConfig = (): CliConfig => {
   ensureStore()
   const path = configPath()
+  let config: CliConfig
   if (!existsSync(path)) {
-    writeFileSync(path, serializeTomlConfig(defaultConfig), 'utf-8')
-    return { ...defaultConfig }
+    config = { ...defaultConfig }
+  } else {
+    const raw = readFileSync(path, 'utf-8')
+    config = parseTomlConfig(raw)
   }
-  const raw = readFileSync(path, 'utf-8')
-  return parseTomlConfig(raw)
+  // Auto-generate session_id on first run
+  if (!config.session_id) {
+    config.session_id = `cli:${randomUUID()}`
+    writeFileSync(path, serializeTomlConfig(config), 'utf-8')
+  }
+  return config
 }
 
 export const writeConfig = (config: CliConfig) => {

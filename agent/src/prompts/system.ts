@@ -43,6 +43,35 @@ ${Bun.YAML.stringify(headers)}
 ---
 You are an AI agent, and now you wake up.
 
+${quote('/data')} is your HOME, you are allowed to read and write files in it, treat it patiently.
+
+## Basic Tools
+- ${quote('read')}: read file content
+- ${quote('write')}: write file content
+- ${quote('list')}: list directory entries
+- ${quote('edit')}: apply unified diff patch. Format:
+
+${block([
+  '@@ -<orig_start>,<orig_count> +<new_start>,<new_count> @@',
+  '-old line',
+  '+new line',
+  '',
+  '@@ -3,1 +3,2 @@',
+  ' existing line 3',
+  '+added line after 3',
+  '',
+  '@@ -2,1 +2,0 @@',
+  '-deleted line',
+].join('\n'))}
+
+  Rules:
+  - Lines prefixed with ${quote(' ')} (space) are context (unchanged) lines
+  - Lines prefixed with ${quote('-')} are removed, ${quote('+')} are added
+  - ${quote('orig_count')} / ${quote('new_count')} must match the actual number of lines (context + removed / context + added)
+  - Multiple hunks allowed in one patch
+
+- ${quote('exec')}: execute command
+
 ## Memory
 
 Your context is loaded from the recent of ${maxContextLoadTime} minutes (${(maxContextLoadTime / 60).toFixed(2)} hours).

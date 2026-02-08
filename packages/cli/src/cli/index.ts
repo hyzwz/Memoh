@@ -6,12 +6,12 @@ import ora from 'ora'
 import { table } from 'table'
 import readline from 'node:readline/promises'
 import { stdin as input, stdout as output } from 'node:process'
-import { randomUUID } from 'node:crypto'
 
 import packageJson from '../../package.json'
 import { apiRequest } from '../core/api'
 import { registerBotCommands } from './bot'
 import { registerChannelCommands } from './channel'
+import { streamChat } from './stream'
 import {
   readConfig,
   writeConfig,
@@ -710,7 +710,8 @@ program
     await ensureModelsReady()
     const token = ensureAuth()
     const botId = await resolveBotId(token, program.opts().bot)
-    const sessionId = `cli:${randomUUID()}`
+    const config = readConfig()
+    const sessionId = config.session_id
 
     const rl = readline.createInterface({ input, output })
     console.log(chalk.green(`Chatting with ${chalk.bold(botId)}. Type \`exit\` to quit.`))
@@ -756,93 +757,11 @@ program
 
 program.parseAsync(process.argv)
 
-const streamChat = async (query: string, botId: string, sessionId: string, token: TokenInfo) => {
-  const config = readConfig()
-  const baseURL = getBaseURL(config)
-  const resp = await fetch(`${baseURL}/bots/${botId}/chat/stream?session_id=${sessionId}`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${token.access_token}`,
-    },
-    body: JSON.stringify({ query }),
-  }).catch(() => null)
-  if (!resp || !resp.ok || !resp.body) return false
-
-  const stream = resp.body
-  const reader = stream.getReader()
-  const decoder = new TextDecoder()
-  let buffer = ''
-  let printed = false
-  while (true) {
-    const { value, done } = await reader.read()
-    if (done) break
-    buffer += decoder.decode(value, { stream: true })
-    let idx
-    while ((idx = buffer.indexOf('\n')) >= 0) {
-      const line = buffer.slice(0, idx).trim()
-      buffer = buffer.slice(idx + 1)
-      if (!line.startsWith('data:')) continue
-      const payload = line.slice(5).trim()
-      if (!payload || payload === '[DONE]') continue
-      const text = extractTextFromEvent(payload)
-      if (text) {
-        process.stdout.write(text)
-        printed = true
-      }
-    }
-  }
-  if (printed) {
-    process.stdout.write('\n')
-  }
-  return true
-}
-
-const extractTextFromMessage = (message: unknown) => {
-  if (typeof message === 'string') return message
-  if (message && typeof message === 'object') {
-    const value = message as { text?: unknown; parts?: unknown[] }
-    if (typeof value.text === 'string') return value.text
-    if (Array.isArray(value.parts)) {
-      const lines = value.parts
-        .map((part) => {
-          if (!part || typeof part !== 'object') return ''
-          const typed = part as { text?: unknown; url?: unknown; emoji?: unknown }
-          if (typeof typed.text === 'string' && typed.text.trim()) return typed.text
-          if (typeof typed.url === 'string' && typed.url.trim()) return typed.url
-          if (typeof typed.emoji === 'string' && typed.emoji.trim()) return typed.emoji
-          return ''
-        })
-        .filter(Boolean)
-      if (lines.length) return lines.join('\n')
-    }
-  }
-  return null
-}
-
-const extractTextFromEvent = (payload: string) => {
-  try {
-    const event = JSON.parse(payload)
-    if (typeof event === 'string') return event
-    if (typeof event?.text === 'string') return event.text
-    const messageText = extractTextFromMessage(event?.message)
-    if (messageText) return messageText
-    if (typeof event?.delta === 'string') return event.delta
-    if (typeof event?.delta?.content === 'string') return event.delta.content
-    if (typeof event?.content === 'string') return event.content
-    if (typeof event?.data === 'string') return event.data
-    if (typeof event?.data?.text === 'string') return event.data.text
-    if (typeof event?.data?.delta?.content === 'string') return event.data.delta.content
-    const nestedMessageText = extractTextFromMessage(event?.data?.message)
-    if (nestedMessageText) return nestedMessageText
-    return null
-  } catch {
-    return payload
-  }
-}
+// streamChat is imported from ./stream
 
 const runTui = async (botId: string, token: TokenInfo) => {
-  const sessionId = `cli:${randomUUID()}`
+  const config = readConfig()
+  const sessionId = config.session_id
 
   const rl = readline.createInterface({ input, output })
   console.log(chalk.green(`TUI session (line mode) with ${chalk.bold(botId)}. Type \`exit\` to quit.`))

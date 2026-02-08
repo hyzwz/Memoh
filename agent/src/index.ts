@@ -54,6 +54,7 @@ const app = new Elysia()
   .listen({
     port: config.agent_gateway.port ?? 8081,
     hostname: config.agent_gateway.host ?? "127.0.0.1",
+    idleTimeout: 255, // max allowed by Bun, to accommodate long-running tool calls
   });
 
 console.log(
