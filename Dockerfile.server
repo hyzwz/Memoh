@@ -21,8 +21,6 @@ RUN apk add --no-cache ca-certificates tzdata wget
 
 COPY --from=builder /build/memoh-server /app/memoh-server
 
-COPY config.toml.example /app/config.toml.example
-
 RUN mkdir -p /var/lib/memoh/data
 
 EXPOSE 8080

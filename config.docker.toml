@@ -17,7 +17,7 @@ email = "admin@memoh.local"
 jwt_secret = "YZq8kXrW5dFpNt9mLxQvHbRjKsMnOePw"
 jwt_expires_in = "168h"
 
-## Docker configuration (使用宿主机 Docker socket)
+## Docker configuration
 [containerd]
 socket_path = "unix:///var/run/docker.sock"
 namespace = "default"

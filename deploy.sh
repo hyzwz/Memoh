@@ -29,20 +29,6 @@ fi
 echo -e "${GREEN}✓ Docker and Docker Compose are installed${NC}"
 echo ""
 
-# Check .env file
-if [ ! -f .env ]; then
-    echo -e "${YELLOW}⚠ .env file does not exist, creating...${NC}"
-    cp .env.example .env
-    
-    # Generate random JWT secret
-    JWT_SECRET=$(openssl rand -base64 32 2>/dev/null || head -c 32 /dev/urandom | base64)
-    sed -i.bak "s|JWT_SECRET=.*|JWT_SECRET=$JWT_SECRET|g" .env
-    rm -f .env.bak
-    
-    echo -e "${GREEN}✓ .env file created${NC}"
-    echo -e "${YELLOW}⚠ Please edit .env file to change default passwords and configuration${NC}"
-    echo ""
-fi
 
 # Check config.toml
 if [ ! -f config.toml ]; then
