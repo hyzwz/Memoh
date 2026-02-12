@@ -119,7 +119,7 @@ func main() {
 			// http handlers (group:"server_handlers")
 			provideServerHandler(handlers.NewPingHandler),
 			provideServerHandler(provideAuthHandler),
-			provideServerHandler(handlers.NewMemoryHandler),
+			provideServerHandler(provideMemoryHandler),
 			provideServerHandler(handlers.NewEmbeddingsHandler),
 			provideServerHandler(provideMessageHandler),
 			provideServerHandler(handlers.NewSwaggerHandler),
@@ -371,6 +371,18 @@ func provideToolGatewayService(log *slog.Logger, cfg config.Config, channelManag
 // handler providers (interface adaptation / config extraction)
 // ---------------------------------------------------------------------------
 
+func provideMemoryHandler(log *slog.Logger, service *memory.Service, chatService *conversation.Service, accountService *accounts.Service, cfg config.Config, manager *mcp.Manager) *handlers.MemoryHandler {
+	h := handlers.NewMemoryHandler(log, service, chatService, accountService)
+	if manager != nil {
+		execWorkDir := cfg.MCP.DataMount
+		if strings.TrimSpace(execWorkDir) == "" {
+			execWorkDir = config.DefaultDataMount
+		}
+		h.SetMemoryFS(memory.NewMemoryFS(log, manager, execWorkDir))
+	}
+	return h
+}
+
 func provideAuthHandler(log *slog.Logger, accountService *accounts.Service, rc *boot.RuntimeConfig) *handlers.AuthHandler {
 	return handlers.NewAuthHandler(log, accountService, rc.JwtSecret, rc.JwtExpiresIn)
 }
@@ -592,6 +604,14 @@ func (c *lazyLLMClient) Decide(ctx context.Context, req memory.DecideRequest) (m
 		return memory.DecideResponse{}, err
 	}
 	return client.Decide(ctx, req)
+}
+
+func (c *lazyLLMClient) Compact(ctx context.Context, req memory.CompactRequest) (memory.CompactResponse, error) {
+	client, err := c.resolve(ctx)
+	if err != nil {
+		return memory.CompactResponse{}, err
+	}
+	return client.Compact(ctx, req)
 }
 
 func (c *lazyLLMClient) DetectLanguage(ctx context.Context, text string) (string, error) {

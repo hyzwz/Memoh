@@ -130,6 +130,36 @@ func (c *LLMClient) Decide(ctx context.Context, req DecideRequest) (DecideRespon
 	return DecideResponse{Actions: actions}, nil
 }
 
+func (c *LLMClient) Compact(ctx context.Context, req CompactRequest) (CompactResponse, error) {
+	if len(req.Memories) == 0 {
+		return CompactResponse{}, fmt.Errorf("memories is required")
+	}
+	memories := make([]map[string]string, 0, len(req.Memories))
+	for _, m := range req.Memories {
+		entry := map[string]string{
+			"id":   m.ID,
+			"text": m.Memory,
+		}
+		if m.CreatedAt != "" {
+			entry["created_at"] = m.CreatedAt
+		}
+		memories = append(memories, entry)
+	}
+	systemPrompt, userPrompt := getCompactMemoryMessages(memories, req.TargetCount, req.DecayDays)
+	content, err := c.callChat(ctx, []chatMessage{
+		{Role: "system", Content: systemPrompt},
+		{Role: "user", Content: userPrompt},
+	})
+	if err != nil {
+		return CompactResponse{}, err
+	}
+	var parsed CompactResponse
+	if err := json.Unmarshal([]byte(removeCodeBlocks(content)), &parsed); err != nil {
+		return CompactResponse{}, fmt.Errorf("failed to parse compact response: %w", err)
+	}
+	return parsed, nil
+}
+
 func (c *LLMClient) DetectLanguage(ctx context.Context, text string) (string, error) {
 	if strings.TrimSpace(text) == "" {
 		return "", fmt.Errorf("text is required")

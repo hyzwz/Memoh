@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"log/slog"
+	"math"
 	"sort"
 	"strings"
 	"time"
@@ -448,6 +449,26 @@ func (s *Service) Delete(ctx context.Context, memoryID string) (DeleteResponse, 
 	return DeleteResponse{Message: "Memory deleted successfully!"}, nil
 }
 
+func (s *Service) DeleteBatch(ctx context.Context, memoryIDs []string) (DeleteResponse, error) {
+	if len(memoryIDs) == 0 {
+		return DeleteResponse{}, fmt.Errorf("memory_ids is required")
+	}
+	cleaned := make([]string, 0, len(memoryIDs))
+	for _, id := range memoryIDs {
+		id = strings.TrimSpace(id)
+		if id != "" {
+			cleaned = append(cleaned, id)
+		}
+	}
+	if len(cleaned) == 0 {
+		return DeleteResponse{}, fmt.Errorf("memory_ids is required")
+	}
+	if err := s.store.DeleteBatch(ctx, cleaned); err != nil {
+		return DeleteResponse{}, err
+	}
+	return DeleteResponse{Message: fmt.Sprintf("%d memories deleted successfully!", len(cleaned))}, nil
+}
+
 func (s *Service) DeleteAll(ctx context.Context, req DeleteAllRequest) (DeleteResponse, error) {
 	filters := map[string]any{}
 	for k, v := range req.Filters {
@@ -469,6 +490,142 @@ func (s *Service) DeleteAll(ctx context.Context, req DeleteAllRequest) (DeleteRe
 		return DeleteResponse{}, err
 	}
 	return DeleteResponse{Message: "Memories deleted successfully!"}, nil
+}
+
+func (s *Service) Compact(ctx context.Context, filters map[string]any, ratio float64, decayDays int) (CompactResult, error) {
+	if s.llm == nil {
+		return CompactResult{}, fmt.Errorf("llm not configured")
+	}
+	if s.store == nil {
+		return CompactResult{}, fmt.Errorf("qdrant store not configured")
+	}
+	if ratio <= 0 || ratio > 1 {
+		ratio = 0.5
+	}
+
+	// Fetch all existing memories.
+	points, err := s.store.List(ctx, 0, filters)
+	if err != nil {
+		return CompactResult{}, err
+	}
+	beforeCount := len(points)
+	if beforeCount <= 1 {
+		// Nothing to compact.
+		items := make([]MemoryItem, 0, len(points))
+		for _, p := range points {
+			items = append(items, payloadToMemoryItem(p.ID, p.Payload))
+		}
+		return CompactResult{
+			BeforeCount: beforeCount,
+			AfterCount:  beforeCount,
+			Ratio:       1.0,
+			Results:     items,
+		}, nil
+	}
+
+	// Build candidate list and compute target.
+	candidates := make([]CandidateMemory, 0, beforeCount)
+	for _, p := range points {
+		candidates = append(candidates, CandidateMemory{
+			ID:        p.ID,
+			Memory:    fmt.Sprint(p.Payload["data"]),
+			CreatedAt: fmt.Sprint(p.Payload["created_at"]),
+		})
+	}
+	targetCount := int(math.Round(float64(beforeCount) * ratio))
+	if targetCount < 1 {
+		targetCount = 1
+	}
+
+	// Ask LLM to consolidate.
+	compactResp, err := s.llm.Compact(ctx, CompactRequest{
+		Memories:    candidates,
+		TargetCount: targetCount,
+		DecayDays:   decayDays,
+	})
+	if err != nil {
+		return CompactResult{}, fmt.Errorf("compact llm call failed: %w", err)
+	}
+	if len(compactResp.Facts) == 0 {
+		return CompactResult{}, fmt.Errorf("compact returned no facts")
+	}
+
+	// Delete old memories.
+	if err := s.store.DeleteAll(ctx, filters); err != nil {
+		return CompactResult{}, fmt.Errorf("compact delete old failed: %w", err)
+	}
+
+	// Reset BM25 stats for deleted documents.
+	if s.bm25 != nil {
+		for _, p := range points {
+			text := fmt.Sprint(p.Payload["data"])
+			lang := fmt.Sprint(p.Payload["lang"])
+			if strings.TrimSpace(text) == "" || strings.TrimSpace(lang) == "" {
+				continue
+			}
+			freq, docLen, err := s.bm25.TermFrequencies(lang, text)
+			if err != nil {
+				continue
+			}
+			s.bm25.RemoveDocument(lang, freq, docLen)
+		}
+	}
+
+	// Add compacted facts.
+	results := make([]MemoryItem, 0, len(compactResp.Facts))
+	for _, fact := range compactResp.Facts {
+		if strings.TrimSpace(fact) == "" {
+			continue
+		}
+		item, err := s.applyAdd(ctx, fact, filters, nil, false)
+		if err != nil {
+			return CompactResult{}, fmt.Errorf("compact add failed: %w", err)
+		}
+		results = append(results, item)
+	}
+
+	afterCount := len(results)
+	actualRatio := float64(afterCount) / float64(beforeCount)
+	return CompactResult{
+		BeforeCount: beforeCount,
+		AfterCount:  afterCount,
+		Ratio:       math.Round(actualRatio*100) / 100,
+		Results:     results,
+	}, nil
+}
+
+const (
+	// Estimated sparse vector overhead per point: ~200 dims * 8 bytes (4 index + 4 value).
+	sparseVectorOverheadBytes = 1600
+	// Estimated payload metadata overhead per point (hash, dates, filters, lang, metadata JSON).
+	payloadMetadataOverheadBytes = 256
+)
+
+func (s *Service) Usage(ctx context.Context, filters map[string]any) (UsageResponse, error) {
+	if s.store == nil {
+		return UsageResponse{}, fmt.Errorf("qdrant store not configured")
+	}
+	points, err := s.store.List(ctx, 0, filters)
+	if err != nil {
+		return UsageResponse{}, err
+	}
+	count := len(points)
+	var totalTextBytes int64
+	for _, p := range points {
+		text := fmt.Sprint(p.Payload["data"])
+		totalTextBytes += int64(len(text))
+	}
+	var avgTextBytes int64
+	if count > 0 {
+		avgTextBytes = totalTextBytes / int64(count)
+	}
+	estimatedStorage := totalTextBytes + int64(count)*(sparseVectorOverheadBytes+payloadMetadataOverheadBytes)
+	return UsageResponse{
+		Count:                 count,
+		TotalTextBytes:        totalTextBytes,
+		AvgTextBytes:          avgTextBytes,
+		EstimatedStorageBytes: estimatedStorage,
+	}, nil
 }
 
 func (s *Service) WarmupBM25(ctx context.Context, batchSize int) error {
@@ -595,6 +752,42 @@ func (s *Service) applyAdd(ctx context.Context, text string, filters map[string]
 		}
 		point.Vector = vector
 		point.VectorName = s.vectorNameForText()
+	}
+	if err := s.store.Upsert(ctx, []qdrantPoint{point}); err != nil {
+		return MemoryItem{}, err
+	}
+	return payloadToMemoryItem(id, payload), nil
+}
+
+// RebuildAdd inserts a memory with a specific ID (from filesystem recovery).
+// Like applyAdd but preserves the given ID instead of generating a new UUID.
+func (s *Service) RebuildAdd(ctx context.Context, id, text string, filters map[string]any) (MemoryItem, error) {
+	if s.store == nil {
+		return MemoryItem{}, fmt.Errorf("qdrant store not configured")
+	}
+	if s.bm25 == nil {
+		return MemoryItem{}, fmt.Errorf("bm25 indexer not configured")
+	}
+	if strings.TrimSpace(id) == "" {
+		return MemoryItem{}, fmt.Errorf("id is required for rebuild")
+	}
+	lang, err := s.detectLanguage(ctx, text)
+	if err != nil {
+		return MemoryItem{}, err
+	}
+	termFreq, docLen, err := s.bm25.TermFrequencies(lang, text)
+	if err != nil {
+		return MemoryItem{}, err
+	}
+	sparseIndices, sparseValues := s.bm25.AddDocument(lang, termFreq, docLen)
+	payload := buildPayload(text, filters, nil, "")
+	payload["lang"] = lang
+	point := qdrantPoint{
+		ID:               id,
+		SparseIndices:    sparseIndices,
+		SparseValues:     sparseValues,
+		SparseVectorName: s.store.sparseVectorName,
+		Payload:          payload,
 	}
 	if err := s.store.Upsert(ctx, []qdrantPoint{point}); err != nil {
 		return MemoryItem{}, err

@@ -329,6 +329,22 @@ func (s *QdrantStore) Delete(ctx context.Context, id string) error {
 	return err
 }
 
+func (s *QdrantStore) DeleteBatch(ctx context.Context, ids []string) error {
+	if len(ids) == 0 {
+		return nil
+	}
+	pointIDs := make([]*qdrant.PointId, 0, len(ids))
+	for _, id := range ids {
+		pointIDs = append(pointIDs, qdrant.NewIDUUID(id))
+	}
+	_, err := s.client.Delete(ctx, &qdrant.DeletePoints{
+		CollectionName: s.collection,
+		Wait:           qdrant.PtrOf(true),
+		Points:         qdrant.NewPointsSelectorIDs(pointIDs),
+	})
+	return err
+}
+
 func (s *QdrantStore) List(ctx context.Context, limit int, filters map[string]any) ([]qdrantPoint, error) {
 	if limit <= 0 {
 		limit = 100
@@ -377,6 +393,19 @@ func (s *QdrantStore) Scroll(ctx context.Context, limit int, filters map[string]
 		})
 	}
 	return result, nextOffset, nil
+}
+
+func (s *QdrantStore) Count(ctx context.Context, filters map[string]any) (uint64, error) {
+	filter := buildQdrantFilter(filters)
+	result, err := s.client.Count(ctx, &qdrant.CountPoints{
+		CollectionName: s.collection,
+		Filter:         filter,
+		Exact:          qdrant.PtrOf(true),
+	})
+	if err != nil {
+		return 0, err
+	}
+	return result, nil
 }
 
 func (s *QdrantStore) DeleteAll(ctx context.Context, filters map[string]any) error {
