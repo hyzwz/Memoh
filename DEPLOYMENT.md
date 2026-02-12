@@ -20,7 +20,7 @@ Default credentials: `admin` / `admin123`
 ```bash
 cp docker/config/config.docker.toml config.toml
 nano config.toml  # Change passwords and secrets
-nerdctl build -f docker/Dockerfile.mcp -t memoh-mcp:latest .
+nerdctl build -f docker/Dockerfile.mcp -t docker.io/library/memoh-mcp:latest .
 docker compose up -d
 ```
 
