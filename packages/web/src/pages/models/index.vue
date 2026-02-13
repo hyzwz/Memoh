@@ -32,7 +32,10 @@ import type { ProvidersGetResponse, ProvidersClientType } from '@memoh/sdk'
 import AddProvider from '@/components/add-provider/index.vue'
 import { useQuery } from '@pinia/colada'
 
-const CLIENT_TYPES: ProvidersClientType[] = ['openai', 'openai-compat', 'anthropic', 'google', 'ollama']
+const CLIENT_TYPES: ProvidersClientType[] = [
+  'openai', 'openai-compat', 'anthropic', 'google',
+  'azure', 'bedrock', 'mistral', 'xai', 'ollama', 'dashscope',
+]
 
 const filterProvider = ref('')
 const { data: providerData } = useQuery({

@@ -156,7 +156,10 @@ import { useMutation, useQueryCache } from '@pinia/colada'
 import { postProviders } from '@memoh/sdk'
 import type { ProvidersClientType } from '@memoh/sdk'
 
-const CLIENT_TYPES: ProvidersClientType[] = ['openai', 'openai-compat', 'anthropic', 'google', 'ollama']
+const CLIENT_TYPES: ProvidersClientType[] = [
+  'openai', 'openai-compat', 'anthropic', 'google',
+  'azure', 'bedrock', 'mistral', 'xai', 'ollama', 'dashscope',
+]
 
 const open = defineModel<boolean>('open')
 
