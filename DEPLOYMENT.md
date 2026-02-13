@@ -3,7 +3,7 @@
 ## One-Click Install
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/memohai/Memoh/feat/containerd-in-docker/scripts/install.sh | sh
+curl -fsSL https://raw.githubusercontent.com/memohai/Memoh/main/scripts/install.sh | sh
 ```
 
 Or manually:
