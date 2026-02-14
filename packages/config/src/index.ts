@@ -1,6 +1,6 @@
 import { parse } from 'toml'
 import { readFileSync } from 'fs'
-import type { Config } from './types'
+import type { Config } from './types.ts'
 
 export const loadConfig = (path: string = './config.toml'): Config => {
   const config = parse(readFileSync(path, 'utf-8'))
@@ -25,4 +25,4 @@ export const getBaseUrl = (config: Config) => {
   return `http://${rawAddr}`
 }
 
-export * from './types'
+export * from './types.ts'
