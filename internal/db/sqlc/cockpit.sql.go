@@ -51,6 +51,66 @@ func (q *Queries) CockpitAggregateByDateRange(ctx context.Context, arg CockpitAg
 	return i, err
 }
 
+const cockpitDailyHandExecutionStats = `-- name: CockpitDailyHandExecutionStats :one
+SELECT
+    COUNT(*)::bigint AS total_executions,
+    COUNT(*) FILTER (WHERE status = 'completed')::bigint AS completed_executions,
+    COUNT(*) FILTER (WHERE status = 'failed')::bigint AS failed_executions
+FROM hand_execution_logs
+WHERE bot_id = $1
+  AND created_at >= $2
+  AND created_at < $3
+`
+
+type CockpitDailyHandExecutionStatsParams struct {
+	BotID    pgtype.UUID        `json:"bot_id"`
+	DayStart pgtype.Timestamptz `json:"day_start"`
+	DayEnd   pgtype.Timestamptz `json:"day_end"`
+}
+
+type CockpitDailyHandExecutionStatsRow struct {
+	TotalExecutions     int64 `json:"total_executions"`
+	CompletedExecutions int64 `json:"completed_executions"`
+	FailedExecutions    int64 `json:"failed_executions"`
+}
+
+// Counts hand executions for a bot on a given date.
+func (q *Queries) CockpitDailyHandExecutionStats(ctx context.Context, arg CockpitDailyHandExecutionStatsParams) (CockpitDailyHandExecutionStatsRow, error) {
+	row := q.db.QueryRow(ctx, cockpitDailyHandExecutionStats, arg.BotID, arg.DayStart, arg.DayEnd)
+	var i CockpitDailyHandExecutionStatsRow
+	err := row.Scan(&i.TotalExecutions, &i.CompletedExecutions, &i.FailedExecutions)
+	return i, err
+}
+
+const cockpitDailyMessageStats = `-- name: CockpitDailyMessageStats :one
+SELECT
+    COUNT(*)::bigint AS message_count,
+    COUNT(DISTINCT m.conversation_id)::bigint AS conversation_count
+FROM bot_history_messages m
+WHERE m.bot_id = $1
+  AND m.created_at >= $2
+  AND m.created_at < $3
+`
+
+type CockpitDailyMessageStatsParams struct {
+	BotID    pgtype.UUID        `json:"bot_id"`
+	DayStart pgtype.Timestamptz `json:"day_start"`
+	DayEnd   pgtype.Timestamptz `json:"day_end"`
+}
+
+type CockpitDailyMessageStatsRow struct {
+	MessageCount      int64 `json:"message_count"`
+	ConversationCount int64 `json:"conversation_count"`
+}
+
+// Counts messages and unique conversations for a bot on a given date.
+func (q *Queries) CockpitDailyMessageStats(ctx context.Context, arg CockpitDailyMessageStatsParams) (CockpitDailyMessageStatsRow, error) {
+	row := q.db.QueryRow(ctx, cockpitDailyMessageStats, arg.BotID, arg.DayStart, arg.DayEnd)
+	var i CockpitDailyMessageStatsRow
+	err := row.Scan(&i.MessageCount, &i.ConversationCount)
+	return i, err
+}
+
 const getCockpitConfig = `-- name: GetCockpitConfig :one
 SELECT id, key, value, updated_at FROM cockpit_config WHERE key = $1
 `

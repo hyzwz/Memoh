@@ -6,6 +6,7 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/labstack/echo/v4"
 )
@@ -22,6 +23,14 @@ func (f *fakeCockpitService) GetSummary(_ context.Context, _ string, _ CockpitSu
 	return &f.summary, nil
 }
 
+type fakeCockpitReportGen struct {
+	err error
+}
+
+func (f *fakeCockpitReportGen) GenerateDailyReport(_ context.Context, _, _ string, _ time.Time) error {
+	return f.err
+}
+
 func TestCockpitHandlerSummary(t *testing.T) {
 	svc := &fakeCockpitService{
 		summary: CockpitSummaryDTO{
@@ -30,7 +39,7 @@ func TestCockpitHandlerSummary(t *testing.T) {
 			LaborCostCNY:    8000,
 		},
 	}
-	h := NewCockpitHandler(svc)
+	h := NewCockpitHandler(svc, &fakeCockpitReportGen{})
 
 	e := echo.New()
 	req := httptest.NewRequest(http.MethodGet, "/bots/bot-1/cockpit/summary?days=7", nil)
@@ -53,7 +62,7 @@ func TestCockpitHandlerSummary(t *testing.T) {
 
 func TestCockpitHandlerMissingBotID(t *testing.T) {
 	svc := &fakeCockpitService{}
-	h := NewCockpitHandler(svc)
+	h := NewCockpitHandler(svc, &fakeCockpitReportGen{})
 
 	e := echo.New()
 	req := httptest.NewRequest(http.MethodGet, "/bots//cockpit/summary", nil)

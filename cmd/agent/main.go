@@ -901,7 +901,8 @@ func provideAuditHandler(log *slog.Logger, queries *dbsqlc.Queries) *handlers.Au
 
 func provideCockpitHandler(log *slog.Logger, queries *dbsqlc.Queries) *handlers.CockpitHandler {
 	svc := enterprise.NewCockpitService(log, queries)
-	return handlers.NewCockpitHandler(svc)
+	reportGen := enterprise.NewCockpitReportGenerator(log, queries)
+	return handlers.NewCockpitHandler(svc, reportGen)
 }
 
 func provideHandsHandler(log *slog.Logger, queries *dbsqlc.Queries, resolver *flow.Resolver, cfg config.Config) *handlers.HandsHandler {

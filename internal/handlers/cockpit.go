@@ -5,8 +5,11 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/labstack/echo/v4"
+
+	"github.com/memohai/memoh/internal/auth"
 )
 
 // CockpitSummaryDTO is the API representation of cockpit summary data.
@@ -24,6 +27,11 @@ type CockpitSummaryQuery struct {
 	Days int
 }
 
+// CockpitReportGeneratorInterface abstracts daily report generation.
+type CockpitReportGeneratorInterface interface {
+	GenerateDailyReport(ctx context.Context, botID, ownerUserID string, reportDate time.Time) error
+}
+
 // CockpitServiceInterface abstracts cockpit data retrieval.
 type CockpitServiceInterface interface {
 	GetSummary(ctx context.Context, botID string, query CockpitSummaryQuery) (*CockpitSummaryDTO, error)
@@ -31,17 +39,19 @@ type CockpitServiceInterface interface {
 
 // CockpitHandler handles cockpit dashboard API endpoints.
 type CockpitHandler struct {
-	svc CockpitServiceInterface
+	svc       CockpitServiceInterface
+	reportGen CockpitReportGeneratorInterface
 }
 
 // NewCockpitHandler creates a new cockpit handler.
-func NewCockpitHandler(svc CockpitServiceInterface) *CockpitHandler {
-	return &CockpitHandler{svc: svc}
+func NewCockpitHandler(svc CockpitServiceInterface, reportGen CockpitReportGeneratorInterface) *CockpitHandler {
+	return &CockpitHandler{svc: svc, reportGen: reportGen}
 }
 
 // Register registers cockpit routes.
 func (h *CockpitHandler) Register(e *echo.Echo) {
 	e.GET("/bots/:bot_id/cockpit/summary", h.GetSummary)
+	e.POST("/bots/:bot_id/cockpit/generate-report", h.GenerateReport)
 }
 
 // GetSummary godoc
@@ -71,4 +81,42 @@ func (h *CockpitHandler) GetSummary(c echo.Context) error {
 	}
 
 	return c.JSON(http.StatusOK, summary)
+}
+
+// GenerateReport godoc
+// @Summary Generate daily cockpit report for a bot
+// @Tags cockpit
+// @Param bot_id path string true "Bot ID"
+// @Param date query string false "Report date (YYYY-MM-DD)" default(yesterday)
+// @Success 200 {object} map[string]string
+// @Failure 400 {object} ErrorResponse
+// @Router /bots/{bot_id}/cockpit/generate-report [post]
+func (h *CockpitHandler) GenerateReport(c echo.Context) error {
+	botID := strings.TrimSpace(c.Param("bot_id"))
+	if botID == "" {
+		return echo.NewHTTPError(http.StatusBadRequest, "bot_id is required")
+	}
+
+	userID, err := auth.UserIDFromContext(c)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusUnauthorized, "authentication required")
+	}
+
+	reportDate := time.Now().UTC().AddDate(0, 0, -1) // default: yesterday
+	if v := c.QueryParam("date"); v != "" {
+		parsed, err := time.Parse("2006-01-02", v)
+		if err != nil {
+			return echo.NewHTTPError(http.StatusBadRequest, "invalid date format, use YYYY-MM-DD")
+		}
+		reportDate = parsed
+	}
+
+	if err := h.reportGen.GenerateDailyReport(c.Request().Context(), botID, userID, reportDate); err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, "failed to generate report: "+err.Error())
+	}
+
+	return c.JSON(http.StatusOK, map[string]string{
+		"status": "generated",
+		"date":   reportDate.Format("2006-01-02"),
+	})
 }

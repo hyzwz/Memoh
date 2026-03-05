@@ -42,6 +42,27 @@ RETURNING *;
 -- name: ListCockpitConfigs :many
 SELECT * FROM cockpit_config ORDER BY key;
 
+-- name: CockpitDailyMessageStats :one
+-- Counts messages and unique conversations for a bot on a given date.
+SELECT
+    COUNT(*)::bigint AS message_count,
+    COUNT(DISTINCT m.conversation_id)::bigint AS conversation_count
+FROM bot_history_messages m
+WHERE m.bot_id = sqlc.arg(bot_id)
+  AND m.created_at >= sqlc.arg(day_start)
+  AND m.created_at < sqlc.arg(day_end);
+
+-- name: CockpitDailyHandExecutionStats :one
+-- Counts hand executions for a bot on a given date.
+SELECT
+    COUNT(*)::bigint AS total_executions,
+    COUNT(*) FILTER (WHERE status = 'completed')::bigint AS completed_executions,
+    COUNT(*) FILTER (WHERE status = 'failed')::bigint AS failed_executions
+FROM hand_execution_logs
+WHERE bot_id = sqlc.arg(bot_id)
+  AND created_at >= sqlc.arg(day_start)
+  AND created_at < sqlc.arg(day_end);
+
 -- name: CockpitAggregateByDateRange :one
 SELECT
     COUNT(*)::bigint AS total_reports,
