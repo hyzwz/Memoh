@@ -8,6 +8,19 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+type AuditLog struct {
+	ID           pgtype.UUID        `json:"id"`
+	UserID       pgtype.UUID        `json:"user_id"`
+	BotID        pgtype.UUID        `json:"bot_id"`
+	Action       string             `json:"action"`
+	ResourceType string             `json:"resource_type"`
+	ResourceID   pgtype.Text        `json:"resource_id"`
+	Detail       []byte             `json:"detail"`
+	IpAddress    pgtype.Text        `json:"ip_address"`
+	UserAgent    pgtype.Text        `json:"user_agent"`
+	CreatedAt    pgtype.Timestamptz `json:"created_at"`
+}
+
 type Bot struct {
 	ID                 pgtype.UUID        `json:"id"`
 	OwnerUserID        pgtype.UUID        `json:"owner_user_id"`
@@ -62,6 +75,12 @@ type BotChannelRoute struct {
 	Metadata               []byte             `json:"metadata"`
 	CreatedAt              pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt              pgtype.Timestamptz `json:"updated_at"`
+}
+
+type BotDepartmentAccess struct {
+	BotID        pgtype.UUID        `json:"bot_id"`
+	DepartmentID pgtype.UUID        `json:"department_id"`
+	CreatedAt    pgtype.Timestamptz `json:"created_at"`
 }
 
 type BotEmailBinding struct {
@@ -134,6 +153,29 @@ type BotMember struct {
 	CreatedAt pgtype.Timestamptz `json:"created_at"`
 }
 
+type BotModelRoute struct {
+	ID             pgtype.UUID        `json:"id"`
+	BotID          pgtype.UUID        `json:"bot_id"`
+	Name           string             `json:"name"`
+	ModelID        pgtype.UUID        `json:"model_id"`
+	Priority       int32              `json:"priority"`
+	ComplexityTier string             `json:"complexity_tier"`
+	IsEnabled      bool               `json:"is_enabled"`
+	Metadata       []byte             `json:"metadata"`
+	CreatedAt      pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt      pgtype.Timestamptz `json:"updated_at"`
+}
+
+type BotPermission struct {
+	ID        pgtype.UUID        `json:"id"`
+	BotID     pgtype.UUID        `json:"bot_id"`
+	Role      string             `json:"role"`
+	Resource  string             `json:"resource"`
+	Action    string             `json:"action"`
+	Allowed   bool               `json:"allowed"`
+	CreatedAt pgtype.Timestamptz `json:"created_at"`
+}
+
 type BotPreauthKey struct {
 	ID             pgtype.UUID        `json:"id"`
 	BotID          pgtype.UUID        `json:"bot_id"`
@@ -151,6 +193,19 @@ type BotStorageBinding struct {
 	BasePath          string             `json:"base_path"`
 	CreatedAt         pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt         pgtype.Timestamptz `json:"updated_at"`
+}
+
+type Budget struct {
+	ID             pgtype.UUID        `json:"id"`
+	ScopeType      string             `json:"scope_type"`
+	ScopeID        string             `json:"scope_id"`
+	Period         string             `json:"period"`
+	LimitAmount    pgtype.Numeric     `json:"limit_amount"`
+	AlertThreshold pgtype.Numeric     `json:"alert_threshold"`
+	ActionOnExceed string             `json:"action_on_exceed"`
+	IsEnabled      bool               `json:"is_enabled"`
+	CreatedAt      pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt      pgtype.Timestamptz `json:"updated_at"`
 }
 
 type ChannelIdentity struct {
@@ -174,6 +229,29 @@ type ChannelIdentityBindCode struct {
 	UsedAt                  pgtype.Timestamptz `json:"used_at"`
 	UsedByChannelIdentityID pgtype.UUID        `json:"used_by_channel_identity_id"`
 	CreatedAt               pgtype.Timestamptz `json:"created_at"`
+}
+
+type CockpitConfig struct {
+	ID        pgtype.UUID        `json:"id"`
+	Key       string             `json:"key"`
+	Value     []byte             `json:"value"`
+	UpdatedAt pgtype.Timestamptz `json:"updated_at"`
+}
+
+type CockpitDailyReport struct {
+	ID                       pgtype.UUID        `json:"id"`
+	BotID                    pgtype.UUID        `json:"bot_id"`
+	UserID                   pgtype.UUID        `json:"user_id"`
+	HandExecutionID          pgtype.UUID        `json:"hand_execution_id"`
+	ReportDate               pgtype.Date        `json:"report_date"`
+	Summary                  string             `json:"summary"`
+	Tasks                    []byte             `json:"tasks"`
+	PendingTasks             []byte             `json:"pending_tasks"`
+	TotalEstimatedSavedHours pgtype.Numeric     `json:"total_estimated_saved_hours"`
+	TotalAiTimeMinutes       int32              `json:"total_ai_time_minutes"`
+	EfficiencyMultiplier     pgtype.Numeric     `json:"efficiency_multiplier"`
+	InnovationCount          int32              `json:"innovation_count"`
+	CreatedAt                pgtype.Timestamptz `json:"created_at"`
 }
 
 type Container struct {
@@ -200,6 +278,23 @@ type ContainerVersion struct {
 	CreatedAt   pgtype.Timestamptz `json:"created_at"`
 }
 
+type Department struct {
+	ID          pgtype.UUID        `json:"id"`
+	Name        string             `json:"name"`
+	Description string             `json:"description"`
+	ParentID    pgtype.UUID        `json:"parent_id"`
+	Metadata    []byte             `json:"metadata"`
+	CreatedAt   pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt   pgtype.Timestamptz `json:"updated_at"`
+}
+
+type DepartmentMember struct {
+	DepartmentID pgtype.UUID        `json:"department_id"`
+	UserID       pgtype.UUID        `json:"user_id"`
+	Role         string             `json:"role"`
+	CreatedAt    pgtype.Timestamptz `json:"created_at"`
+}
+
 type EmailOutbox struct {
 	ID          pgtype.UUID        `json:"id"`
 	ProviderID  pgtype.UUID        `json:"provider_id"`
@@ -224,6 +319,43 @@ type EmailProvider struct {
 	Config    []byte             `json:"config"`
 	CreatedAt pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt pgtype.Timestamptz `json:"updated_at"`
+}
+
+type Hand struct {
+	ID               pgtype.UUID        `json:"id"`
+	BotID            pgtype.UUID        `json:"bot_id"`
+	Name             string             `json:"name"`
+	Description      string             `json:"description"`
+	Content          string             `json:"content"`
+	Type             string             `json:"type"`
+	SchedulePattern  pgtype.Text        `json:"schedule_pattern"`
+	ScheduleTimezone pgtype.Text        `json:"schedule_timezone"`
+	ScheduleMaxCalls pgtype.Int4        `json:"schedule_max_calls"`
+	Triggers         []byte             `json:"triggers"`
+	AllowedTools     []byte             `json:"allowed_tools"`
+	ModelConfig      []byte             `json:"model_config"`
+	OutputConfig     []byte             `json:"output_config"`
+	Permissions      []byte             `json:"permissions"`
+	IsEnabled        bool               `json:"is_enabled"`
+	Metadata         []byte             `json:"metadata"`
+	CreatedAt        pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt        pgtype.Timestamptz `json:"updated_at"`
+}
+
+type HandExecutionLog struct {
+	ID            pgtype.UUID        `json:"id"`
+	HandID        pgtype.UUID        `json:"hand_id"`
+	BotID         pgtype.UUID        `json:"bot_id"`
+	TriggerType   string             `json:"trigger_type"`
+	TriggerDetail []byte             `json:"trigger_detail"`
+	Status        string             `json:"status"`
+	ResultText    pgtype.Text        `json:"result_text"`
+	ErrorMessage  pgtype.Text        `json:"error_message"`
+	Usage         []byte             `json:"usage"`
+	ModelID       pgtype.UUID        `json:"model_id"`
+	StartedAt     pgtype.Timestamptz `json:"started_at"`
+	CompletedAt   pgtype.Timestamptz `json:"completed_at"`
+	CreatedAt     pgtype.Timestamptz `json:"created_at"`
 }
 
 type LifecycleEvent struct {
@@ -323,6 +455,18 @@ type Model struct {
 	Type              string             `json:"type"`
 	CreatedAt         pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt         pgtype.Timestamptz `json:"updated_at"`
+}
+
+type ModelPricing struct {
+	ID                     pgtype.UUID        `json:"id"`
+	ModelID                pgtype.UUID        `json:"model_id"`
+	InputPricePerMtok      pgtype.Numeric     `json:"input_price_per_mtok"`
+	OutputPricePerMtok     pgtype.Numeric     `json:"output_price_per_mtok"`
+	CacheReadPricePerMtok  pgtype.Numeric     `json:"cache_read_price_per_mtok"`
+	CacheWritePricePerMtok pgtype.Numeric     `json:"cache_write_price_per_mtok"`
+	ReasoningPricePerMtok  pgtype.Numeric     `json:"reasoning_price_per_mtok"`
+	EffectiveFrom          pgtype.Timestamptz `json:"effective_from"`
+	CreatedAt              pgtype.Timestamptz `json:"created_at"`
 }
 
 type ModelVariant struct {
