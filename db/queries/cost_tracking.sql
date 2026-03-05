@@ -42,3 +42,9 @@ RETURNING *;
 
 -- name: DeleteBudget :exec
 DELETE FROM budgets WHERE id = $1;
+
+-- name: ListBudgetsByScope :many
+SELECT * FROM budgets
+WHERE scope_type = $1 AND scope_id = $2 AND is_enabled = true
+ORDER BY
+  CASE period WHEN 'monthly' THEN 1 WHEN 'weekly' THEN 2 WHEN 'daily' THEN 3 ELSE 4 END;

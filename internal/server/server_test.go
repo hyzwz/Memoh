@@ -12,6 +12,8 @@ func TestShouldSkipJWT_FeishuWebhookPaths(t *testing.T) {
 		{path: "/channels/feishu/webhook/cfg-1", want: true},
 		{path: "/channels/feishu/webhook", want: false},
 		{path: "/api/channels/feishu/webhook", want: false},
+		{path: "/channels/wecom/webhook/cfg-1", want: true},
+		{path: "/channels/wecom/webhook", want: false},
 	}
 
 	for _, tc := range cases {

@@ -152,6 +152,49 @@ func (q *Queries) ListBudgets(ctx context.Context, scopeType pgtype.Text) ([]Bud
 	return items, nil
 }
 
+const listBudgetsByScope = `-- name: ListBudgetsByScope :many
+SELECT id, scope_type, scope_id, period, limit_amount, alert_threshold, action_on_exceed, is_enabled, created_at, updated_at FROM budgets
+WHERE scope_type = $1 AND scope_id = $2 AND is_enabled = true
+ORDER BY
+  CASE period WHEN 'monthly' THEN 1 WHEN 'weekly' THEN 2 WHEN 'daily' THEN 3 ELSE 4 END
+`
+
+type ListBudgetsByScopeParams struct {
+	ScopeType string `json:"scope_type"`
+	ScopeID   string `json:"scope_id"`
+}
+
+func (q *Queries) ListBudgetsByScope(ctx context.Context, arg ListBudgetsByScopeParams) ([]Budget, error) {
+	rows, err := q.db.Query(ctx, listBudgetsByScope, arg.ScopeType, arg.ScopeID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Budget
+	for rows.Next() {
+		var i Budget
+		if err := rows.Scan(
+			&i.ID,
+			&i.ScopeType,
+			&i.ScopeID,
+			&i.Period,
+			&i.LimitAmount,
+			&i.AlertThreshold,
+			&i.ActionOnExceed,
+			&i.IsEnabled,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listModelPricing = `-- name: ListModelPricing :many
 SELECT id, model_id, input_price_per_mtok, output_price_per_mtok, cache_read_price_per_mtok, cache_write_price_per_mtok, reasoning_price_per_mtok, effective_from, created_at FROM model_pricing
 WHERE model_id = $1
