@@ -904,8 +904,9 @@ func provideCockpitHandler(log *slog.Logger, queries *dbsqlc.Queries) *handlers.
 	return handlers.NewCockpitHandler(svc)
 }
 
-func provideHandsHandler(log *slog.Logger, queries *dbsqlc.Queries) *handlers.HandsHandler {
-	svc := enterprise.NewHandsService(log, queries)
+func provideHandsHandler(log *slog.Logger, queries *dbsqlc.Queries, resolver *flow.Resolver, cfg config.Config) *handlers.HandsHandler {
+	chatExec := enterprise.NewResolverChatExecutor(resolver)
+	svc := enterprise.NewHandsService(log, queries, chatExec, cfg.Auth.JWTSecret)
 	return handlers.NewHandsHandler(svc)
 }
 

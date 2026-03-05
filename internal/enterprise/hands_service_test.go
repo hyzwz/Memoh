@@ -1,6 +1,38 @@
 package enterprise
 
-import "testing"
+import (
+	"context"
+	"testing"
+)
+
+// fakeChatExecutor implements ChatExecutor for tests.
+type fakeChatExecutor struct {
+	resultText string
+	err        error
+	gotBotID   string
+	gotQuery   string
+}
+
+func (f *fakeChatExecutor) ExecuteChat(ctx context.Context, botID, userID, query, token string) (string, error) {
+	f.gotBotID = botID
+	f.gotQuery = query
+	if f.err != nil {
+		return "", f.err
+	}
+	return f.resultText, nil
+}
+
+func TestChatExecutorInterface(t *testing.T) {
+	// Verify that the ChatExecutor interface is properly defined and usable.
+	var exec ChatExecutor = &fakeChatExecutor{resultText: "done"}
+	result, err := exec.ExecuteChat(context.Background(), "bot-1", "user-1", "do something", "token")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if result != "done" {
+		t.Fatalf("result = %q, want done", result)
+	}
+}
 
 func TestParseHandMarkdown(t *testing.T) {
 	md := "---\nname: daily-report\ndescription: A daily summary\n---\nGenerate the report."

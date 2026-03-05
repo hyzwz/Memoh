@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"log/slog"
 	"strings"
 	"time"
@@ -11,21 +12,32 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 
+	"github.com/memohai/memoh/internal/auth"
 	"github.com/memohai/memoh/internal/db"
 	"github.com/memohai/memoh/internal/db/sqlc"
 	"github.com/memohai/memoh/internal/handlers"
 )
 
-// HandsService implements handlers.HandsServiceInterface.
-type HandsService struct {
-	queries *sqlc.Queries
-	logger  *slog.Logger
+// ChatExecutor abstracts sending a chat query to the agent gateway.
+// This decouples hand execution from the concrete Resolver implementation.
+type ChatExecutor interface {
+	ExecuteChat(ctx context.Context, botID, userID, query, token string) (string, error)
 }
 
-func NewHandsService(log *slog.Logger, queries *sqlc.Queries) *HandsService {
+// HandsService implements handlers.HandsServiceInterface.
+type HandsService struct {
+	queries     *sqlc.Queries
+	logger      *slog.Logger
+	chatExec    ChatExecutor
+	jwtSecret   string
+}
+
+func NewHandsService(log *slog.Logger, queries *sqlc.Queries, chatExec ChatExecutor, jwtSecret string) *HandsService {
 	return &HandsService{
-		queries: queries,
-		logger:  log.With(slog.String("service", "hands")),
+		queries:   queries,
+		logger:    log.With(slog.String("service", "hands")),
+		chatExec:  chatExec,
+		jwtSecret: jwtSecret,
 	}
 }
 
@@ -123,6 +135,21 @@ func (s *HandsService) Execute(ctx context.Context, botID, handID, triggerType s
 		return nil, err
 	}
 
+	// Fetch and verify the hand belongs to this bot.
+	hand, err := s.queries.GetHandByID(ctx, pgHandID)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, handlers.ErrHandNotFound
+		}
+		return nil, err
+	}
+	if hand.BotID != pgBotID {
+		return nil, handlers.ErrHandNotFound
+	}
+	if !hand.IsEnabled {
+		return nil, fmt.Errorf("hand is disabled")
+	}
+
 	if triggerType == "" {
 		triggerType = "manual"
 	}
@@ -138,23 +165,56 @@ func (s *HandsService) Execute(ctx context.Context, botID, handID, triggerType s
 		return nil, err
 	}
 
-	// TODO: Actual hand execution logic would be wired here.
+	// Resolve the bot owner for JWT token generation.
+	bot, err := s.queries.GetBotByID(ctx, pgBotID)
+	if err != nil {
+		s.updateExecLog(ctx, execLog.ID, "failed", "", "failed to get bot: "+err.Error())
+		return nil, fmt.Errorf("failed to get bot: %w", err)
+	}
+	ownerUserID := uuidToString(bot.OwnerUserID)
+
+	// Generate internal token for the agent gateway call.
+	token, _, err := auth.GenerateToken(ownerUserID, s.jwtSecret, handExecTokenTTL)
+	if err != nil {
+		s.updateExecLog(ctx, execLog.ID, "failed", "", "failed to generate token: "+err.Error())
+		return nil, fmt.Errorf("failed to generate token: %w", err)
+	}
+
+	// Execute the hand content via the agent gateway.
+	resultText, execErr := s.chatExec.ExecuteChat(ctx, botID, ownerUserID, hand.Content, token)
+
 	completedAt := time.Now()
+	status := "completed"
+	errMsg := ""
+	if execErr != nil {
+		status = "failed"
+		errMsg = execErr.Error()
+		resultText = ""
+	}
+
+	s.updateExecLog(ctx, execLog.ID, status, resultText, errMsg)
+
+	return &handlers.HandExecutionResultDTO{
+		Status:       status,
+		ResultText:   resultText,
+		ErrorMessage: errMsg,
+		StartedAt:    now,
+		CompletedAt:  completedAt,
+	}, execErr
+}
+
+const handExecTokenTTL = 10 * time.Minute
+
+func (s *HandsService) updateExecLog(ctx context.Context, id pgtype.UUID, status, resultText, errMsg string) {
 	if _, err := s.queries.UpdateHandExecutionLog(ctx, sqlc.UpdateHandExecutionLogParams{
-		ID:          execLog.ID,
-		Status:      "completed",
-		ResultText:  pgtype.Text{String: "Execution completed", Valid: true},
-		CompletedAt: pgtype.Timestamptz{Time: completedAt, Valid: true},
+		ID:           id,
+		Status:       status,
+		ResultText:   pgtype.Text{String: resultText, Valid: resultText != ""},
+		ErrorMessage: pgtype.Text{String: errMsg, Valid: errMsg != ""},
+		CompletedAt:  pgtype.Timestamptz{Time: time.Now(), Valid: true},
 	}); err != nil {
 		s.logger.Error("failed to update hand execution log", slog.String("error", err.Error()))
 	}
-
-	return &handlers.HandExecutionResultDTO{
-		Status:      "completed",
-		ResultText:  "Execution completed",
-		StartedAt:   now,
-		CompletedAt: completedAt,
-	}, nil
 }
 
 func handToDTO(h sqlc.Hand) handlers.HandDTO {
