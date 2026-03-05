@@ -216,6 +216,7 @@ func runServe() {
 			provideServerHandler(handlers.NewSubagentHandler),
 			provideServerHandler(handlers.NewChannelHandler),
 			provideServerHandler(feishu.NewWebhookServerHandler),
+			provideServerHandler(wecom.NewWeComWebhookServerHandler),
 			provideServerHandler(provideUsersHandler),
 			provideServerHandler(handlers.NewMemoryProvidersHandler),
 			provideServerHandler(handlers.NewEmailProvidersHandler),

@@ -2,7 +2,11 @@
 package wecom
 
 import (
+	"context"
+	"fmt"
 	"log/slog"
+	"strconv"
+	"strings"
 
 	"github.com/memohai/memoh/internal/channel"
 )
@@ -10,9 +14,10 @@ import (
 // Type is the registered ChannelType identifier for WeCom.
 const Type channel.ChannelType = "wecom"
 
-// WeComAdapter implements the channel.Adapter interface for WeCom.
+// WeComAdapter implements the channel.Adapter and channel.Sender interfaces for WeCom.
 type WeComAdapter struct {
-	logger *slog.Logger
+	logger      *slog.Logger
+	testBaseURL string // used in tests to override WeCom API base URL
 }
 
 // NewWeComAdapter creates a WeComAdapter with the given logger.
@@ -72,4 +77,48 @@ func (a *WeComAdapter) Descriptor() channel.Descriptor {
 // NormalizeConfig validates and normalizes a WeCom channel configuration map.
 func (a *WeComAdapter) NormalizeConfig(raw map[string]any) (map[string]any, error) {
 	return normalizeConfig(raw)
+}
+
+// Send implements channel.Sender for WeCom.
+func (a *WeComAdapter) Send(ctx context.Context, cfg channel.ChannelConfig, msg channel.OutboundMessage) error {
+	wecomCfg, err := parseConfig(cfg.Credentials)
+	if err != nil {
+		return fmt.Errorf("wecom send: %w", err)
+	}
+
+	target := strings.TrimSpace(msg.Target)
+	if target == "" {
+		return fmt.Errorf("wecom send: empty target")
+	}
+
+	// Strip "userid:" prefix if present.
+	toUser := strings.TrimPrefix(target, "userid:")
+	if toUser == "" {
+		return fmt.Errorf("wecom send: empty userid in target")
+	}
+
+	baseURL := a.testBaseURL
+	if baseURL == "" {
+		baseURL = defaultBaseURL
+	}
+	client := NewClient(baseURL, wecomCfg.CorpID, wecomCfg.Secret)
+	if agentID, err := strconv.Atoi(wecomCfg.AgentID); err == nil {
+		client.SetAgentID(agentID)
+	}
+
+	text := strings.TrimSpace(msg.Message.Text)
+	if text == "" && len(msg.Message.Parts) > 0 {
+		var parts []string
+		for _, p := range msg.Message.Parts {
+			if t := strings.TrimSpace(p.Text); t != "" {
+				parts = append(parts, t)
+			}
+		}
+		text = strings.Join(parts, "\n")
+	}
+	if text == "" {
+		return fmt.Errorf("wecom send: empty message text")
+	}
+
+	return client.SendTextMessage(ctx, toUser, text)
 }
