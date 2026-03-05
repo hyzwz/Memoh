@@ -76,6 +76,34 @@ WHERE h.bot_id = sqlc.arg(bot_id)
   AND h.started_at >= sqlc.arg(from_time)
   AND h.started_at < sqlc.arg(to_time);
 
+-- name: GetTotalTokenUsageByUser :one
+SELECT
+  COALESCE(SUM((m.usage->>'inputTokens')::bigint), 0)::bigint AS input_tokens,
+  COALESCE(SUM((m.usage->>'outputTokens')::bigint), 0)::bigint AS output_tokens,
+  COALESCE(SUM((m.usage->'inputTokenDetails'->>'cacheReadTokens')::bigint), 0)::bigint AS cache_read_tokens,
+  COALESCE(SUM((m.usage->'inputTokenDetails'->>'cacheWriteTokens')::bigint), 0)::bigint AS cache_write_tokens,
+  COALESCE(SUM((m.usage->'outputTokenDetails'->>'reasoningTokens')::bigint), 0)::bigint AS reasoning_tokens
+FROM bot_history_messages m
+WHERE m.sender_account_user_id = sqlc.arg(user_id)
+  AND m.usage IS NOT NULL
+  AND m.created_at >= sqlc.arg(from_time)
+  AND m.created_at < sqlc.arg(to_time);
+
+-- name: GetTotalTokenUsageByDepartment :one
+-- Aggregates token usage for all users in a department.
+SELECT
+  COALESCE(SUM((m.usage->>'inputTokens')::bigint), 0)::bigint AS input_tokens,
+  COALESCE(SUM((m.usage->>'outputTokens')::bigint), 0)::bigint AS output_tokens,
+  COALESCE(SUM((m.usage->'inputTokenDetails'->>'cacheReadTokens')::bigint), 0)::bigint AS cache_read_tokens,
+  COALESCE(SUM((m.usage->'inputTokenDetails'->>'cacheWriteTokens')::bigint), 0)::bigint AS cache_write_tokens,
+  COALESCE(SUM((m.usage->'outputTokenDetails'->>'reasoningTokens')::bigint), 0)::bigint AS reasoning_tokens
+FROM bot_history_messages m
+JOIN department_members dm ON dm.user_id = m.sender_account_user_id
+WHERE dm.department_id = sqlc.arg(department_id)
+  AND m.usage IS NOT NULL
+  AND m.created_at >= sqlc.arg(from_time)
+  AND m.created_at < sqlc.arg(to_time);
+
 -- name: GetHeartbeatTokenUsageByModel :many
 SELECT
   h.model_id,

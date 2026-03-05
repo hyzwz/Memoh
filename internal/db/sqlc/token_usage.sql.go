@@ -346,3 +346,87 @@ func (q *Queries) GetTotalTokenUsage(ctx context.Context, arg GetTotalTokenUsage
 	)
 	return i, err
 }
+
+const getTotalTokenUsageByDepartment = `-- name: GetTotalTokenUsageByDepartment :one
+SELECT
+  COALESCE(SUM((m.usage->>'inputTokens')::bigint), 0)::bigint AS input_tokens,
+  COALESCE(SUM((m.usage->>'outputTokens')::bigint), 0)::bigint AS output_tokens,
+  COALESCE(SUM((m.usage->'inputTokenDetails'->>'cacheReadTokens')::bigint), 0)::bigint AS cache_read_tokens,
+  COALESCE(SUM((m.usage->'inputTokenDetails'->>'cacheWriteTokens')::bigint), 0)::bigint AS cache_write_tokens,
+  COALESCE(SUM((m.usage->'outputTokenDetails'->>'reasoningTokens')::bigint), 0)::bigint AS reasoning_tokens
+FROM bot_history_messages m
+JOIN department_members dm ON dm.user_id = m.sender_account_user_id
+WHERE dm.department_id = $1
+  AND m.usage IS NOT NULL
+  AND m.created_at >= $2
+  AND m.created_at < $3
+`
+
+type GetTotalTokenUsageByDepartmentParams struct {
+	DepartmentID pgtype.UUID        `json:"department_id"`
+	FromTime     pgtype.Timestamptz `json:"from_time"`
+	ToTime       pgtype.Timestamptz `json:"to_time"`
+}
+
+type GetTotalTokenUsageByDepartmentRow struct {
+	InputTokens      int64 `json:"input_tokens"`
+	OutputTokens     int64 `json:"output_tokens"`
+	CacheReadTokens  int64 `json:"cache_read_tokens"`
+	CacheWriteTokens int64 `json:"cache_write_tokens"`
+	ReasoningTokens  int64 `json:"reasoning_tokens"`
+}
+
+// Aggregates token usage for all users in a department.
+func (q *Queries) GetTotalTokenUsageByDepartment(ctx context.Context, arg GetTotalTokenUsageByDepartmentParams) (GetTotalTokenUsageByDepartmentRow, error) {
+	row := q.db.QueryRow(ctx, getTotalTokenUsageByDepartment, arg.DepartmentID, arg.FromTime, arg.ToTime)
+	var i GetTotalTokenUsageByDepartmentRow
+	err := row.Scan(
+		&i.InputTokens,
+		&i.OutputTokens,
+		&i.CacheReadTokens,
+		&i.CacheWriteTokens,
+		&i.ReasoningTokens,
+	)
+	return i, err
+}
+
+const getTotalTokenUsageByUser = `-- name: GetTotalTokenUsageByUser :one
+SELECT
+  COALESCE(SUM((m.usage->>'inputTokens')::bigint), 0)::bigint AS input_tokens,
+  COALESCE(SUM((m.usage->>'outputTokens')::bigint), 0)::bigint AS output_tokens,
+  COALESCE(SUM((m.usage->'inputTokenDetails'->>'cacheReadTokens')::bigint), 0)::bigint AS cache_read_tokens,
+  COALESCE(SUM((m.usage->'inputTokenDetails'->>'cacheWriteTokens')::bigint), 0)::bigint AS cache_write_tokens,
+  COALESCE(SUM((m.usage->'outputTokenDetails'->>'reasoningTokens')::bigint), 0)::bigint AS reasoning_tokens
+FROM bot_history_messages m
+WHERE m.sender_account_user_id = $1
+  AND m.usage IS NOT NULL
+  AND m.created_at >= $2
+  AND m.created_at < $3
+`
+
+type GetTotalTokenUsageByUserParams struct {
+	UserID   pgtype.UUID        `json:"user_id"`
+	FromTime pgtype.Timestamptz `json:"from_time"`
+	ToTime   pgtype.Timestamptz `json:"to_time"`
+}
+
+type GetTotalTokenUsageByUserRow struct {
+	InputTokens      int64 `json:"input_tokens"`
+	OutputTokens     int64 `json:"output_tokens"`
+	CacheReadTokens  int64 `json:"cache_read_tokens"`
+	CacheWriteTokens int64 `json:"cache_write_tokens"`
+	ReasoningTokens  int64 `json:"reasoning_tokens"`
+}
+
+func (q *Queries) GetTotalTokenUsageByUser(ctx context.Context, arg GetTotalTokenUsageByUserParams) (GetTotalTokenUsageByUserRow, error) {
+	row := q.db.QueryRow(ctx, getTotalTokenUsageByUser, arg.UserID, arg.FromTime, arg.ToTime)
+	var i GetTotalTokenUsageByUserRow
+	err := row.Scan(
+		&i.InputTokens,
+		&i.OutputTokens,
+		&i.CacheReadTokens,
+		&i.CacheWriteTokens,
+		&i.ReasoningTokens,
+	)
+	return i, err
+}

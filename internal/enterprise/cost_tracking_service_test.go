@@ -92,3 +92,12 @@ func TestComputeTokenCostWithCacheWrite(t *testing.T) {
 		t.Fatalf("cost = %v, want 3.75", cost)
 	}
 }
+
+func TestComputeTokenCostFromUsage(t *testing.T) {
+	// Uses default pricing: input=3, output=15, cacheRead=0.3, cacheWrite=3.75, reasoning=15
+	// 1M input = $3, 1M output = $15
+	cost := computeTokenCostFromUsage(1_000_000, 1_000_000, 0, 0, 0)
+	if math.Abs(cost-18.0) > 0.001 {
+		t.Fatalf("cost = %v, want 18.0", cost)
+	}
+}

@@ -96,18 +96,14 @@ func (s *CostTrackingService) CheckBudget(ctx context.Context, scopeType, scopeI
 		limit := numericToFloat64(budget.LimitAmount)
 		threshold := numericToFloat64(budget.AlertThreshold)
 
-		spent := 0.0
-		if scopeType == "bot" {
-			var spendErr error
-			spent, spendErr = s.computeBotSpending(ctx, scopeID, budget.Period)
-			if spendErr != nil {
-				// Fail closed: if we can't determine spending, deny access.
-				return &handlers.BudgetCheckDTO{
-					Allowed: false,
-					Alert:   true,
-					Action:  "block",
-				}, nil
-			}
+		spent, spendErr := s.computeSpending(ctx, scopeType, scopeID, budget.Period)
+		if spendErr != nil {
+			// Fail closed: if we can't determine spending, deny access.
+			return &handlers.BudgetCheckDTO{
+				Allowed: false,
+				Alert:   true,
+				Action:  "block",
+			}, nil
 		}
 
 		percentage := 0.0
@@ -153,6 +149,22 @@ func (s *CostTrackingService) CheckBudget(ctx context.Context, scopeType, scopeI
 	}
 
 	return result, nil
+}
+
+// computeSpending dispatches to the appropriate scope-level spending calculator.
+func (s *CostTrackingService) computeSpending(ctx context.Context, scopeType, scopeID, period string) (float64, error) {
+	switch scopeType {
+	case "bot":
+		return s.computeBotSpending(ctx, scopeID, period)
+	case "user":
+		return s.computeUserSpending(ctx, scopeID, period)
+	case "department":
+		return s.computeDepartmentSpending(ctx, scopeID, period)
+	default:
+		// Unknown scope type — no spending data available; fail open (0 spent).
+		s.logger.Warn("unknown budget scope type", slog.String("scope_type", scopeType))
+		return 0, nil
+	}
 }
 
 // computeBotSpending calculates total spending for a bot in the current period
@@ -213,6 +225,67 @@ func (s *CostTrackingService) computeBotSpending(ctx context.Context, botID, per
 		defaultCacheReadPrice, defaultCacheWritePrice, defaultReasoningPrice,
 	)
 	return cost, nil
+}
+
+// computeUserSpending calculates total spending for a user in the current period.
+func (s *CostTrackingService) computeUserSpending(ctx context.Context, userID, period string) (float64, error) {
+	pgUserID, err := db.ParseUUID(userID)
+	if err != nil {
+		return 0, fmt.Errorf("invalid user id: %w", err)
+	}
+
+	now := time.Now()
+	start, end := periodToTimeRange(period, now)
+
+	usage, err := s.queries.GetTotalTokenUsageByUser(ctx, sqlc.GetTotalTokenUsageByUserParams{
+		UserID:   pgUserID,
+		FromTime: pgtype.Timestamptz{Time: start, Valid: true},
+		ToTime:   pgtype.Timestamptz{Time: end, Valid: true},
+	})
+	if err != nil {
+		s.logger.Error("failed to get user token usage", slog.String("error", err.Error()))
+		return 0, fmt.Errorf("user token usage: %w", err)
+	}
+
+	return computeTokenCostFromUsage(usage.InputTokens, usage.OutputTokens,
+		usage.CacheReadTokens, usage.CacheWriteTokens, usage.ReasoningTokens), nil
+}
+
+// computeDepartmentSpending calculates total spending for all users in a department.
+func (s *CostTrackingService) computeDepartmentSpending(ctx context.Context, departmentID, period string) (float64, error) {
+	pgDeptID, err := db.ParseUUID(departmentID)
+	if err != nil {
+		return 0, fmt.Errorf("invalid department id: %w", err)
+	}
+
+	now := time.Now()
+	start, end := periodToTimeRange(period, now)
+
+	usage, err := s.queries.GetTotalTokenUsageByDepartment(ctx, sqlc.GetTotalTokenUsageByDepartmentParams{
+		DepartmentID: pgDeptID,
+		FromTime:     pgtype.Timestamptz{Time: start, Valid: true},
+		ToTime:       pgtype.Timestamptz{Time: end, Valid: true},
+	})
+	if err != nil {
+		s.logger.Error("failed to get department token usage", slog.String("error", err.Error()))
+		return 0, fmt.Errorf("department token usage: %w", err)
+	}
+
+	return computeTokenCostFromUsage(usage.InputTokens, usage.OutputTokens,
+		usage.CacheReadTokens, usage.CacheWriteTokens, usage.ReasoningTokens), nil
+}
+
+// computeTokenCostFromUsage applies default pricing to token counts.
+func computeTokenCostFromUsage(input, output, cacheRead, cacheWrite, reasoning int64) float64 {
+	const (
+		defaultInputPrice      = 3.0
+		defaultOutputPrice     = 15.0
+		defaultCacheReadPrice  = 0.3
+		defaultCacheWritePrice = 3.75
+		defaultReasoningPrice  = 15.0
+	)
+	return computeTokenCost(input, output, cacheRead, cacheWrite, reasoning,
+		defaultInputPrice, defaultOutputPrice, defaultCacheReadPrice, defaultCacheWritePrice, defaultReasoningPrice)
 }
 
 func budgetToDTO(b sqlc.Budget) handlers.BudgetDTO {
