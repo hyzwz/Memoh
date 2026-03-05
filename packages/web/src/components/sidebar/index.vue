@@ -142,6 +142,36 @@ const sidebarInfo = computed(() => [
     icon: ['fas', 'chart-line'],
   },
   {
+    title: t('sidebar.cockpit'),
+    name: 'cockpit',
+    icon: ['fas', 'gauge-high'],
+  },
+  {
+    title: t('sidebar.audit'),
+    name: 'audit',
+    icon: ['fas', 'clipboard-list'],
+  },
+  {
+    title: t('sidebar.modelRouting'),
+    name: 'model-routing',
+    icon: ['fas', 'route'],
+  },
+  {
+    title: t('sidebar.budgets'),
+    name: 'budgets',
+    icon: ['fas', 'wallet'],
+  },
+  {
+    title: t('sidebar.hands'),
+    name: 'hands',
+    icon: ['fas', 'hand-sparkles'],
+  },
+  {
+    title: t('sidebar.departments'),
+    name: 'departments',
+    icon: ['fas', 'building'],
+  },
+  {
     title: t('sidebar.settings'),
     name: 'settings',
     icon: ['fas', 'gear'],

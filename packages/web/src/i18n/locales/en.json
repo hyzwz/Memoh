@@ -60,7 +60,13 @@
     "home": "Home",
     "mcp": "MCP",
     "platform": "Platform",
-    "usage": "Usage"
+    "usage": "Usage",
+    "cockpit": "Cockpit",
+    "audit": "Audit Logs",
+    "modelRouting": "Model Routing",
+    "budgets": "Budgets",
+    "hands": "Hands",
+    "departments": "Departments"
   },
   "breadcrumb": {
     "main": "Home"
@@ -772,5 +778,94 @@
     "dateTo": "To",
     "chartPie": "Pie",
     "chartBar": "Bar"
+  },
+  "enterprise": {
+    "cockpit": {
+      "title": "Cockpit Dashboard",
+      "selectBot": "Select a bot",
+      "last7Days": "Last 7 days",
+      "last30Days": "Last 30 days",
+      "last90Days": "Last 90 days",
+      "savedHours": "Saved Hours",
+      "aiTime": "AI Time",
+      "multiplier": "Multiplier",
+      "laborCostSaved": "Labor Cost Saved",
+      "totalConversations": "Conversations",
+      "totalMessages": "Messages",
+      "activeUsers": "Active Users",
+      "totalCost": "Total Cost",
+      "noData": "No data available"
+    },
+    "audit": {
+      "title": "Audit Logs",
+      "selectBot": "Select a bot",
+      "selectBotPlaceholder": "Select a bot to view audit logs",
+      "filterUser": "User ID",
+      "userIdPlaceholder": "Filter by user",
+      "filterAction": "Action",
+      "actionPlaceholder": "Filter by action",
+      "timestamp": "Timestamp",
+      "user": "User",
+      "action": "Action",
+      "resource": "Resource",
+      "details": "Details",
+      "noData": "No audit logs found"
+    },
+    "modelRouting": {
+      "title": "Model Routing",
+      "selectBot": "Select a bot",
+      "model": "Model",
+      "complexity": "Complexity",
+      "priority": "Priority",
+      "disabled": "Disabled",
+      "createTitle": "Create Model Route",
+      "createSuccess": "Model route created",
+      "createFailed": "Failed to create model route",
+      "deleteSuccess": "Model route deleted",
+      "deleteFailed": "Failed to delete model route",
+      "noData": "No model routes configured"
+    },
+    "budgets": {
+      "title": "Budget Management",
+      "scopeType": "Scope Type",
+      "scopeId": "Scope ID",
+      "period": "Period",
+      "limit": "Limit",
+      "alertThreshold": "Alert Threshold",
+      "action": "Action on Exceed",
+      "createTitle": "Create Budget",
+      "createSuccess": "Budget created",
+      "createFailed": "Failed to create budget",
+      "deleteSuccess": "Budget deleted",
+      "deleteFailed": "Failed to delete budget",
+      "noData": "No budgets configured"
+    },
+    "hands": {
+      "title": "Hands Management",
+      "selectBot": "Select a bot",
+      "disabled": "Disabled",
+      "noDescription": "No description",
+      "trigger": "Trigger",
+      "execute": "Execute",
+      "markdown": "Hand Markdown",
+      "createTitle": "Create Hand",
+      "createSuccess": "Hand created",
+      "createFailed": "Failed to create hand",
+      "executeSuccess": "Hand executed successfully",
+      "executeFailed": "Failed to execute hand",
+      "deleteSuccess": "Hand deleted",
+      "deleteFailed": "Failed to delete hand",
+      "noData": "No hands configured"
+    },
+    "departments": {
+      "title": "Departments",
+      "selectBot": "Select a bot",
+      "parentId": "Parent ID",
+      "parentIdPlaceholder": "Parent department ID",
+      "createTitle": "Create Department",
+      "createSuccess": "Department created",
+      "createFailed": "Failed to create department",
+      "noData": "No departments found"
+    }
   }
 }

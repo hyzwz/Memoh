@@ -60,7 +60,13 @@
     "home": "首页",
     "mcp": "MCP",
     "platform": "接入平台",
-    "usage": "用量统计"
+    "usage": "用量统计",
+    "cockpit": "驾驶舱",
+    "audit": "审计日志",
+    "modelRouting": "模型路由",
+    "budgets": "预算管理",
+    "hands": "Hands管理",
+    "departments": "部门管理"
   },
   "breadcrumb": {
     "main": "主页"
@@ -768,5 +774,94 @@
     "dateTo": "结束日期",
     "chartPie": "饼图",
     "chartBar": "柱状图"
+  },
+  "enterprise": {
+    "cockpit": {
+      "title": "效率驾驶舱",
+      "selectBot": "选择Bot",
+      "last7Days": "最近7天",
+      "last30Days": "最近30天",
+      "last90Days": "最近90天",
+      "savedHours": "节省工时",
+      "aiTime": "AI用时",
+      "multiplier": "效率倍数",
+      "laborCostSaved": "节省人力成本",
+      "totalConversations": "对话数",
+      "totalMessages": "消息数",
+      "activeUsers": "活跃用户",
+      "totalCost": "总成本",
+      "noData": "暂无数据"
+    },
+    "audit": {
+      "title": "审计日志",
+      "selectBot": "选择Bot",
+      "selectBotPlaceholder": "选择Bot查看审计日志",
+      "filterUser": "用户ID",
+      "userIdPlaceholder": "按用户筛选",
+      "filterAction": "操作",
+      "actionPlaceholder": "按操作筛选",
+      "timestamp": "时间",
+      "user": "用户",
+      "action": "操作",
+      "resource": "资源",
+      "details": "详情",
+      "noData": "暂无审计日志"
+    },
+    "modelRouting": {
+      "title": "模型路由",
+      "selectBot": "选择Bot",
+      "model": "模型",
+      "complexity": "复杂度",
+      "priority": "优先级",
+      "disabled": "已禁用",
+      "createTitle": "创建模型路由",
+      "createSuccess": "模型路由创建成功",
+      "createFailed": "创建模型路由失败",
+      "deleteSuccess": "模型路由已删除",
+      "deleteFailed": "删除模型路由失败",
+      "noData": "暂无模型路由配置"
+    },
+    "budgets": {
+      "title": "预算管理",
+      "scopeType": "范围类型",
+      "scopeId": "范围ID",
+      "period": "周期",
+      "limit": "限额",
+      "alertThreshold": "告警阈值",
+      "action": "超额操作",
+      "createTitle": "创建预算",
+      "createSuccess": "预算创建成功",
+      "createFailed": "创建预算失败",
+      "deleteSuccess": "预算已删除",
+      "deleteFailed": "删除预算失败",
+      "noData": "暂无预算配置"
+    },
+    "hands": {
+      "title": "Hands管理",
+      "selectBot": "选择Bot",
+      "disabled": "已禁用",
+      "noDescription": "暂无描述",
+      "trigger": "触发方式",
+      "execute": "执行",
+      "markdown": "Hand Markdown",
+      "createTitle": "创建Hand",
+      "createSuccess": "Hand创建成功",
+      "createFailed": "创建Hand失败",
+      "executeSuccess": "Hand执行成功",
+      "executeFailed": "执行Hand失败",
+      "deleteSuccess": "Hand已删除",
+      "deleteFailed": "删除Hand失败",
+      "noData": "暂无Hand配置"
+    },
+    "departments": {
+      "title": "部门管理",
+      "selectBot": "选择Bot",
+      "parentId": "上级部门ID",
+      "parentIdPlaceholder": "上级部门ID",
+      "createTitle": "创建部门",
+      "createSuccess": "部门创建成功",
+      "createFailed": "创建部门失败",
+      "noData": "暂无部门"
+    }
   }
 }

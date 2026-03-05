@@ -92,6 +92,54 @@ const routes = [
         },
       },
       {
+        name: 'cockpit',
+        path: '/cockpit',
+        component: () => import('@/pages/enterprise/cockpit/index.vue'),
+        meta: {
+          breadcrumb: i18nRef('sidebar.cockpit'),
+        },
+      },
+      {
+        name: 'audit',
+        path: '/audit',
+        component: () => import('@/pages/enterprise/audit/index.vue'),
+        meta: {
+          breadcrumb: i18nRef('sidebar.audit'),
+        },
+      },
+      {
+        name: 'model-routing',
+        path: '/model-routing',
+        component: () => import('@/pages/enterprise/model-routing/index.vue'),
+        meta: {
+          breadcrumb: i18nRef('sidebar.modelRouting'),
+        },
+      },
+      {
+        name: 'budgets',
+        path: '/budgets',
+        component: () => import('@/pages/enterprise/budgets/index.vue'),
+        meta: {
+          breadcrumb: i18nRef('sidebar.budgets'),
+        },
+      },
+      {
+        name: 'hands',
+        path: '/hands',
+        component: () => import('@/pages/enterprise/hands/index.vue'),
+        meta: {
+          breadcrumb: i18nRef('sidebar.hands'),
+        },
+      },
+      {
+        name: 'departments',
+        path: '/departments',
+        component: () => import('@/pages/enterprise/departments/index.vue'),
+        meta: {
+          breadcrumb: i18nRef('sidebar.departments'),
+        },
+      },
+      {
         name: 'settings',
         path: '/settings',
         component: () => import('@/pages/settings/index.vue'),
