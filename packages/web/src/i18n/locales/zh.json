@@ -786,10 +786,8 @@
       "aiTime": "AI用时",
       "multiplier": "效率倍数",
       "laborCostSaved": "节省人力成本",
-      "totalConversations": "对话数",
-      "totalMessages": "消息数",
-      "activeUsers": "活跃用户",
-      "totalCost": "总成本",
+      "totalReports": "报告数",
+      "totalInnovations": "创新数",
       "noData": "暂无数据"
     },
     "audit": {

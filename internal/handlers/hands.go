@@ -13,6 +13,9 @@ import (
 // ErrHandNotFound is returned when a hand is not found.
 var ErrHandNotFound = errors.New("hand not found")
 
+// ErrRouteNotFound is returned when a model route is not found or doesn't belong to the bot.
+var ErrRouteNotFound = errors.New("route not found")
+
 // HandDTO is the API representation of a hand.
 type HandDTO struct {
 	ID          string         `json:"id"`
@@ -44,9 +47,9 @@ type CreateHandRequest struct {
 // All methods that access a specific hand take botID for scoping.
 type HandsServiceInterface interface {
 	List(ctx context.Context, botID string) ([]HandDTO, error)
-	Get(ctx context.Context, id string) (*HandDTO, error)
+	Get(ctx context.Context, botID, id string) (*HandDTO, error)
 	CreateFromMarkdown(ctx context.Context, botID, markdown string) (*HandDTO, error)
-	Delete(ctx context.Context, id string) error
+	Delete(ctx context.Context, botID, id string) error
 	Execute(ctx context.Context, botID, handID, triggerType string) (*HandExecutionResultDTO, error)
 }
 
@@ -109,7 +112,7 @@ func (h *HandsHandler) GetHand(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusBadRequest, "hand_id is required")
 	}
 
-	hand, err := h.svc.Get(c.Request().Context(), handID)
+	hand, err := h.svc.Get(c.Request().Context(), botID, handID)
 	if err != nil {
 		if errors.Is(err, ErrHandNotFound) {
 			return echo.NewHTTPError(http.StatusNotFound, "hand not found")
@@ -167,7 +170,7 @@ func (h *HandsHandler) DeleteHand(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusBadRequest, "hand_id is required")
 	}
 
-	if err := h.svc.Delete(c.Request().Context(), handID); err != nil {
+	if err := h.svc.Delete(c.Request().Context(), botID, handID); err != nil {
 		if errors.Is(err, ErrHandNotFound) {
 			return echo.NewHTTPError(http.StatusNotFound, "hand not found")
 		}

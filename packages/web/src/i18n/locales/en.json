@@ -790,10 +790,8 @@
       "aiTime": "AI Time",
       "multiplier": "Multiplier",
       "laborCostSaved": "Labor Cost Saved",
-      "totalConversations": "Conversations",
-      "totalMessages": "Messages",
-      "activeUsers": "Active Users",
-      "totalCost": "Total Cost",
+      "totalReports": "Reports",
+      "totalInnovations": "Innovations",
       "noData": "No data available"
     },
     "audit": {

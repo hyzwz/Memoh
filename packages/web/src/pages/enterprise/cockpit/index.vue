@@ -65,14 +65,14 @@
     </template>
 
     <template v-else-if="summary">
-      <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      <div class="grid grid-cols-2 lg:grid-cols-3 gap-4">
         <Card>
           <CardHeader class="pb-2">
             <CardDescription>{{ $t('enterprise.cockpit.savedHours') }}</CardDescription>
           </CardHeader>
           <CardContent>
             <p class="text-2xl font-bold tabular-nums">
-              {{ summary.saved_hours?.toFixed(1) ?? '0' }}h
+              {{ summary.total_saved_hours?.toFixed(1) ?? '0' }}h
             </p>
           </CardContent>
         </Card>
@@ -82,7 +82,7 @@
           </CardHeader>
           <CardContent>
             <p class="text-2xl font-bold tabular-nums">
-              {{ summary.ai_time_hours?.toFixed(1) ?? '0' }}h
+              {{ summary.total_ai_time_minutes ?? 0 }}min
             </p>
           </CardContent>
         </Card>
@@ -92,7 +92,30 @@
           </CardHeader>
           <CardContent>
             <p class="text-2xl font-bold tabular-nums">
-              {{ summary.multiplier?.toFixed(1) ?? '0' }}x
+              {{ summary.average_efficiency_multiple?.toFixed(1) ?? '0' }}x
+            </p>
+          </CardContent>
+        </Card>
+      </div>
+
+      <div class="grid grid-cols-2 lg:grid-cols-3 gap-4">
+        <Card>
+          <CardHeader class="pb-2">
+            <CardDescription>{{ $t('enterprise.cockpit.totalReports') }}</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <p class="text-2xl font-bold tabular-nums">
+              {{ summary.total_reports ?? 0 }}
+            </p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader class="pb-2">
+            <CardDescription>{{ $t('enterprise.cockpit.totalInnovations') }}</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <p class="text-2xl font-bold tabular-nums">
+              {{ summary.total_innovations ?? 0 }}
             </p>
           </CardContent>
         </Card>
@@ -102,50 +125,7 @@
           </CardHeader>
           <CardContent>
             <p class="text-2xl font-bold tabular-nums">
-              {{ formatCurrency(summary.labor_cost_saved ?? 0) }}
-            </p>
-          </CardContent>
-        </Card>
-      </div>
-
-      <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <Card>
-          <CardHeader class="pb-2">
-            <CardDescription>{{ $t('enterprise.cockpit.totalConversations') }}</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <p class="text-2xl font-bold tabular-nums">
-              {{ summary.total_conversations ?? 0 }}
-            </p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader class="pb-2">
-            <CardDescription>{{ $t('enterprise.cockpit.totalMessages') }}</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <p class="text-2xl font-bold tabular-nums">
-              {{ summary.total_messages ?? 0 }}
-            </p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader class="pb-2">
-            <CardDescription>{{ $t('enterprise.cockpit.activeUsers') }}</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <p class="text-2xl font-bold tabular-nums">
-              {{ summary.active_users ?? 0 }}
-            </p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader class="pb-2">
-            <CardDescription>{{ $t('enterprise.cockpit.totalCost') }}</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <p class="text-2xl font-bold tabular-nums">
-              {{ formatCurrency(summary.total_cost ?? 0) }}
+              {{ formatCNY(summary.labor_cost_cny ?? 0) }}
             </p>
           </CardContent>
         </Card>
@@ -209,7 +189,7 @@ const { data: summary, status, refetch } = useQuery({
 
 const isLoading = computed(() => status.value === 'loading')
 
-function formatCurrency(n: number): string {
-  return '$' + n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+function formatCNY(n: number): string {
+  return '\u00A5' + n.toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 }
 </script>

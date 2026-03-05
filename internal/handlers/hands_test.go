@@ -27,7 +27,7 @@ func (f *fakeHandsService) List(_ context.Context, botID string) ([]HandDTO, err
 	return f.hands, nil
 }
 
-func (f *fakeHandsService) Get(_ context.Context, id string) (*HandDTO, error) {
+func (f *fakeHandsService) Get(_ context.Context, botID, id string) (*HandDTO, error) {
 	if f.err != nil {
 		return nil, f.err
 	}
@@ -46,7 +46,7 @@ func (f *fakeHandsService) CreateFromMarkdown(_ context.Context, botID, markdown
 	return f.created, nil
 }
 
-func (f *fakeHandsService) Delete(_ context.Context, id string) error {
+func (f *fakeHandsService) Delete(_ context.Context, botID, id string) error {
 	return f.err
 }
 

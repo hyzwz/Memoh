@@ -73,6 +73,7 @@ import (
 	"github.com/memohai/memoh/internal/settings"
 	"github.com/memohai/memoh/internal/storage/providers/containerfs"
 	"github.com/memohai/memoh/internal/subagent"
+	"github.com/memohai/memoh/internal/enterprise"
 	"github.com/memohai/memoh/internal/version"
 )
 
@@ -230,11 +231,12 @@ func runServe() {
 			provideServerHandler(provideWebHandler),
 
 			// Enterprise feature handlers (F1-F7)
-			// TODO: wire DepartmentHandler, AuditHandler, CockpitHandler
-			// once service-layer DB adapters are implemented.
-			// provideServerHandler(handlers.NewDepartmentHandler),
-			// provideServerHandler(handlers.NewAuditHandler),
-			// provideServerHandler(handlers.NewCockpitHandler),
+			provideServerHandler(provideDepartmentHandler),
+			provideServerHandler(provideAuditHandler),
+			provideServerHandler(provideCockpitHandler),
+			provideServerHandler(provideHandsHandler),
+			provideServerHandler(provideModelRoutingHandler),
+			provideServerHandler(provideCostTrackingHandler),
 
 			provideServer,
 		),
@@ -880,4 +882,38 @@ func (a *gatewayAssetLoaderAdapter) OpenForGateway(ctx context.Context, botID, c
 		return nil, "", err
 	}
 	return reader, strings.TrimSpace(asset.Mime), nil
+}
+
+// ---------------------------------------------------------------------------
+// enterprise feature providers (F1-F7)
+// ---------------------------------------------------------------------------
+
+func provideDepartmentHandler(log *slog.Logger, queries *dbsqlc.Queries) *handlers.DepartmentHandler {
+	svc := enterprise.NewDepartmentService(log, queries)
+	return handlers.NewDepartmentHandler(svc)
+}
+
+func provideAuditHandler(log *slog.Logger, queries *dbsqlc.Queries) *handlers.AuditHandler {
+	svc := enterprise.NewAuditQueryService(log, queries)
+	return handlers.NewAuditHandler(svc)
+}
+
+func provideCockpitHandler(log *slog.Logger, queries *dbsqlc.Queries) *handlers.CockpitHandler {
+	svc := enterprise.NewCockpitService(log, queries)
+	return handlers.NewCockpitHandler(svc)
+}
+
+func provideHandsHandler(log *slog.Logger, queries *dbsqlc.Queries) *handlers.HandsHandler {
+	svc := enterprise.NewHandsService(log, queries)
+	return handlers.NewHandsHandler(svc)
+}
+
+func provideModelRoutingHandler(log *slog.Logger, queries *dbsqlc.Queries) *handlers.ModelRoutingHandler {
+	svc := enterprise.NewModelRoutingService(log, queries)
+	return handlers.NewModelRoutingHandler(svc)
+}
+
+func provideCostTrackingHandler(log *slog.Logger, queries *dbsqlc.Queries) *handlers.CostTrackingHandler {
+	svc := enterprise.NewCostTrackingService(log, queries)
+	return handlers.NewCostTrackingHandler(svc)
 }
