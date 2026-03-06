@@ -91,7 +91,7 @@
                 <SelectValue placeholder="无 (顶级部门)" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">无 (顶级部门)</SelectItem>
+                <SelectItem value="__none__">无 (顶级部门)</SelectItem>
                 <SelectItem v-for="d in departments" :key="d.id" :value="d.id!">
                   {{ d.name }}
                 </SelectItem>
@@ -163,7 +163,7 @@ async function handleCreate() {
   try {
     const res = await client.POST('/bots/{bot_id}/departments', {
       params: { path: { bot_id: selectedBotId.value } },
-      body: { name: form.name, description: form.description, parent_id: form.parent_id || undefined },
+      body: { name: form.name, description: form.description, parent_id: (form.parent_id && form.parent_id !== '__none__') ? form.parent_id : undefined },
     })
     if (res.error) throw res.error
     showCreate.value = false

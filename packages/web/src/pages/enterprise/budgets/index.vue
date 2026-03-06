@@ -232,7 +232,8 @@ async function handleCreate() {
 
 async function handleDelete(id: string) {
   try {
-    await client.DELETE('/budgets/{budget_id}', { params: { path: { budget_id: id } } })
+    const res = await client.DELETE('/budgets/{budget_id}', { params: { path: { budget_id: id } } })
+    if (res.error) throw res.error
     refetch()
     toast.success('预算已删除')
   } catch { toast.error('删除预算失败') }

@@ -216,9 +216,10 @@ async function handleCreate() {
 
 async function handleDelete(id: string) {
   try {
-    await client.DELETE('/bots/{bot_id}/model-routes/{route_id}', {
+    const res = await client.DELETE('/bots/{bot_id}/model-routes/{route_id}', {
       params: { path: { bot_id: selectedBotId.value, route_id: id } },
     })
+    if (res.error) throw res.error
     refetch()
     toast.success('模型路由已删除')
   } catch {

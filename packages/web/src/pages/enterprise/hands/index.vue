@@ -185,9 +185,10 @@ async function handleExecute(handId: string) {
 
 async function handleDelete(handId: string) {
   try {
-    await client.DELETE('/bots/{bot_id}/hands/{hand_id}', {
+    const res = await client.DELETE('/bots/{bot_id}/hands/{hand_id}', {
       params: { path: { bot_id: selectedBotId.value, hand_id: handId } },
     })
+    if (res.error) throw res.error
     refetch()
     toast.success('Hand已删除')
   } catch { toast.error('删除Hand失败') }
