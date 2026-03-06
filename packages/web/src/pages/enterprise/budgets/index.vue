@@ -1,61 +1,86 @@
 <template>
   <div class="p-6 space-y-6 mx-auto">
+    <!-- Header -->
     <div class="flex items-center justify-between">
-      <h1 class="text-2xl font-semibold tracking-tight">
-        {{ $t('enterprise.budgets.title') }}
-      </h1>
-      <Button
-        size="sm"
-        @click="showCreate = true"
-      >
-        {{ $t('common.add') }}
+      <div>
+        <h1 class="text-2xl font-bold tracking-tight">预算管理</h1>
+        <p class="text-sm text-muted-foreground mt-1">设置消费限额与告警，控制AI使用成本</p>
+      </div>
+      <Button size="sm" @click="showCreate = true">
+        + 新建预算
       </Button>
     </div>
 
+    <!-- Summary cards -->
+    <div v-if="budgets && budgets.length > 0" class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+      <Card>
+        <CardContent class="p-5">
+          <div class="text-xs text-muted-foreground uppercase tracking-wider mb-2">预算总数</div>
+          <p class="text-2xl font-bold tabular-nums">{{ budgets.length }}</p>
+        </CardContent>
+      </Card>
+      <Card>
+        <CardContent class="p-5">
+          <div class="text-xs text-muted-foreground uppercase tracking-wider mb-2">拦截策略</div>
+          <p class="text-2xl font-bold tabular-nums text-rose-600">{{ blockCount }}</p>
+          <p class="text-xs text-muted-foreground">个 Block 规则</p>
+        </CardContent>
+      </Card>
+      <Card>
+        <CardContent class="p-5">
+          <div class="text-xs text-muted-foreground uppercase tracking-wider mb-2">告警策略</div>
+          <p class="text-2xl font-bold tabular-nums text-amber-600">{{ warnCount }}</p>
+          <p class="text-xs text-muted-foreground">个 Warn 规则</p>
+        </CardContent>
+      </Card>
+    </div>
+
+    <!-- Loading -->
     <template v-if="isLoading">
-      <div class="flex justify-center py-20">
-        <Spinner class="size-8" />
-      </div>
+      <div class="flex justify-center py-20"><Spinner class="size-8" /></div>
     </template>
 
-    <template v-else-if="budgets.length > 0">
-      <div class="rounded-md border">
+    <!-- Table -->
+    <template v-else-if="budgets && budgets.length > 0">
+      <div class="rounded-lg border overflow-hidden">
         <table class="w-full text-sm">
           <thead>
             <tr class="border-b bg-muted/50">
-              <th class="p-3 text-left font-medium">{{ $t('enterprise.budgets.scopeType') }}</th>
-              <th class="p-3 text-left font-medium">{{ $t('enterprise.budgets.scopeId') }}</th>
-              <th class="p-3 text-left font-medium">{{ $t('enterprise.budgets.period') }}</th>
-              <th class="p-3 text-right font-medium">{{ $t('enterprise.budgets.limit') }}</th>
-              <th class="p-3 text-left font-medium">{{ $t('enterprise.budgets.alertThreshold') }}</th>
-              <th class="p-3 text-left font-medium">{{ $t('enterprise.budgets.action') }}</th>
-              <th class="p-3 text-right font-medium">{{ $t('common.operation') }}</th>
+              <th class="p-3 text-left font-medium text-xs uppercase tracking-wider text-muted-foreground">范围</th>
+              <th class="p-3 text-left font-medium text-xs uppercase tracking-wider text-muted-foreground">范围ID</th>
+              <th class="p-3 text-left font-medium text-xs uppercase tracking-wider text-muted-foreground">周期</th>
+              <th class="p-3 text-right font-medium text-xs uppercase tracking-wider text-muted-foreground">限额</th>
+              <th class="p-3 text-center font-medium text-xs uppercase tracking-wider text-muted-foreground">告警阈值</th>
+              <th class="p-3 text-center font-medium text-xs uppercase tracking-wider text-muted-foreground">超额操作</th>
+              <th class="p-3 text-right font-medium text-xs uppercase tracking-wider text-muted-foreground">操作</th>
             </tr>
           </thead>
           <tbody>
-            <tr
-              v-for="b in budgets"
-              :key="b.id"
-              class="border-b"
-            >
+            <tr v-for="b in budgets" :key="b.id" class="border-b hover:bg-muted/30 transition-colors">
               <td class="p-3">
-                <Badge variant="outline">{{ b.scope_type }}</Badge>
+                <Badge variant="outline" class="text-xs" :class="scopeBadgeClass(b.scope_type)">
+                  {{ scopeLabel(b.scope_type) }}
+                </Badge>
               </td>
-              <td class="p-3 text-muted-foreground">{{ b.scope_id }}</td>
-              <td class="p-3">{{ b.period }}</td>
-              <td class="p-3 text-right tabular-nums">${{ b.limit_amount?.toFixed(2) }}</td>
-              <td class="p-3 tabular-nums">{{ ((b.alert_threshold ?? 0) * 100).toFixed(0) }}%</td>
-              <td class="p-3">
-                <Badge variant="secondary">{{ b.action_on_exceed || '-' }}</Badge>
+              <td class="p-3 text-muted-foreground font-mono text-xs">{{ shortId(b.scope_id) }}</td>
+              <td class="p-3">{{ periodLabel(b.period) }}</td>
+              <td class="p-3 text-right tabular-nums font-semibold">${{ b.limit_amount?.toFixed(2) }}</td>
+              <td class="p-3 text-center">
+                <div class="inline-flex items-center gap-1.5">
+                  <div class="w-16 h-1.5 rounded-full bg-muted overflow-hidden">
+                    <div class="h-full rounded-full bg-amber-500" :style="{ width: `${(b.alert_threshold ?? 0.8) * 100}%` }" />
+                  </div>
+                  <span class="text-xs tabular-nums text-muted-foreground">{{ ((b.alert_threshold ?? 0) * 100).toFixed(0) }}%</span>
+                </div>
+              </td>
+              <td class="p-3 text-center">
+                <Badge :class="actionBadgeClass(b.action_on_exceed)" class="text-xs">
+                  {{ actionLabel(b.action_on_exceed) }}
+                </Badge>
               </td>
               <td class="p-3 text-right">
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  class="text-destructive"
-                  @click="handleDelete(b.id)"
-                >
-                  {{ $t('common.delete') }}
+                <Button variant="ghost" size="sm" class="text-destructive text-xs" @click="handleDelete(b.id)">
+                  删除
                 </Button>
               </td>
             </tr>
@@ -64,101 +89,74 @@
       </div>
     </template>
 
-    <template v-else>
-      <div class="text-muted-foreground text-center py-12">
-        {{ $t('enterprise.budgets.noData') }}
-      </div>
+    <!-- Empty -->
+    <template v-else-if="!isLoading">
+      <EmptyState icon="wallet" message="暂无预算配置" sub="创建预算规则后，系统将自动监控AI消费" />
     </template>
 
+    <!-- Create dialog -->
     <Dialog v-model:open="showCreate">
       <DialogContent class="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>{{ $t('enterprise.budgets.createTitle') }}</DialogTitle>
+          <DialogTitle>创建预算</DialogTitle>
         </DialogHeader>
         <div class="space-y-4 mt-4">
-          <div class="space-y-1.5">
-            <Label>{{ $t('enterprise.budgets.scopeType') }}</Label>
-            <Select v-model="form.scope_type">
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="bot">Bot</SelectItem>
-                <SelectItem value="user">User</SelectItem>
-                <SelectItem value="department">Department</SelectItem>
-                <SelectItem value="global">Global</SelectItem>
-              </SelectContent>
-            </Select>
+          <div class="grid grid-cols-2 gap-4">
+            <div class="space-y-1.5">
+              <Label>范围类型</Label>
+              <Select v-model="form.scope_type">
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="bot">Bot</SelectItem>
+                  <SelectItem value="user">用户</SelectItem>
+                  <SelectItem value="department">部门</SelectItem>
+                  <SelectItem value="system">全局</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div class="space-y-1.5">
+              <Label>周期</Label>
+              <Select v-model="form.period">
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="daily">每日</SelectItem>
+                  <SelectItem value="weekly">每周</SelectItem>
+                  <SelectItem value="monthly">每月</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
           </div>
           <div class="space-y-1.5">
-            <Label>{{ $t('enterprise.budgets.scopeId') }}</Label>
-            <Input
-              v-model="form.scope_id"
-              placeholder="bot-1, user-123, etc."
-            />
+            <Label>范围ID</Label>
+            <Input v-model="form.scope_id" placeholder="bot-id, user-id, 部门名等" />
+          </div>
+          <div class="grid grid-cols-2 gap-4">
+            <div class="space-y-1.5">
+              <Label>限额 ($)</Label>
+              <Input v-model.number="form.limit_amount" type="number" min="0" step="0.01" />
+            </div>
+            <div class="space-y-1.5">
+              <Label>告警阈值</Label>
+              <Input v-model.number="form.alert_threshold" type="number" min="0" max="1" step="0.05" />
+            </div>
           </div>
           <div class="space-y-1.5">
-            <Label>{{ $t('enterprise.budgets.period') }}</Label>
-            <Select v-model="form.period">
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="daily">Daily</SelectItem>
-                <SelectItem value="weekly">Weekly</SelectItem>
-                <SelectItem value="monthly">Monthly</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-          <div class="space-y-1.5">
-            <Label>{{ $t('enterprise.budgets.limit') }} ($)</Label>
-            <Input
-              v-model.number="form.limit_amount"
-              type="number"
-              min="0"
-              step="0.01"
-            />
-          </div>
-          <div class="space-y-1.5">
-            <Label>{{ $t('enterprise.budgets.alertThreshold') }} (0-1)</Label>
-            <Input
-              v-model.number="form.alert_threshold"
-              type="number"
-              min="0"
-              max="1"
-              step="0.05"
-            />
-          </div>
-          <div class="space-y-1.5">
-            <Label>{{ $t('enterprise.budgets.action') }}</Label>
+            <Label>超额操作</Label>
             <Select v-model="form.action_on_exceed">
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
+              <SelectTrigger><SelectValue /></SelectTrigger>
               <SelectContent>
-                <SelectItem value="warn">Warn</SelectItem>
-                <SelectItem value="block">Block</SelectItem>
-                <SelectItem value="downgrade">Downgrade</SelectItem>
+                <SelectItem value="warn">告警 (Warn)</SelectItem>
+                <SelectItem value="block">拦截 (Block)</SelectItem>
+                <SelectItem value="downgrade">降级 (Downgrade)</SelectItem>
               </SelectContent>
             </Select>
           </div>
         </div>
         <div class="flex justify-end gap-2 mt-6">
-          <Button
-            variant="outline"
-            @click="showCreate = false"
-          >
-            {{ $t('common.cancel') }}
-          </Button>
-          <Button
-            :disabled="!form.scope_type || !form.scope_id || !form.period || form.limit_amount <= 0 || creating"
-            @click="handleCreate"
-          >
-            <Spinner
-              v-if="creating"
-              class="mr-2 size-4"
-            />
-            {{ $t('common.confirm') }}
+          <Button variant="outline" @click="showCreate = false">取消</Button>
+          <Button :disabled="!form.scope_type || !form.scope_id || !form.period || form.limit_amount <= 0 || creating" @click="handleCreate">
+            <Spinner v-if="creating" class="mr-2 size-4" />
+            确认
           </Button>
         </div>
       </DialogContent>
@@ -170,80 +168,73 @@
 import { ref, computed, reactive } from 'vue'
 import { useQuery } from '@pinia/colada'
 import { toast } from 'vue-sonner'
-import { useI18n } from 'vue-i18n'
 import {
-  Badge,
-  Button,
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  Input,
-  Label,
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-  Spinner,
+  Badge, Button, Card, CardContent,
+  Dialog, DialogContent, DialogHeader, DialogTitle,
+  Input, Label, Select, SelectContent, SelectItem, SelectTrigger, SelectValue, Spinner,
 } from '@memoh/ui'
 import { client } from '@memoh/sdk/client'
+import EmptyState from '../_components/EmptyState.vue'
 
-const { t } = useI18n()
 const showCreate = ref(false)
 const creating = ref(false)
 
 const form = reactive({
-  scope_type: 'bot',
-  scope_id: '',
-  period: 'monthly',
-  limit_amount: 100,
-  alert_threshold: 0.8,
-  action_on_exceed: 'warn',
+  scope_type: 'bot', scope_id: '', period: 'monthly',
+  limit_amount: 100, alert_threshold: 0.8, action_on_exceed: 'warn',
 })
 
 const { data: budgets, status, refetch } = useQuery({
   key: () => ['budgets'],
   query: async () => {
-    const res = await client.GET('/budgets', {
-      params: { query: {} },
-    })
-    if (res.error) throw new Error('Failed to load budgets')
+    const res = await client.GET('/budgets', { params: { query: {} } })
+    if (res.error) throw new Error('Failed')
     return res.data ?? []
   },
 })
 
 const isLoading = computed(() => status.value === 'loading')
+const blockCount = computed(() => budgets.value?.filter((b: any) => b.action_on_exceed === 'block').length ?? 0)
+const warnCount = computed(() => budgets.value?.filter((b: any) => b.action_on_exceed === 'warn').length ?? 0)
+
+function scopeLabel(s: string | undefined): string {
+  return { bot: 'Bot', user: '用户', department: '部门', system: '全局' }[s ?? ''] ?? s ?? '-'
+}
+function scopeBadgeClass(s: string | undefined): string {
+  return { bot: 'border-blue-200 text-blue-700', user: 'border-violet-200 text-violet-700', department: 'border-emerald-200 text-emerald-700', system: 'border-amber-200 text-amber-700' }[s ?? ''] ?? ''
+}
+function periodLabel(p: string | undefined): string {
+  return { daily: '每日', weekly: '每周', monthly: '每月' }[p ?? ''] ?? p ?? '-'
+}
+function actionLabel(a: string | undefined): string {
+  return { warn: '告警', block: '拦截', downgrade: '降级' }[a ?? ''] ?? a ?? '-'
+}
+function actionBadgeClass(a: string | undefined): string {
+  return { warn: 'bg-amber-500/10 text-amber-700 border-amber-200', block: 'bg-rose-500/10 text-rose-700 border-rose-200', downgrade: 'bg-blue-500/10 text-blue-700 border-blue-200' }[a ?? ''] ?? ''
+}
+function shortId(id: string | undefined): string {
+  if (!id) return '-'
+  return id.length > 16 ? id.slice(0, 8) + '...' + id.slice(-4) : id
+}
 
 async function handleCreate() {
   creating.value = true
   try {
-    const res = await client.POST('/budgets', {
-      body: { ...form },
-    })
+    const res = await client.POST('/budgets', { body: { ...form } })
     if (res.error) throw res.error
     showCreate.value = false
     form.scope_id = ''
     form.limit_amount = 100
     refetch()
-    toast.success(t('enterprise.budgets.createSuccess'))
-  } catch {
-    toast.error(t('enterprise.budgets.createFailed'))
-  } finally {
-    creating.value = false
-  }
+    toast.success('预算创建成功')
+  } catch { toast.error('创建预算失败') } finally { creating.value = false }
 }
 
 async function handleDelete(id: string) {
   try {
-    const res = await client.DELETE('/budgets/{budget_id}', {
-      params: { path: { budget_id: id } },
-    })
-    if (res.error) throw res.error
+    await client.DELETE('/budgets/{budget_id}', { params: { path: { budget_id: id } } })
     refetch()
-    toast.success(t('enterprise.budgets.deleteSuccess'))
-  } catch {
-    toast.error(t('enterprise.budgets.deleteFailed'))
-  }
+    toast.success('预算已删除')
+  } catch { toast.error('删除预算失败') }
 }
 </script>
