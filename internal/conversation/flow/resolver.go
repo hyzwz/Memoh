@@ -66,6 +66,19 @@ type gatewayAssetLoader interface {
 }
 
 // Resolver orchestrates chat with the agent gateway.
+// ModelRouteEntry represents a single model routing rule.
+type ModelRouteEntry struct {
+	ModelID        string // UUID of the model to route to
+	Priority       int
+	ComplexityTier string
+	IsEnabled      bool
+}
+
+// ModelRouter resolves model routing overrides for a bot.
+type ModelRouter interface {
+	ListEnabledRoutes(ctx context.Context, botID string) ([]ModelRouteEntry, error)
+}
+
 type Resolver struct {
 	modelsService   *models.Service
 	queries         *sqlc.Queries
@@ -76,6 +89,7 @@ type Resolver struct {
 	inboxService    *inbox.Service
 	skillLoader     SkillLoader
 	assetLoader     gatewayAssetLoader
+	modelRouter     ModelRouter
 	gatewayBaseURL  string
 	timeout         time.Duration
 	logger          *slog.Logger
@@ -133,6 +147,13 @@ func (r *Resolver) SetGatewayAssetLoader(loader gatewayAssetLoader) {
 
 // SetInboxService configures inbox support for injecting unread items into the
 // system prompt and marking them as read after a response.
+// SetModelRouter configures model routing overrides for bot-level model selection.
+func (r *Resolver) SetModelRouter(router ModelRouter) {
+	if r != nil {
+		r.modelRouter = router
+	}
+}
+
 func (r *Resolver) SetInboxService(service *inbox.Service) {
 	r.inboxService = service
 }
@@ -1694,6 +1715,17 @@ func (r *Resolver) selectChatModel(ctx context.Context, req conversation.ChatReq
 		return models.GetResponse{}, sqlc.LlmProvider{}, fmt.Errorf("chat model not configured: specify model in request or bot settings")
 	}
 
+	// Model routing override: if no explicit model in request, check bot routes.
+	if r.modelRouter != nil && strings.TrimSpace(req.Model) == "" {
+		if overrideID, ok := r.resolveModelRoute(ctx, req.BotID); ok {
+			modelID = overrideID
+			r.logger.Debug("model route override applied",
+				slog.String("bot_id", req.BotID),
+				slog.String("routed_model_id", modelID),
+			)
+		}
+	}
+
 	if providerFilter == "" {
 		return r.fetchChatModel(ctx, modelID)
 	}
@@ -1747,6 +1779,22 @@ resolved:
 		return models.GetResponse{}, sqlc.LlmProvider{}, err
 	}
 	return model, prov, nil
+}
+
+// resolveModelRoute returns the model UUID from the highest priority enabled route for a bot.
+func (r *Resolver) resolveModelRoute(ctx context.Context, botID string) (string, bool) {
+	routes, err := r.modelRouter.ListEnabledRoutes(ctx, botID)
+	if err != nil {
+		r.logger.Warn("model route lookup failed", slog.String("bot_id", botID), slog.String("error", err.Error()))
+		return "", false
+	}
+	// Routes are ordered by priority DESC. Take the first enabled one.
+	for _, route := range routes {
+		if route.IsEnabled && route.ModelID != "" {
+			return route.ModelID, true
+		}
+	}
+	return "", false
 }
 
 func matchesModelReference(model models.GetResponse, modelRef string) bool {

@@ -36,19 +36,38 @@ type ModelRoutingServiceInterface interface {
 	DeleteRoute(ctx context.Context, botID, id string) error
 }
 
+// ModelRoutingHandlerOption configures optional dependencies.
+type ModelRoutingHandlerOption func(*ModelRoutingHandler)
+
+// WithModelRoutingAudit sets the audit logger for route mutations.
+func WithModelRoutingAudit(al AuditLoggerInterface) ModelRoutingHandlerOption {
+	return func(h *ModelRoutingHandler) { h.audit = al }
+}
+
 // ModelRoutingHandler handles model routing API endpoints.
 type ModelRoutingHandler struct {
-	svc ModelRoutingServiceInterface
+	svc        ModelRoutingServiceInterface
+	audit      AuditLoggerInterface
+	middleware []echo.MiddlewareFunc
 }
 
 // NewModelRoutingHandler creates a new model routing handler.
-func NewModelRoutingHandler(svc ModelRoutingServiceInterface) *ModelRoutingHandler {
-	return &ModelRoutingHandler{svc: svc}
+func NewModelRoutingHandler(svc ModelRoutingServiceInterface, opts ...any) *ModelRoutingHandler {
+	h := &ModelRoutingHandler{svc: svc, audit: noopAuditLogger{}}
+	for _, o := range opts {
+		switch v := o.(type) {
+		case echo.MiddlewareFunc:
+			h.middleware = append(h.middleware, v)
+		case ModelRoutingHandlerOption:
+			v(h)
+		}
+	}
+	return h
 }
 
 // Register registers model routing routes.
 func (h *ModelRoutingHandler) Register(e *echo.Echo) {
-	g := e.Group("/bots/:bot_id/model-routes")
+	g := e.Group("/bots/:bot_id/model-routes", h.middleware...)
 	g.GET("", h.ListRoutes)
 	g.POST("", h.CreateRoute)
 	g.DELETE("/:route_id", h.DeleteRoute)
@@ -103,6 +122,7 @@ func (h *ModelRoutingHandler) CreateRoute(c echo.Context) error {
 	if err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, "failed to create model route")
 	}
+	h.audit.Log(c.Request().Context(), "", botID, "create", "model_route", route.ID, c.RealIP(), c.Request().UserAgent(), nil)
 	return c.JSON(http.StatusCreated, route)
 }
 
@@ -128,5 +148,6 @@ func (h *ModelRoutingHandler) DeleteRoute(c echo.Context) error {
 	if err := h.svc.DeleteRoute(c.Request().Context(), botID, routeID); err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, "failed to delete model route")
 	}
+	h.audit.Log(c.Request().Context(), "", botID, "delete", "model_route", routeID, c.RealIP(), c.Request().UserAgent(), nil)
 	return c.NoContent(http.StatusNoContent)
 }

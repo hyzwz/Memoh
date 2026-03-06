@@ -283,6 +283,24 @@ func (s *Service) generateTriggerToken(userID string) (string, error) {
 	return "Bearer " + signed, nil
 }
 
+// AddSystemJob registers a system-level cron job not backed by a database schedule.
+// Useful for internal periodic tasks like daily report generation.
+func (s *Service) AddSystemJob(name, pattern string, fn func()) error {
+	_, err := s.parser.Parse(pattern)
+	if err != nil {
+		return fmt.Errorf("invalid cron pattern for %s: %w", name, err)
+	}
+	entryID, err := s.cron.AddFunc(pattern, fn)
+	if err != nil {
+		return err
+	}
+	s.mu.Lock()
+	s.jobs["system:"+name] = entryID
+	s.mu.Unlock()
+	s.logger.Info("system cron job registered", slog.String("name", name), slog.String("pattern", pattern))
+	return nil
+}
+
 func (s *Service) scheduleJob(schedule sqlc.Schedule) error {
 	id := schedule.ID.String()
 	if id == "" {

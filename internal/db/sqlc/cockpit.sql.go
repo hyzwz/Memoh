@@ -159,6 +159,38 @@ func (q *Queries) GetCockpitDailyReport(ctx context.Context, arg GetCockpitDaily
 	return i, err
 }
 
+const listActiveBotIDsWithOwner = `-- name: ListActiveBotIDsWithOwner :many
+SELECT id, owner_user_id FROM bots
+WHERE deleted_at IS NULL
+ORDER BY created_at
+`
+
+type ListActiveBotIDsWithOwnerRow struct {
+	ID          pgtype.UUID `json:"id"`
+	OwnerUserID pgtype.UUID `json:"owner_user_id"`
+}
+
+// Lists all bots with their owner user IDs for system-level batch operations.
+func (q *Queries) ListActiveBotIDsWithOwner(ctx context.Context) ([]ListActiveBotIDsWithOwnerRow, error) {
+	rows, err := q.db.Query(ctx, listActiveBotIDsWithOwner)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListActiveBotIDsWithOwnerRow
+	for rows.Next() {
+		var i ListActiveBotIDsWithOwnerRow
+		if err := rows.Scan(&i.ID, &i.OwnerUserID); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listCockpitConfigs = `-- name: ListCockpitConfigs :many
 SELECT id, key, value, updated_at FROM cockpit_config ORDER BY key
 `

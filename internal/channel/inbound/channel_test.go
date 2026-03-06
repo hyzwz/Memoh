@@ -1491,3 +1491,142 @@ func TestMapChannelToChatAttachments(t *testing.T) {
 		t.Fatalf("expected non-asset attachment URL, got %q", mapped[1].URL)
 	}
 }
+
+// --- Budget enforcement tests ---
+
+type fakeBudgetChecker struct {
+	result *BudgetCheckResult
+	err    error
+}
+
+func (f *fakeBudgetChecker) CheckChatBudget(_ context.Context, _, _ string) (*BudgetCheckResult, error) {
+	if f.err != nil {
+		return nil, f.err
+	}
+	return f.result, nil
+}
+
+func TestChannelInboundProcessorBudgetBlocked(t *testing.T) {
+	channelIdentitySvc := &fakeChannelIdentityService{channelIdentity: identities.ChannelIdentity{ID: "ci-1"}}
+	memberSvc := &fakeMemberService{isMember: true}
+	policySvc := &fakePolicyService{allow: false}
+	chatSvc := &fakeChatService{resolveResult: route.ResolveConversationResult{ChatID: "chat-1", RouteID: "route-1"}}
+	gateway := &fakeChatGateway{
+		resp: conversation.ChatResponse{
+			Messages: []conversation.ModelMessage{
+				{Role: "assistant", Content: conversation.NewTextContent("should not reach")},
+			},
+		},
+	}
+	processor := NewChannelInboundProcessor(slog.Default(), nil, chatSvc, chatSvc, gateway, channelIdentitySvc, memberSvc, policySvc, nil, nil, "", 0)
+	processor.SetBudgetChecker(&fakeBudgetChecker{
+		result: &BudgetCheckResult{Allowed: false, Action: "block"},
+	})
+	sender := &fakeReplySender{}
+
+	cfg := channel.ChannelConfig{ID: "cfg-1", BotID: "bot-1", ChannelType: channel.ChannelType("feishu")}
+	msg := channel.InboundMessage{
+		BotID:       "bot-1",
+		Channel:     channel.ChannelType("feishu"),
+		Message:     channel.Message{Text: "hello"},
+		ReplyTarget: "target-id",
+		Sender:      channel.Identity{SubjectID: "ext-1", DisplayName: "User1"},
+		Conversation: channel.Conversation{ID: "chat-1", Type: "p2p"},
+	}
+
+	err := processor.HandleInbound(context.Background(), cfg, msg, sender)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	// StreamChat should NOT have been called
+	if gateway.gotReq.Query != "" {
+		t.Fatalf("expected no chat request, got query: %s", gateway.gotReq.Query)
+	}
+	// Should have sent a budget exceeded reply via stream final event
+	if len(sender.events) == 0 {
+		t.Fatal("expected stream events")
+	}
+	foundBudgetMsg := false
+	for _, ev := range sender.events {
+		if ev.Final != nil && strings.Contains(ev.Final.Message.Text, "预算已超限") {
+			foundBudgetMsg = true
+			break
+		}
+	}
+	if !foundBudgetMsg {
+		t.Fatal("expected budget exceeded message in stream events")
+	}
+}
+
+func TestChannelInboundProcessorBudgetAllowed(t *testing.T) {
+	channelIdentitySvc := &fakeChannelIdentityService{channelIdentity: identities.ChannelIdentity{ID: "ci-1"}}
+	memberSvc := &fakeMemberService{isMember: true}
+	policySvc := &fakePolicyService{allow: false}
+	chatSvc := &fakeChatService{resolveResult: route.ResolveConversationResult{ChatID: "chat-1", RouteID: "route-1"}}
+	gateway := &fakeChatGateway{
+		resp: conversation.ChatResponse{
+			Messages: []conversation.ModelMessage{
+				{Role: "assistant", Content: conversation.NewTextContent("AI reply")},
+			},
+		},
+	}
+	processor := NewChannelInboundProcessor(slog.Default(), nil, chatSvc, chatSvc, gateway, channelIdentitySvc, memberSvc, policySvc, nil, nil, "", 0)
+	processor.SetBudgetChecker(&fakeBudgetChecker{
+		result: &BudgetCheckResult{Allowed: true},
+	})
+	sender := &fakeReplySender{}
+
+	cfg := channel.ChannelConfig{ID: "cfg-1", BotID: "bot-1", ChannelType: channel.ChannelType("feishu")}
+	msg := channel.InboundMessage{
+		BotID:       "bot-1",
+		Channel:     channel.ChannelType("feishu"),
+		Message:     channel.Message{Text: "hello"},
+		ReplyTarget: "target-id",
+		Sender:      channel.Identity{SubjectID: "ext-1", DisplayName: "User1"},
+		Conversation: channel.Conversation{ID: "chat-1", Type: "p2p"},
+	}
+
+	err := processor.HandleInbound(context.Background(), cfg, msg, sender)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	// Chat SHOULD have been called
+	if gateway.gotReq.Query != "hello" {
+		t.Fatalf("expected chat query 'hello', got: %s", gateway.gotReq.Query)
+	}
+}
+
+func TestChannelInboundProcessorBudgetCheckErrorDenies(t *testing.T) {
+	channelIdentitySvc := &fakeChannelIdentityService{channelIdentity: identities.ChannelIdentity{ID: "ci-1"}}
+	memberSvc := &fakeMemberService{isMember: true}
+	policySvc := &fakePolicyService{allow: false}
+	chatSvc := &fakeChatService{resolveResult: route.ResolveConversationResult{ChatID: "chat-1", RouteID: "route-1"}}
+	gateway := &fakeChatGateway{}
+	processor := NewChannelInboundProcessor(slog.Default(), nil, chatSvc, chatSvc, gateway, channelIdentitySvc, memberSvc, policySvc, nil, nil, "", 0)
+	processor.SetBudgetChecker(&fakeBudgetChecker{
+		err: errors.New("db error"),
+	})
+	sender := &fakeReplySender{}
+
+	cfg := channel.ChannelConfig{ID: "cfg-1", BotID: "bot-1", ChannelType: channel.ChannelType("feishu")}
+	msg := channel.InboundMessage{
+		BotID:       "bot-1",
+		Channel:     channel.ChannelType("feishu"),
+		Message:     channel.Message{Text: "hello"},
+		ReplyTarget: "target-id",
+		Sender:      channel.Identity{SubjectID: "ext-1", DisplayName: "User1"},
+		Conversation: channel.Conversation{ID: "chat-1", Type: "p2p"},
+	}
+
+	err := processor.HandleInbound(context.Background(), cfg, msg, sender)
+	if err == nil {
+		t.Fatal("expected error for budget check failure (fail-closed)")
+	}
+	if !strings.Contains(err.Error(), "budget check failed") {
+		t.Fatalf("expected budget check failed error, got: %v", err)
+	}
+	// Chat should NOT have been called
+	if gateway.gotReq.Query != "" {
+		t.Fatalf("expected no chat request on budget error, got: %s", gateway.gotReq.Query)
+	}
+}

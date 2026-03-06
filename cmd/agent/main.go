@@ -231,6 +231,9 @@ func runServe() {
 			provideServerHandler(provideCLIHandler),
 			provideServerHandler(provideWebHandler),
 
+			// Enterprise shared dependencies
+			fx.Provide(provideAuditLogger),
+
 			// Enterprise feature handlers (F1-F7)
 			provideServerHandler(provideDepartmentHandler),
 			provideServerHandler(provideAuditHandler),
@@ -375,6 +378,7 @@ func provideChatResolver(log *slog.Logger, cfg config.Config, modelsService *mod
 	resolver.SetSkillLoader(&skillLoaderAdapter{handler: containerdHandler})
 	resolver.SetGatewayAssetLoader(&gatewayAssetLoaderAdapter{media: mediaService})
 	resolver.SetInboxService(inboxService)
+	resolver.SetModelRouter(enterprise.NewModelRouterAdapter(log, queries))
 	return resolver
 }
 
@@ -417,11 +421,15 @@ func provideChannelRouter(
 	mediaService *media.Service,
 	inboxService *inbox.Service,
 	rc *boot.RuntimeConfig,
+	queries *dbsqlc.Queries,
 ) *inbound.ChannelInboundProcessor {
 	processor := inbound.NewChannelInboundProcessor(log, registry, routeService, msgService, resolver, identityService, botService, policyService, preauthService, bindService, rc.JwtSecret, 5*time.Minute)
 	processor.SetMediaService(mediaService)
 	processor.SetStreamObserver(local.NewRouteHubBroadcaster(hub))
 	processor.SetInboxService(inboxService)
+	// Budget enforcement before chat
+	costSvc := enterprise.NewCostTrackingService(log, queries)
+	processor.SetBudgetChecker(enterprise.NewBudgetCheckerAdapter(log, costSvc))
 	return processor
 }
 
@@ -604,10 +612,34 @@ func startMemoryProviderBootstrap(lc fx.Lifecycle, log *slog.Logger, mpService *
 	})
 }
 
-func startScheduleService(lc fx.Lifecycle, scheduleService *schedule.Service) {
+func startScheduleService(lc fx.Lifecycle, log *slog.Logger, scheduleService *schedule.Service, queries *dbsqlc.Queries) {
 	lc.Append(fx.Hook{
 		OnStart: func(ctx context.Context) error {
-			return scheduleService.Bootstrap(ctx)
+			if err := scheduleService.Bootstrap(ctx); err != nil {
+				return err
+			}
+			// Register cockpit daily report auto-generation (runs at 01:00 UTC daily)
+			reportGen := enterprise.NewCockpitReportGenerator(log, queries)
+			return scheduleService.AddSystemJob("cockpit-daily-report", "0 1 * * *", func() {
+				reportCtx := context.Background()
+				yesterday := time.Now().UTC().AddDate(0, 0, -1)
+				bots, err := queries.ListActiveBotIDsWithOwner(reportCtx)
+				if err != nil {
+					log.Error("cockpit daily report: failed to list bots", slog.String("error", err.Error()))
+					return
+				}
+				for _, bot := range bots {
+					botID := bot.ID.String()
+					ownerID := bot.OwnerUserID.String()
+					if err := reportGen.GenerateDailyReport(reportCtx, botID, ownerID, yesterday); err != nil {
+						log.Error("cockpit daily report: generation failed",
+							slog.String("bot_id", botID),
+							slog.String("error", err.Error()),
+						)
+					}
+				}
+				log.Info("cockpit daily report: completed", slog.Int("bots", len(bots)))
+			})
 		},
 	})
 }
@@ -889,14 +921,20 @@ func (a *gatewayAssetLoaderAdapter) OpenForGateway(ctx context.Context, botID, c
 // enterprise feature providers (F1-F7)
 // ---------------------------------------------------------------------------
 
-func provideDepartmentHandler(log *slog.Logger, queries *dbsqlc.Queries) *handlers.DepartmentHandler {
+func provideAuditLogger(log *slog.Logger, queries *dbsqlc.Queries) *enterprise.AuditLogger {
+	return enterprise.NewAuditLogger(log, queries)
+}
+
+func provideDepartmentHandler(log *slog.Logger, queries *dbsqlc.Queries, al *enterprise.AuditLogger) *handlers.DepartmentHandler {
 	svc := enterprise.NewDepartmentService(log, queries)
-	return handlers.NewDepartmentHandler(svc)
+	adminMw := enterprise.RequireRole(queries, log, "admin")
+	return handlers.NewDepartmentHandler(svc, adminMw, handlers.WithDepartmentAudit(al))
 }
 
 func provideAuditHandler(log *slog.Logger, queries *dbsqlc.Queries) *handlers.AuditHandler {
 	svc := enterprise.NewAuditQueryService(log, queries)
-	return handlers.NewAuditHandler(svc)
+	adminMw := enterprise.RequireRole(queries, log, "admin")
+	return handlers.NewAuditHandler(svc, adminMw)
 }
 
 func provideCockpitHandler(log *slog.Logger, queries *dbsqlc.Queries) *handlers.CockpitHandler {
@@ -905,18 +943,20 @@ func provideCockpitHandler(log *slog.Logger, queries *dbsqlc.Queries) *handlers.
 	return handlers.NewCockpitHandler(svc, reportGen)
 }
 
-func provideHandsHandler(log *slog.Logger, queries *dbsqlc.Queries, resolver *flow.Resolver, cfg config.Config) *handlers.HandsHandler {
+func provideHandsHandler(log *slog.Logger, queries *dbsqlc.Queries, resolver *flow.Resolver, cfg config.Config, al *enterprise.AuditLogger) *handlers.HandsHandler {
 	chatExec := enterprise.NewResolverChatExecutor(resolver)
 	svc := enterprise.NewHandsService(log, queries, chatExec, cfg.Auth.JWTSecret)
-	return handlers.NewHandsHandler(svc)
+	return handlers.NewHandsHandler(svc, handlers.WithAuditLogger(al))
 }
 
-func provideModelRoutingHandler(log *slog.Logger, queries *dbsqlc.Queries) *handlers.ModelRoutingHandler {
+func provideModelRoutingHandler(log *slog.Logger, queries *dbsqlc.Queries, al *enterprise.AuditLogger) *handlers.ModelRoutingHandler {
 	svc := enterprise.NewModelRoutingService(log, queries)
-	return handlers.NewModelRoutingHandler(svc)
+	adminMw := enterprise.RequireRole(queries, log, "admin")
+	return handlers.NewModelRoutingHandler(svc, adminMw, handlers.WithModelRoutingAudit(al))
 }
 
-func provideCostTrackingHandler(log *slog.Logger, queries *dbsqlc.Queries) *handlers.CostTrackingHandler {
+func provideCostTrackingHandler(log *slog.Logger, queries *dbsqlc.Queries, al *enterprise.AuditLogger) *handlers.CostTrackingHandler {
 	svc := enterprise.NewCostTrackingService(log, queries)
-	return handlers.NewCostTrackingHandler(svc)
+	adminMw := enterprise.RequireRole(queries, log, "admin")
+	return handlers.NewCostTrackingHandler(svc, adminMw, handlers.WithCostTrackingAudit(al))
 }

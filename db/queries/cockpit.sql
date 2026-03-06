@@ -63,6 +63,12 @@ WHERE bot_id = sqlc.arg(bot_id)
   AND created_at >= sqlc.arg(day_start)
   AND created_at < sqlc.arg(day_end);
 
+-- name: ListActiveBotIDsWithOwner :many
+-- Lists all bots with their owner user IDs for system-level batch operations.
+SELECT id, owner_user_id FROM bots
+WHERE deleted_at IS NULL
+ORDER BY created_at;
+
 -- name: CockpitAggregateByDateRange :one
 SELECT
     COUNT(*)::bigint AS total_reports,

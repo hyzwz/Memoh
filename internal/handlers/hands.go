@@ -53,14 +53,27 @@ type HandsServiceInterface interface {
 	Execute(ctx context.Context, botID, handID, triggerType string) (*HandExecutionResultDTO, error)
 }
 
+// HandsHandlerOption configures optional dependencies for HandsHandler.
+type HandsHandlerOption func(*HandsHandler)
+
+// WithAuditLogger sets the audit logger for hand mutations.
+func WithAuditLogger(al AuditLoggerInterface) HandsHandlerOption {
+	return func(h *HandsHandler) { h.audit = al }
+}
+
 // HandsHandler handles hand CRUD and execution API endpoints.
 type HandsHandler struct {
-	svc HandsServiceInterface
+	svc   HandsServiceInterface
+	audit AuditLoggerInterface
 }
 
 // NewHandsHandler creates a new hands handler.
-func NewHandsHandler(svc HandsServiceInterface) *HandsHandler {
-	return &HandsHandler{svc: svc}
+func NewHandsHandler(svc HandsServiceInterface, opts ...HandsHandlerOption) *HandsHandler {
+	h := &HandsHandler{svc: svc, audit: noopAuditLogger{}}
+	for _, opt := range opts {
+		opt(h)
+	}
+	return h
 }
 
 // Register registers hand routes.
@@ -148,6 +161,7 @@ func (h *HandsHandler) CreateHand(c echo.Context) error {
 	if err != nil {
 		return echo.NewHTTPError(http.StatusBadRequest, "failed to create hand")
 	}
+	h.audit.Log(c.Request().Context(), "", botID, "create", "hand", hand.ID, c.RealIP(), c.Request().UserAgent(), nil)
 	return c.JSON(http.StatusCreated, hand)
 }
 
@@ -176,6 +190,7 @@ func (h *HandsHandler) DeleteHand(c echo.Context) error {
 		}
 		return echo.NewHTTPError(http.StatusInternalServerError, "failed to delete hand")
 	}
+	h.audit.Log(c.Request().Context(), "", botID, "delete", "hand", handID, c.RealIP(), c.Request().UserAgent(), nil)
 	return c.NoContent(http.StatusNoContent)
 }
 
@@ -205,5 +220,6 @@ func (h *HandsHandler) ExecuteHand(c echo.Context) error {
 		}
 		return echo.NewHTTPError(http.StatusInternalServerError, "failed to execute hand")
 	}
+	h.audit.Log(c.Request().Context(), "", botID, "execute", "hand", handID, c.RealIP(), c.Request().UserAgent(), map[string]string{"status": result.Status})
 	return c.JSON(http.StatusOK, result)
 }

@@ -48,19 +48,38 @@ type CostTrackingServiceInterface interface {
 	CheckBudget(ctx context.Context, scopeType, scopeID string) (*BudgetCheckDTO, error)
 }
 
+// CostTrackingHandlerOption configures optional dependencies.
+type CostTrackingHandlerOption func(*CostTrackingHandler)
+
+// WithCostTrackingAudit sets the audit logger for budget mutations.
+func WithCostTrackingAudit(al AuditLoggerInterface) CostTrackingHandlerOption {
+	return func(h *CostTrackingHandler) { h.audit = al }
+}
+
 // CostTrackingHandler handles cost tracking and budget API endpoints.
 type CostTrackingHandler struct {
-	svc CostTrackingServiceInterface
+	svc        CostTrackingServiceInterface
+	audit      AuditLoggerInterface
+	middleware []echo.MiddlewareFunc
 }
 
 // NewCostTrackingHandler creates a new cost tracking handler.
-func NewCostTrackingHandler(svc CostTrackingServiceInterface) *CostTrackingHandler {
-	return &CostTrackingHandler{svc: svc}
+func NewCostTrackingHandler(svc CostTrackingServiceInterface, opts ...any) *CostTrackingHandler {
+	h := &CostTrackingHandler{svc: svc, audit: noopAuditLogger{}}
+	for _, o := range opts {
+		switch v := o.(type) {
+		case echo.MiddlewareFunc:
+			h.middleware = append(h.middleware, v)
+		case CostTrackingHandlerOption:
+			v(h)
+		}
+	}
+	return h
 }
 
 // Register registers cost tracking routes.
 func (h *CostTrackingHandler) Register(e *echo.Echo) {
-	g := e.Group("/budgets")
+	g := e.Group("/budgets", h.middleware...)
 	g.GET("", h.ListBudgets)
 	g.POST("", h.CreateBudget)
 	g.DELETE("/:budget_id", h.DeleteBudget)
@@ -129,6 +148,7 @@ func (h *CostTrackingHandler) CreateBudget(c echo.Context) error {
 	if err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, "failed to create budget")
 	}
+	h.audit.Log(c.Request().Context(), "", "", "create", "budget", budget.ID, c.RealIP(), c.Request().UserAgent(), nil)
 	return c.JSON(http.StatusCreated, budget)
 }
 
@@ -148,6 +168,7 @@ func (h *CostTrackingHandler) DeleteBudget(c echo.Context) error {
 	if err := h.svc.DeleteBudget(c.Request().Context(), budgetID); err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, "failed to delete budget")
 	}
+	h.audit.Log(c.Request().Context(), "", "", "delete", "budget", budgetID, c.RealIP(), c.Request().UserAgent(), nil)
 	return c.NoContent(http.StatusNoContent)
 }
 

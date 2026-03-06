@@ -36,17 +36,19 @@ type AuditQueryServiceInterface interface {
 
 // AuditHandler handles audit log API endpoints.
 type AuditHandler struct {
-	svc AuditQueryServiceInterface
+	svc        AuditQueryServiceInterface
+	middleware []echo.MiddlewareFunc
 }
 
 // NewAuditHandler creates a new audit handler.
-func NewAuditHandler(svc AuditQueryServiceInterface) *AuditHandler {
-	return &AuditHandler{svc: svc}
+func NewAuditHandler(svc AuditQueryServiceInterface, mw ...echo.MiddlewareFunc) *AuditHandler {
+	return &AuditHandler{svc: svc, middleware: mw}
 }
 
 // Register registers audit log routes.
 func (h *AuditHandler) Register(e *echo.Echo) {
-	e.GET("/bots/:bot_id/audit-logs", h.ListAuditLogs)
+	g := e.Group("/bots/:bot_id", h.middleware...)
+	g.GET("/audit-logs", h.ListAuditLogs)
 }
 
 // ListAuditLogs godoc

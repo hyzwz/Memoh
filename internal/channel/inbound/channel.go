@@ -50,19 +50,32 @@ type mediaIngestor interface {
 	IngestContainerFile(ctx context.Context, botID, containerPath string) (media.Asset, error)
 }
 
+// BudgetCheckResult holds the outcome of a pre-chat budget check.
+type BudgetCheckResult struct {
+	Allowed bool
+	Alert   bool
+	Action  string // "block", "warn", or "downgrade"
+}
+
+// BudgetChecker checks whether a chat is allowed under budget constraints.
+type BudgetChecker interface {
+	CheckChatBudget(ctx context.Context, botID, userID string) (*BudgetCheckResult, error)
+}
+
 // ChannelInboundProcessor routes channel inbound messages to the chat gateway.
 type ChannelInboundProcessor struct {
-	runner        flow.Runner
-	routeResolver RouteResolver
-	message       messagepkg.Writer
-	mediaService  mediaIngestor
-	inboxService  *inbox.Service
-	registry      *channel.Registry
-	logger        *slog.Logger
-	jwtSecret     string
-	tokenTTL      time.Duration
-	identity      *IdentityResolver
-	observer      channel.StreamObserver
+	runner         flow.Runner
+	routeResolver  RouteResolver
+	message        messagepkg.Writer
+	mediaService   mediaIngestor
+	inboxService   *inbox.Service
+	registry       *channel.Registry
+	logger         *slog.Logger
+	jwtSecret      string
+	tokenTTL       time.Duration
+	identity       *IdentityResolver
+	observer       channel.StreamObserver
+	budgetChecker  BudgetChecker
 }
 
 // NewChannelInboundProcessor creates a processor with channel identity-based resolution.
@@ -123,6 +136,14 @@ func (p *ChannelInboundProcessor) SetStreamObserver(observer channel.StreamObser
 		return
 	}
 	p.observer = observer
+}
+
+// SetBudgetChecker configures budget enforcement before chat.
+func (p *ChannelInboundProcessor) SetBudgetChecker(checker BudgetChecker) {
+	if p == nil {
+		return
+	}
+	p.budgetChecker = checker
 }
 
 // SetInboxService configures the inbox service for storing non-mentioned
@@ -357,6 +378,41 @@ func (p *ChannelInboundProcessor) HandleInbound(ctx context.Context, cfg channel
 			}
 		}
 		return err
+	}
+
+	// Budget enforcement: check before sending to AI.
+	if p.budgetChecker != nil {
+		budgetResult, budgetErr := p.budgetChecker.CheckChatBudget(ctx, strings.TrimSpace(identity.BotID), strings.TrimSpace(identity.UserID))
+		if budgetErr != nil {
+			p.logger.Error("budget check failed", slog.String("error", budgetErr.Error()))
+			// fail-closed: deny on error
+			budgetDenied := fmt.Errorf("budget check failed: %w", budgetErr)
+			if statusNotifier != nil {
+				if notifyErr := p.notifyProcessingFailed(ctx, statusNotifier, cfg, msg, statusInfo, statusHandle, budgetDenied); notifyErr != nil {
+					p.logProcessingStatusError("processing_failed", msg, identity, notifyErr)
+				}
+			}
+			return budgetDenied
+		}
+		if !budgetResult.Allowed {
+			budgetDenied := fmt.Errorf("budget exceeded: action=%s", budgetResult.Action)
+			_ = stream.Push(ctx, channel.StreamEvent{
+				Type:  channel.StreamEventFinal,
+				Final: &channel.StreamFinalizePayload{Message: channel.Message{Text: "⚠️ 预算已超限，请联系管理员。"}},
+			})
+			if statusNotifier != nil {
+				if notifyErr := p.notifyProcessingFailed(ctx, statusNotifier, cfg, msg, statusInfo, statusHandle, budgetDenied); notifyErr != nil {
+					p.logProcessingStatusError("processing_failed", msg, identity, notifyErr)
+				}
+			}
+			return nil // not an error, just a rejection
+		}
+		if budgetResult.Alert {
+			p.logger.Warn("budget alert",
+				slog.String("bot_id", strings.TrimSpace(identity.BotID)),
+				slog.String("action", budgetResult.Action),
+			)
+		}
 	}
 
 	// Mutex-protected collector for outbound asset refs. The resolver's
