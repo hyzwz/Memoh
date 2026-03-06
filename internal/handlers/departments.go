@@ -111,6 +111,6 @@ func (h *DepartmentHandler) CreateDepartment(c echo.Context) error {
 	if err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, "failed to create department")
 	}
-	h.audit.Log(c.Request().Context(), "", botID, "create", "department", dept.ID, c.RealIP(), c.Request().UserAgent(), nil)
+	h.audit.Log(c.Request().Context(), auditUserID(c), botID, "create", "department", dept.ID, c.RealIP(), c.Request().UserAgent(), nil)
 	return c.JSON(http.StatusCreated, dept)
 }

@@ -122,7 +122,7 @@ func (h *ModelRoutingHandler) CreateRoute(c echo.Context) error {
 	if err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, "failed to create model route")
 	}
-	h.audit.Log(c.Request().Context(), "", botID, "create", "model_route", route.ID, c.RealIP(), c.Request().UserAgent(), nil)
+	h.audit.Log(c.Request().Context(), auditUserID(c), botID, "create", "model_route", route.ID, c.RealIP(), c.Request().UserAgent(), nil)
 	return c.JSON(http.StatusCreated, route)
 }
 
@@ -148,6 +148,6 @@ func (h *ModelRoutingHandler) DeleteRoute(c echo.Context) error {
 	if err := h.svc.DeleteRoute(c.Request().Context(), botID, routeID); err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, "failed to delete model route")
 	}
-	h.audit.Log(c.Request().Context(), "", botID, "delete", "model_route", routeID, c.RealIP(), c.Request().UserAgent(), nil)
+	h.audit.Log(c.Request().Context(), auditUserID(c), botID, "delete", "model_route", routeID, c.RealIP(), c.Request().UserAgent(), nil)
 	return c.NoContent(http.StatusNoContent)
 }

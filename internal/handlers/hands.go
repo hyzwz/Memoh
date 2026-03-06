@@ -161,7 +161,7 @@ func (h *HandsHandler) CreateHand(c echo.Context) error {
 	if err != nil {
 		return echo.NewHTTPError(http.StatusBadRequest, "failed to create hand")
 	}
-	h.audit.Log(c.Request().Context(), "", botID, "create", "hand", hand.ID, c.RealIP(), c.Request().UserAgent(), nil)
+	h.audit.Log(c.Request().Context(), auditUserID(c), botID, "create", "hand", hand.ID, c.RealIP(), c.Request().UserAgent(), nil)
 	return c.JSON(http.StatusCreated, hand)
 }
 
@@ -190,7 +190,7 @@ func (h *HandsHandler) DeleteHand(c echo.Context) error {
 		}
 		return echo.NewHTTPError(http.StatusInternalServerError, "failed to delete hand")
 	}
-	h.audit.Log(c.Request().Context(), "", botID, "delete", "hand", handID, c.RealIP(), c.Request().UserAgent(), nil)
+	h.audit.Log(c.Request().Context(), auditUserID(c), botID, "delete", "hand", handID, c.RealIP(), c.Request().UserAgent(), nil)
 	return c.NoContent(http.StatusNoContent)
 }
 
@@ -220,6 +220,6 @@ func (h *HandsHandler) ExecuteHand(c echo.Context) error {
 		}
 		return echo.NewHTTPError(http.StatusInternalServerError, "failed to execute hand")
 	}
-	h.audit.Log(c.Request().Context(), "", botID, "execute", "hand", handID, c.RealIP(), c.Request().UserAgent(), map[string]string{"status": result.Status})
+	h.audit.Log(c.Request().Context(), auditUserID(c), botID, "execute", "hand", handID, c.RealIP(), c.Request().UserAgent(), map[string]string{"status": result.Status})
 	return c.JSON(http.StatusOK, result)
 }

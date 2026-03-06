@@ -148,7 +148,7 @@ func (h *CostTrackingHandler) CreateBudget(c echo.Context) error {
 	if err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, "failed to create budget")
 	}
-	h.audit.Log(c.Request().Context(), "", "", "create", "budget", budget.ID, c.RealIP(), c.Request().UserAgent(), nil)
+	h.audit.Log(c.Request().Context(), auditUserID(c), "", "create", "budget", budget.ID, c.RealIP(), c.Request().UserAgent(), nil)
 	return c.JSON(http.StatusCreated, budget)
 }
 
@@ -168,7 +168,7 @@ func (h *CostTrackingHandler) DeleteBudget(c echo.Context) error {
 	if err := h.svc.DeleteBudget(c.Request().Context(), budgetID); err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, "failed to delete budget")
 	}
-	h.audit.Log(c.Request().Context(), "", "", "delete", "budget", budgetID, c.RealIP(), c.Request().UserAgent(), nil)
+	h.audit.Log(c.Request().Context(), auditUserID(c), "", "delete", "budget", budgetID, c.RealIP(), c.Request().UserAgent(), nil)
 	return c.NoContent(http.StatusNoContent)
 }
 

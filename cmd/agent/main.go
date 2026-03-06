@@ -232,7 +232,7 @@ func runServe() {
 			provideServerHandler(provideWebHandler),
 
 			// Enterprise shared dependencies
-			fx.Provide(provideAuditLogger),
+			provideAuditLogger,
 
 			// Enterprise feature handlers (F1-F7)
 			provideServerHandler(provideDepartmentHandler),

@@ -32,7 +32,7 @@ type Service struct {
 
 func NewService(log *slog.Logger, queries *sqlc.Queries, triggerer Triggerer, runtimeConfig *boot.RuntimeConfig) *Service {
 	parser := cron.NewParser(cron.SecondOptional | cron.Minute | cron.Hour | cron.Dom | cron.Month | cron.Dow | cron.Descriptor)
-	c := cron.New(cron.WithParser(parser))
+	c := cron.New(cron.WithParser(parser), cron.WithLocation(time.UTC))
 	service := &Service{
 		queries:   queries,
 		cron:      c,
