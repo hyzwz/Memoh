@@ -10,6 +10,7 @@ type BeforeChatRequest struct {
 	Query  string
 	BotID  string
 	ChatID string
+	UserID string
 }
 
 // BeforeChatResult contains memory context to inject into the conversation.
@@ -20,6 +21,7 @@ type BeforeChatResult struct {
 // AfterChatRequest is passed to OnAfterChat after receiving the gateway response.
 type AfterChatRequest struct {
 	BotID    string
+	UserID   string
 	Messages []Message
 }
 

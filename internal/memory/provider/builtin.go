@@ -77,15 +77,24 @@ func (p *BuiltinProvider) OnBeforeChat(ctx context.Context, req BeforeChatReques
 		return nil, nil
 	}
 
+	// Build filters scoped to user when available, falling back to bot-level.
+	scopeID := req.BotID
+	filters := map[string]any{
+		"namespace": sharedMemoryNamespace,
+		"scopeId":   scopeID,
+		"bot_id":    req.BotID,
+	}
+	if strings.TrimSpace(req.UserID) != "" {
+		scopeID = req.BotID + ":" + req.UserID
+		filters["scopeId"] = scopeID
+		filters["user_id"] = req.UserID
+	}
+
 	resp, err := p.service.Search(ctx, SearchRequest{
-		Query: req.Query,
-		BotID: req.BotID,
-		Limit: memoryContextLimitPerScope,
-		Filters: map[string]any{
-			"namespace": sharedMemoryNamespace,
-			"scopeId":   req.BotID,
-			"bot_id":    req.BotID,
-		},
+		Query:   req.Query,
+		BotID:   req.BotID,
+		Limit:   memoryContextLimitPerScope,
+		Filters: filters,
 		NoStats: true,
 	})
 	if err != nil {
@@ -155,10 +164,17 @@ func (p *BuiltinProvider) OnAfterChat(ctx context.Context, req AfterChatRequest)
 	if len(req.Messages) == 0 {
 		return nil
 	}
+	scopeID := botID
 	filters := map[string]any{
 		"namespace": sharedMemoryNamespace,
-		"scopeId":   botID,
+		"scopeId":   scopeID,
 		"bot_id":    botID,
+	}
+	userID := strings.TrimSpace(req.UserID)
+	if userID != "" {
+		scopeID = botID + ":" + userID
+		filters["scopeId"] = scopeID
+		filters["user_id"] = userID
 	}
 	if _, err := p.service.Add(ctx, AddRequest{
 		Messages: req.Messages,

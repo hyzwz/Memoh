@@ -376,7 +376,7 @@ func (r *Resolver) resolve(ctx context.Context, req conversation.ChatRequest) (r
 
 	var messages []conversation.ModelMessage
 	if !skipHistory && r.conversationSvc != nil {
-		loaded, loadErr := r.loadMessages(ctx, req.ChatID, maxCtx)
+		loaded, loadErr := r.loadMessages(ctx, req.ChatID, maxCtx, req.UserID)
 		if loadErr != nil {
 			return resolvedContext{}, loadErr
 		}
@@ -1208,12 +1208,18 @@ type messageWithUsage struct {
 	UsageOutputTokens *int
 }
 
-func (r *Resolver) loadMessages(ctx context.Context, chatID string, maxContextMinutes int) ([]messageWithUsage, error) {
+func (r *Resolver) loadMessages(ctx context.Context, chatID string, maxContextMinutes int, userID string) ([]messageWithUsage, error) {
 	if r.messageService == nil {
 		return nil, nil
 	}
 	since := time.Now().UTC().Add(-time.Duration(maxContextMinutes) * time.Minute)
-	msgs, err := r.messageService.ListActiveSince(ctx, chatID, since)
+	var msgs []messagepkg.Message
+	var err error
+	if strings.TrimSpace(userID) != "" {
+		msgs, err = r.messageService.ListActiveSinceForUser(ctx, chatID, since, userID)
+	} else {
+		msgs, err = r.messageService.ListActiveSince(ctx, chatID, since)
+	}
 	if err != nil {
 		return nil, err
 	}
@@ -1332,6 +1338,7 @@ func (r *Resolver) loadMemoryContextMessage(ctx context.Context, req conversatio
 		Query:  req.Query,
 		BotID:  req.BotID,
 		ChatID: req.ChatID,
+		UserID: req.UserID,
 	})
 	if err != nil {
 		r.logger.Warn("memory provider OnBeforeChat failed", slog.Any("error", err))
@@ -1401,7 +1408,7 @@ func (r *Resolver) storeRound(ctx context.Context, req conversation.ChatRequest,
 	}
 
 	r.storeMessages(ctx, req, fullRound, usage, roundUsages, modelID)
-	go r.storeMemory(context.WithoutCancel(ctx), req.BotID, fullRound)
+	go r.storeMemory(context.WithoutCancel(ctx), req.BotID, req.UserID, fullRound)
 	return nil
 }
 
@@ -1542,15 +1549,18 @@ func chatAttachmentsToAssetRefs(attachments []conversation.ChatAttachment) []mes
 }
 
 func buildRouteMetadata(req conversation.ChatRequest) map[string]any {
-	if strings.TrimSpace(req.RouteID) == "" && strings.TrimSpace(req.CurrentChannel) == "" {
-		return nil
-	}
 	meta := map[string]any{}
 	if strings.TrimSpace(req.RouteID) != "" {
 		meta["route_id"] = req.RouteID
 	}
 	if strings.TrimSpace(req.CurrentChannel) != "" {
 		meta["platform"] = req.CurrentChannel
+	}
+	if strings.TrimSpace(req.UserID) != "" {
+		meta["context_user_id"] = req.UserID
+	}
+	if len(meta) == 0 {
+		return nil
 	}
 	return meta
 }
@@ -1656,7 +1666,7 @@ func (r *Resolver) resolveDisplayName(ctx context.Context, req conversation.Chat
 	return "User"
 }
 
-func (r *Resolver) storeMemory(ctx context.Context, botID string, messages []conversation.ModelMessage) {
+func (r *Resolver) storeMemory(ctx context.Context, botID string, userID string, messages []conversation.ModelMessage) {
 	if strings.TrimSpace(botID) == "" {
 		return
 	}
@@ -1671,6 +1681,7 @@ func (r *Resolver) storeMemory(ctx context.Context, botID string, messages []con
 	}
 	if err := p.OnAfterChat(ctx, memprovider.AfterChatRequest{
 		BotID:    botID,
+		UserID:   userID,
 		Messages: memMsgs,
 	}); err != nil {
 		r.logger.Warn("memory provider OnAfterChat failed", slog.String("bot_id", botID), slog.Any("error", err))

@@ -190,6 +190,26 @@ func (s *DBService) ListActiveSince(ctx context.Context, botID string, since tim
 	return msgs, nil
 }
 
+// ListActiveSinceForUser returns bot messages since a given time for a specific user's context,
+// filtering by context_user_id in metadata to ensure user-level conversation isolation.
+func (s *DBService) ListActiveSinceForUser(ctx context.Context, botID string, since time.Time, userID string) ([]Message, error) {
+	pgBotID, err := dbpkg.ParseUUID(botID)
+	if err != nil {
+		return nil, err
+	}
+	rows, err := s.queries.ListActiveMessagesSinceForUser(ctx, sqlc.ListActiveMessagesSinceForUserParams{
+		BotID:         pgBotID,
+		CreatedAt:     pgtype.Timestamptz{Time: since, Valid: true},
+		ContextUserID: []byte(strings.TrimSpace(userID)),
+	})
+	if err != nil {
+		return nil, err
+	}
+	msgs := toMessagesFromActiveSinceForUser(rows)
+	s.enrichAssets(ctx, msgs)
+	return msgs, nil
+}
+
 // ListLatest returns the latest N bot messages (newest first in DB; caller may reverse for ASC).
 func (s *DBService) ListLatest(ctx context.Context, botID string, limit int32) ([]Message, error) {
 	pgBotID, err := dbpkg.ParseUUID(botID)
@@ -400,6 +420,34 @@ func toMessagesFromLatest(rows []sqlc.ListMessagesLatestRow) []Message {
 	messages := make([]Message, 0, len(rows))
 	for _, row := range rows {
 		messages = append(messages, toMessageFromLatestRow(row))
+	}
+	return messages
+}
+
+func toMessageFromActiveSinceForUserRow(row sqlc.ListActiveMessagesSinceForUserRow) Message {
+	return toMessageFields(
+		row.ID,
+		row.BotID,
+		row.RouteID,
+		row.SenderChannelIdentityID,
+		row.SenderUserID,
+		row.SenderDisplayName,
+		row.SenderAvatarUrl,
+		row.Platform,
+		row.ExternalMessageID,
+		row.SourceReplyToMessageID,
+		row.Role,
+		row.Content,
+		row.Metadata,
+		row.Usage,
+		row.CreatedAt,
+	)
+}
+
+func toMessagesFromActiveSinceForUser(rows []sqlc.ListActiveMessagesSinceForUserRow) []Message {
+	messages := make([]Message, 0, len(rows))
+	for _, row := range rows {
+		messages = append(messages, toMessageFromActiveSinceForUserRow(row))
 	}
 	return messages
 }
