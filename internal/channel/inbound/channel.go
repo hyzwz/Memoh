@@ -256,6 +256,11 @@ func (p *ChannelInboundProcessor) HandleInbound(ctx context.Context, cfg channel
 				slog.Int("attachments", len(attachments)),
 			)
 		}
+		// Passively persist the inbound message for cross-platform history without triggering AI.
+		// Personal bots only interact via mention/reply; skip passive persistence for unmentioned messages.
+		if identity.BotType != "personal" {
+			p.persistInboundUser(ctx, resolved.RouteID, identity, msg, text, attachments, "passive_sync")
+		}
 		return nil
 	}
 

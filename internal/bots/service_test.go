@@ -25,6 +25,10 @@ type fakeDBTX struct {
 	queryRowFunc func(ctx context.Context, sql string, args ...any) pgx.Row
 }
 
+func (d *fakeDBTX) CopyFrom(_ context.Context, _ pgx.Identifier, _ []string, _ pgx.CopyFromSource) (int64, error) {
+	return 0, nil
+}
+
 func (d *fakeDBTX) Exec(context.Context, string, ...interface{}) (pgconn.CommandTag, error) {
 	return pgconn.CommandTag{}, nil
 }
