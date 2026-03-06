@@ -45,7 +45,7 @@ func (s *ModelRoutingService) CreateRoute(ctx context.Context, botID string, req
 		return nil, err
 	}
 
-	var metadata []byte
+	metadata := []byte("{}")
 	if req.Metadata != nil {
 		var err error
 		metadata, err = json.Marshal(req.Metadata)

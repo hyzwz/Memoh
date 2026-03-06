@@ -48,7 +48,7 @@ func (s *DepartmentService) CreateDepartment(ctx context.Context, botID string, 
 		Name:        req.Name,
 		Description: req.Description,
 		ParentID:    db.ParseUUIDOrEmpty(req.ParentID),
-		Metadata:    nil,
+		Metadata:    []byte("{}"),
 	})
 	if err != nil {
 		return nil, err
