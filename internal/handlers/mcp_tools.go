@@ -230,9 +230,14 @@ func (h *ContainerdHandler) buildToolSessionContext(c echo.Context, botID string
 			channelIdentityID = strings.TrimSpace(ctxIdentityID)
 		}
 	}
+	userID := ""
+	if uid, err := auth.UserIDFromContext(c); err == nil {
+		userID = strings.TrimSpace(uid)
+	}
 	return mcpgw.ToolSessionContext{
 		BotID:             strings.TrimSpace(botID),
 		ChatID:            strings.TrimSpace(botID),
+		UserID:            userID,
 		ChannelIdentityID: channelIdentityID,
 		SessionToken:      strings.TrimSpace(c.Request().Header.Get(headerSessionToken)),
 		CurrentPlatform:   strings.TrimSpace(c.Request().Header.Get(headerCurrentPlatform)),

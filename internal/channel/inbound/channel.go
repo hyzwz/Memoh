@@ -766,6 +766,9 @@ func (p *ChannelInboundProcessor) persistInboundUser(
 		"platform":     msg.Channel.String(),
 		"trigger_mode": strings.TrimSpace(triggerMode),
 	}
+	if strings.TrimSpace(identity.UserID) != "" {
+		meta["context_user_id"] = strings.TrimSpace(identity.UserID)
+	}
 	if _, err := p.message.Persist(ctx, messagepkg.PersistInput{
 		BotID:                   botID,
 		RouteID:                 strings.TrimSpace(routeID),

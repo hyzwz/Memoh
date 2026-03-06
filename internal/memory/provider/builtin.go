@@ -271,15 +271,24 @@ func (p *BuiltinProvider) CallTool(ctx context.Context, session mcp.ToolSessionC
 		}
 	}
 
+	toolScopeID := botID
+	toolFilters := map[string]any{
+		"namespace": sharedMemoryNamespace,
+		"scopeId":   toolScopeID,
+		"bot_id":    botID,
+	}
+	toolUserID := strings.TrimSpace(session.UserID)
+	if toolUserID != "" {
+		toolScopeID = botID + ":" + toolUserID
+		toolFilters["scopeId"] = toolScopeID
+		toolFilters["user_id"] = toolUserID
+	}
+
 	resp, err := p.service.Search(ctx, SearchRequest{
-		Query: query,
-		BotID: botID,
-		Limit: limit,
-		Filters: map[string]any{
-			"namespace": sharedMemoryNamespace,
-			"scopeId":   botID,
-			"bot_id":    botID,
-		},
+		Query:   query,
+		BotID:   botID,
+		Limit:   limit,
+		Filters: toolFilters,
 		NoStats: true,
 	})
 	if err != nil {

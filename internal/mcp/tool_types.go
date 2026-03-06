@@ -12,6 +12,7 @@ import (
 type ToolSessionContext struct {
 	BotID             string
 	ChatID            string
+	UserID            string
 	ChannelIdentityID string
 	SessionToken      string
 	CurrentPlatform   string
