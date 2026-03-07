@@ -399,7 +399,9 @@ func provideChannelRegistry(log *slog.Logger, hub *local.RouteHub, mediaService 
 	discordAdapter.SetAssetOpener(mediaService)
 	registry.MustRegister(discordAdapter)
 
-	registry.MustRegister(feishu.NewFeishuAdapter(log))
+	feishuAdapter := feishu.NewFeishuAdapter(log)
+	feishuAdapter.SetAssetOpener(mediaService)
+	registry.MustRegister(feishuAdapter)
 	registry.MustRegister(wecom.NewWeComAdapter(log))
 	registry.MustRegister(local.NewCLIAdapter(hub))
 	registry.MustRegister(local.NewWebAdapter(hub))
