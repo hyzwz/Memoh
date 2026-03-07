@@ -3,41 +3,69 @@
     <!-- Header -->
     <div class="flex items-center justify-between">
       <div>
-        <h1 class="text-2xl font-bold tracking-tight">预算管理</h1>
-        <p class="text-sm text-muted-foreground mt-1">设置消费限额与告警，控制AI使用成本</p>
+        <h1 class="text-2xl font-bold tracking-tight">
+          预算管理
+        </h1>
+        <p class="text-sm text-muted-foreground mt-1">
+          设置消费限额与告警，控制AI使用成本
+        </p>
       </div>
-      <Button size="sm" @click="showCreate = true">
+      <Button
+        size="sm"
+        @click="showCreate = true"
+      >
         + 新建预算
       </Button>
     </div>
 
     <!-- Summary cards -->
-    <div v-if="budgets && budgets.length > 0" class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+    <div
+      v-if="budgets && budgets.length > 0"
+      class="grid grid-cols-1 sm:grid-cols-3 gap-4"
+    >
       <Card>
         <CardContent class="p-5">
-          <div class="text-xs text-muted-foreground uppercase tracking-wider mb-2">预算总数</div>
-          <p class="text-2xl font-bold tabular-nums">{{ budgets.length }}</p>
+          <div class="text-xs text-muted-foreground uppercase tracking-wider mb-2">
+            预算总数
+          </div>
+          <p class="text-2xl font-bold tabular-nums">
+            {{ budgets.length }}
+          </p>
         </CardContent>
       </Card>
       <Card>
         <CardContent class="p-5">
-          <div class="text-xs text-muted-foreground uppercase tracking-wider mb-2">拦截策略</div>
-          <p class="text-2xl font-bold tabular-nums text-rose-600">{{ blockCount }}</p>
-          <p class="text-xs text-muted-foreground">个 Block 规则</p>
+          <div class="text-xs text-muted-foreground uppercase tracking-wider mb-2">
+            拦截策略
+          </div>
+          <p class="text-2xl font-bold tabular-nums text-rose-600">
+            {{ blockCount }}
+          </p>
+          <p class="text-xs text-muted-foreground">
+            个 Block 规则
+          </p>
         </CardContent>
       </Card>
       <Card>
         <CardContent class="p-5">
-          <div class="text-xs text-muted-foreground uppercase tracking-wider mb-2">告警策略</div>
-          <p class="text-2xl font-bold tabular-nums text-amber-600">{{ warnCount }}</p>
-          <p class="text-xs text-muted-foreground">个 Warn 规则</p>
+          <div class="text-xs text-muted-foreground uppercase tracking-wider mb-2">
+            告警策略
+          </div>
+          <p class="text-2xl font-bold tabular-nums text-amber-600">
+            {{ warnCount }}
+          </p>
+          <p class="text-xs text-muted-foreground">
+            个 Warn 规则
+          </p>
         </CardContent>
       </Card>
     </div>
 
     <!-- Loading -->
     <template v-if="isLoading">
-      <div class="flex justify-center py-20"><Spinner class="size-8" /></div>
+      <div class="flex justify-center py-20">
+        <Spinner class="size-8" />
+      </div>
     </template>
 
     <!-- Table -->
@@ -46,40 +74,79 @@
         <table class="w-full text-sm">
           <thead>
             <tr class="border-b bg-muted/50">
-              <th class="p-3 text-left font-medium text-xs uppercase tracking-wider text-muted-foreground">范围</th>
-              <th class="p-3 text-left font-medium text-xs uppercase tracking-wider text-muted-foreground">范围ID</th>
-              <th class="p-3 text-left font-medium text-xs uppercase tracking-wider text-muted-foreground">周期</th>
-              <th class="p-3 text-right font-medium text-xs uppercase tracking-wider text-muted-foreground">限额</th>
-              <th class="p-3 text-center font-medium text-xs uppercase tracking-wider text-muted-foreground">告警阈值</th>
-              <th class="p-3 text-center font-medium text-xs uppercase tracking-wider text-muted-foreground">超额操作</th>
-              <th class="p-3 text-right font-medium text-xs uppercase tracking-wider text-muted-foreground">操作</th>
+              <th class="p-3 text-left font-medium text-xs uppercase tracking-wider text-muted-foreground">
+                范围
+              </th>
+              <th class="p-3 text-left font-medium text-xs uppercase tracking-wider text-muted-foreground">
+                范围ID
+              </th>
+              <th class="p-3 text-left font-medium text-xs uppercase tracking-wider text-muted-foreground">
+                周期
+              </th>
+              <th class="p-3 text-right font-medium text-xs uppercase tracking-wider text-muted-foreground">
+                限额
+              </th>
+              <th class="p-3 text-center font-medium text-xs uppercase tracking-wider text-muted-foreground">
+                告警阈值
+              </th>
+              <th class="p-3 text-center font-medium text-xs uppercase tracking-wider text-muted-foreground">
+                超额操作
+              </th>
+              <th class="p-3 text-right font-medium text-xs uppercase tracking-wider text-muted-foreground">
+                操作
+              </th>
             </tr>
           </thead>
           <tbody>
-            <tr v-for="b in budgets" :key="b.id" class="border-b hover:bg-muted/30 transition-colors">
+            <tr
+              v-for="b in budgets"
+              :key="b.id"
+              class="border-b hover:bg-muted/30 transition-colors"
+            >
               <td class="p-3">
-                <Badge variant="outline" class="text-xs" :class="scopeBadgeClass(b.scope_type)">
+                <Badge
+                  variant="outline"
+                  class="text-xs"
+                  :class="scopeBadgeClass(b.scope_type)"
+                >
                   {{ scopeLabel(b.scope_type) }}
                 </Badge>
               </td>
-              <td class="p-3 text-muted-foreground font-mono text-xs">{{ shortId(b.scope_id) }}</td>
-              <td class="p-3">{{ periodLabel(b.period) }}</td>
-              <td class="p-3 text-right tabular-nums font-semibold">${{ b.limit_amount?.toFixed(2) }}</td>
+              <td class="p-3 text-muted-foreground font-mono text-xs">
+                {{ shortId(b.scope_id) }}
+              </td>
+              <td class="p-3">
+                {{ periodLabel(b.period) }}
+              </td>
+              <td class="p-3 text-right tabular-nums font-semibold">
+                ${{ b.limit_amount?.toFixed(2) }}
+              </td>
               <td class="p-3 text-center">
                 <div class="inline-flex items-center gap-1.5">
                   <div class="w-16 h-1.5 rounded-full bg-muted overflow-hidden">
-                    <div class="h-full rounded-full bg-amber-500" :style="{ width: `${(b.alert_threshold ?? 0.8) * 100}%` }" />
+                    <div
+                      class="h-full rounded-full bg-amber-500"
+                      :style="{ width: `${(b.alert_threshold ?? 0.8) * 100}%` }"
+                    />
                   </div>
                   <span class="text-xs tabular-nums text-muted-foreground">{{ ((b.alert_threshold ?? 0) * 100).toFixed(0) }}%</span>
                 </div>
               </td>
               <td class="p-3 text-center">
-                <Badge :class="actionBadgeClass(b.action_on_exceed)" class="text-xs">
+                <Badge
+                  :class="actionBadgeClass(b.action_on_exceed)"
+                  class="text-xs"
+                >
                   {{ actionLabel(b.action_on_exceed) }}
                 </Badge>
               </td>
               <td class="p-3 text-right">
-                <Button variant="ghost" size="sm" class="text-destructive text-xs" @click="handleDelete(b.id)">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  class="text-destructive text-xs"
+                  @click="handleDelete(b.id)"
+                >
                   删除
                 </Button>
               </td>
@@ -91,7 +158,11 @@
 
     <!-- Empty -->
     <template v-else-if="!isLoading">
-      <EmptyState icon="wallet" message="暂无预算配置" sub="创建预算规则后，系统将自动监控AI消费" />
+      <EmptyState
+        icon="wallet"
+        message="暂无预算配置"
+        sub="创建预算规则后，系统将自动监控AI消费"
+      />
     </template>
 
     <!-- Create dialog -->
@@ -107,10 +178,18 @@
               <Select v-model="form.scope_type">
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="bot">Bot</SelectItem>
-                  <SelectItem value="user">用户</SelectItem>
-                  <SelectItem value="department">部门</SelectItem>
-                  <SelectItem value="system">全局</SelectItem>
+                  <SelectItem value="bot">
+                    Bot
+                  </SelectItem>
+                  <SelectItem value="user">
+                    用户
+                  </SelectItem>
+                  <SelectItem value="department">
+                    部门
+                  </SelectItem>
+                  <SelectItem value="system">
+                    全局
+                  </SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -119,25 +198,45 @@
               <Select v-model="form.period">
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="daily">每日</SelectItem>
-                  <SelectItem value="weekly">每周</SelectItem>
-                  <SelectItem value="monthly">每月</SelectItem>
+                  <SelectItem value="daily">
+                    每日
+                  </SelectItem>
+                  <SelectItem value="weekly">
+                    每周
+                  </SelectItem>
+                  <SelectItem value="monthly">
+                    每月
+                  </SelectItem>
                 </SelectContent>
               </Select>
             </div>
           </div>
           <div class="space-y-1.5">
             <Label>范围ID</Label>
-            <Input v-model="form.scope_id" placeholder="bot-id, user-id, 部门名等" />
+            <Input
+              v-model="form.scope_id"
+              placeholder="bot-id, user-id, 部门名等"
+            />
           </div>
           <div class="grid grid-cols-2 gap-4">
             <div class="space-y-1.5">
               <Label>限额 ($)</Label>
-              <Input v-model.number="form.limit_amount" type="number" min="0" step="0.01" />
+              <Input
+                v-model.number="form.limit_amount"
+                type="number"
+                min="0"
+                step="0.01"
+              />
             </div>
             <div class="space-y-1.5">
               <Label>告警阈值</Label>
-              <Input v-model.number="form.alert_threshold" type="number" min="0" max="1" step="0.05" />
+              <Input
+                v-model.number="form.alert_threshold"
+                type="number"
+                min="0"
+                max="1"
+                step="0.05"
+              />
             </div>
           </div>
           <div class="space-y-1.5">
@@ -145,17 +244,34 @@
             <Select v-model="form.action_on_exceed">
               <SelectTrigger><SelectValue /></SelectTrigger>
               <SelectContent>
-                <SelectItem value="warn">告警 (Warn)</SelectItem>
-                <SelectItem value="block">拦截 (Block)</SelectItem>
-                <SelectItem value="downgrade">降级 (Downgrade)</SelectItem>
+                <SelectItem value="warn">
+                  告警 (Warn)
+                </SelectItem>
+                <SelectItem value="block">
+                  拦截 (Block)
+                </SelectItem>
+                <SelectItem value="downgrade">
+                  降级 (Downgrade)
+                </SelectItem>
               </SelectContent>
             </Select>
           </div>
         </div>
         <div class="flex justify-end gap-2 mt-6">
-          <Button variant="outline" @click="showCreate = false">取消</Button>
-          <Button :disabled="!form.scope_type || !form.scope_id || !form.period || form.limit_amount <= 0 || creating" @click="handleCreate">
-            <Spinner v-if="creating" class="mr-2 size-4" />
+          <Button
+            variant="outline"
+            @click="showCreate = false"
+          >
+            取消
+          </Button>
+          <Button
+            :disabled="!form.scope_type || !form.scope_id || !form.period || form.limit_amount <= 0 || creating"
+            @click="handleCreate"
+          >
+            <Spinner
+              v-if="creating"
+              class="mr-2 size-4"
+            />
             确认
           </Button>
         </div>
@@ -194,8 +310,8 @@ const { data: budgets, status, refetch } = useQuery({
 })
 
 const isLoading = computed(() => status.value === 'loading')
-const blockCount = computed(() => budgets.value?.filter((b: any) => b.action_on_exceed === 'block').length ?? 0)
-const warnCount = computed(() => budgets.value?.filter((b: any) => b.action_on_exceed === 'warn').length ?? 0)
+const blockCount = computed(() => budgets.value?.filter((b: Record<string, unknown>) => b.action_on_exceed === 'block').length ?? 0)
+const warnCount = computed(() => budgets.value?.filter((b: Record<string, unknown>) => b.action_on_exceed === 'warn').length ?? 0)
 
 function scopeLabel(s: string | undefined): string {
   return { bot: 'Bot', user: '用户', department: '部门', system: '全局' }[s ?? ''] ?? s ?? '-'

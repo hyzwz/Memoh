@@ -3,8 +3,12 @@
     <!-- Header -->
     <div class="flex items-center justify-between">
       <div>
-        <h1 class="text-2xl font-bold tracking-tight">模型路由</h1>
-        <p class="text-sm text-muted-foreground mt-1">根据任务复杂度智能选择最优AI模型</p>
+        <h1 class="text-2xl font-bold tracking-tight">
+          模型路由
+        </h1>
+        <p class="text-sm text-muted-foreground mt-1">
+          根据任务复杂度智能选择最优AI模型
+        </p>
       </div>
       <div class="flex items-center gap-3">
         <Select v-model="selectedBotId">
@@ -12,12 +16,20 @@
             <SelectValue placeholder="选择Bot" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem v-for="bot in botList" :key="bot.id" :value="bot.id!">
+            <SelectItem
+              v-for="bot in botList"
+              :key="bot.id"
+              :value="bot.id!"
+            >
               {{ bot.display_name || bot.id }}
             </SelectItem>
           </SelectContent>
         </Select>
-        <Button size="sm" :disabled="!selectedBotId" @click="showCreate = true">
+        <Button
+          size="sm"
+          :disabled="!selectedBotId"
+          @click="showCreate = true"
+        >
           + 新建路由
         </Button>
       </div>
@@ -25,23 +37,40 @@
 
     <!-- No bot -->
     <template v-if="!selectedBotId">
-      <EmptyState icon="route" message="请先选择一个Bot管理模型路由" />
+      <EmptyState
+        icon="route"
+        message="请先选择一个Bot管理模型路由"
+      />
     </template>
 
     <!-- Loading -->
     <template v-else-if="isLoading">
-      <div class="flex justify-center py-20"><Spinner class="size-8" /></div>
+      <div class="flex justify-center py-20">
+        <Spinner class="size-8" />
+      </div>
     </template>
 
     <!-- Route cards -->
     <template v-else-if="routes && routes.length > 0">
       <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        <Card v-for="route in routes" :key="route.id" class="relative overflow-hidden">
-          <div class="absolute top-0 left-0 right-0 h-1" :class="tierColor(route.complexity_tier)" />
+        <Card
+          v-for="route in routes"
+          :key="route.id"
+          class="relative overflow-hidden"
+        >
+          <div
+            class="absolute top-0 left-0 right-0 h-1"
+            :class="tierColor(route.complexity_tier)"
+          />
           <CardHeader class="pb-3">
             <div class="flex items-center justify-between">
-              <CardTitle class="text-base">{{ route.name }}</CardTitle>
-              <Badge :variant="route.is_enabled ? 'default' : 'secondary'" class="text-xs">
+              <CardTitle class="text-base">
+                {{ route.name }}
+              </CardTitle>
+              <Badge
+                :variant="route.is_enabled ? 'default' : 'secondary'"
+                class="text-xs"
+              >
                 {{ route.is_enabled ? '启用' : '禁用' }}
               </Badge>
             </div>
@@ -59,13 +88,22 @@
             </div>
             <div>
               <span class="text-xs text-muted-foreground">复杂度级别</span>
-              <Badge variant="outline" class="ml-2 text-xs" :class="tierBadgeClass(route.complexity_tier)">
+              <Badge
+                variant="outline"
+                class="ml-2 text-xs"
+                :class="tierBadgeClass(route.complexity_tier)"
+              >
                 {{ tierLabel(route.complexity_tier) }}
               </Badge>
             </div>
           </CardContent>
           <div class="px-4 pb-4 flex justify-end">
-            <Button variant="ghost" size="sm" class="text-destructive text-xs" @click="handleDelete(route.id)">
+            <Button
+              variant="ghost"
+              size="sm"
+              class="text-destructive text-xs"
+              @click="handleDelete(route.id)"
+            >
               删除
             </Button>
           </div>
@@ -75,7 +113,11 @@
 
     <!-- Empty -->
     <template v-else>
-      <EmptyState icon="route" message="暂无模型路由配置" sub="添加路由后，系统将根据任务复杂度自动选择模型" />
+      <EmptyState
+        icon="route"
+        message="暂无模型路由配置"
+        sub="添加路由后，系统将根据任务复杂度自动选择模型"
+      />
     </template>
 
     <!-- Create dialog -->
@@ -87,7 +129,10 @@
         <div class="space-y-4 mt-4">
           <div class="space-y-1.5">
             <Label>名称</Label>
-            <Input v-model="form.name" placeholder="例: GPT-4o 高复杂度路由" />
+            <Input
+              v-model="form.name"
+              placeholder="例: GPT-4o 高复杂度路由"
+            />
           </div>
           <div class="space-y-1.5">
             <Label>模型ID</Label>
@@ -96,7 +141,11 @@
                 <SelectValue placeholder="选择模型" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem v-for="m in modelList" :key="m.id" :value="m.id!">
+                <SelectItem
+                  v-for="m in modelList"
+                  :key="m.id"
+                  :value="m.id!"
+                >
                   {{ m.name || m.id }}
                 </SelectItem>
               </SelectContent>
@@ -107,21 +156,41 @@
             <Select v-model="form.complexity_tier">
               <SelectTrigger><SelectValue /></SelectTrigger>
               <SelectContent>
-                <SelectItem value="simple">简单</SelectItem>
-                <SelectItem value="medium">中等</SelectItem>
-                <SelectItem value="complex">复杂</SelectItem>
+                <SelectItem value="simple">
+                  简单
+                </SelectItem>
+                <SelectItem value="medium">
+                  中等
+                </SelectItem>
+                <SelectItem value="complex">
+                  复杂
+                </SelectItem>
               </SelectContent>
             </Select>
           </div>
           <div class="space-y-1.5">
             <Label>优先级 <span class="text-muted-foreground text-xs">(数值越大越优先)</span></Label>
-            <Input v-model.number="form.priority" type="number" />
+            <Input
+              v-model.number="form.priority"
+              type="number"
+            />
           </div>
         </div>
         <div class="flex justify-end gap-2 mt-6">
-          <Button variant="outline" @click="showCreate = false">取消</Button>
-          <Button :disabled="!form.name || !form.model_id || creating" @click="handleCreate">
-            <Spinner v-if="creating" class="mr-2 size-4" />
+          <Button
+            variant="outline"
+            @click="showCreate = false"
+          >
+            取消
+          </Button>
+          <Button
+            :disabled="!form.name || !form.model_id || creating"
+            @click="handleCreate"
+          >
+            <Spinner
+              v-if="creating"
+              class="mr-2 size-4"
+            />
             确认
           </Button>
         </div>
@@ -165,7 +234,7 @@ const { data: modelData } = useQuery({
     return res.data ?? []
   },
 })
-const modelList = computed(() => (modelData.value as any[]) ?? [])
+const modelList = computed(() => (modelData.value as Record<string, unknown>[]) ?? [])
 
 const { data: routes, status, refetch } = useQuery({
   key: () => ['model-routes', selectedBotId.value],

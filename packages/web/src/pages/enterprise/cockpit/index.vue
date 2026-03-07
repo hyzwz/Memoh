@@ -3,8 +3,12 @@
     <!-- Header -->
     <div class="flex items-center justify-between">
       <div>
-        <h1 class="text-2xl font-bold tracking-tight">AI效能驾驶舱</h1>
-        <p class="text-sm text-muted-foreground mt-1">实时监控AI助手的效能指标与投资回报</p>
+        <h1 class="text-2xl font-bold tracking-tight">
+          AI效能驾驶舱
+        </h1>
+        <p class="text-sm text-muted-foreground mt-1">
+          实时监控AI助手的效能指标与投资回报
+        </p>
       </div>
       <div class="flex items-center gap-3">
         <Select v-model="selectedBotId">
@@ -40,7 +44,10 @@
           :disabled="isLoading || !selectedBotId"
           @click="refetch()"
         >
-          <Spinner v-if="isLoading" class="mr-2 size-4" />
+          <Spinner
+            v-if="isLoading"
+            class="mr-2 size-4"
+          />
           刷新
         </Button>
       </div>
@@ -49,8 +56,25 @@
     <!-- No bot selected -->
     <template v-if="!selectedBotId">
       <div class="flex flex-col items-center justify-center py-20 text-muted-foreground">
-        <svg xmlns="http://www.w3.org/2000/svg" class="size-12 mb-4 opacity-30" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M10.5 6a7.5 7.5 0 1 0 7.5 7.5h-7.5V6Z" /><path stroke-linecap="round" stroke-linejoin="round" d="M13.5 10.5H21A7.5 7.5 0 0 0 13.5 3v7.5Z" /></svg>
-        <p class="text-sm">请先选择一个Bot查看效能数据</p>
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          class="size-12 mb-4 opacity-30"
+          fill="none"
+          viewBox="0 0 24 24"
+          stroke="currentColor"
+          stroke-width="1.5"
+        ><path
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          d="M10.5 6a7.5 7.5 0 1 0 7.5 7.5h-7.5V6Z"
+        /><path
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          d="M13.5 10.5H21A7.5 7.5 0 0 0 13.5 3v7.5Z"
+        /></svg>
+        <p class="text-sm">
+          请先选择一个Bot查看效能数据
+        </p>
       </div>
     </template>
 
@@ -65,16 +89,34 @@
     <template v-else-if="summary">
       <!-- Stat Cards Row -->
       <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
-        <Card v-for="stat in statCards" :key="stat.label" class="relative overflow-hidden">
+        <Card
+          v-for="stat in statCards"
+          :key="stat.label"
+          class="relative overflow-hidden"
+        >
           <CardContent class="p-5">
             <div class="flex items-center justify-between mb-3">
               <span class="text-xs font-medium text-muted-foreground uppercase tracking-wider">{{ stat.label }}</span>
-              <div class="size-8 rounded-lg flex items-center justify-center" :class="stat.iconBg">
-                <component :is="stat.icon" class="size-4" :class="stat.iconColor" />
+              <div
+                class="size-8 rounded-lg flex items-center justify-center"
+                :class="stat.iconBg"
+              >
+                <component
+                  :is="stat.icon"
+                  class="size-4"
+                  :class="stat.iconColor"
+                />
               </div>
             </div>
-            <p class="text-2xl font-bold tabular-nums">{{ stat.value }}</p>
-            <p v-if="stat.desc" class="text-xs text-muted-foreground mt-1">{{ stat.desc }}</p>
+            <p class="text-2xl font-bold tabular-nums">
+              {{ stat.value }}
+            </p>
+            <p
+              v-if="stat.desc"
+              class="text-xs text-muted-foreground mt-1"
+            >
+              {{ stat.desc }}
+            </p>
           </CardContent>
         </Card>
       </div>
@@ -89,9 +131,24 @@
     <!-- No Data -->
     <template v-else>
       <div class="flex flex-col items-center justify-center py-20 text-muted-foreground">
-        <svg xmlns="http://www.w3.org/2000/svg" class="size-12 mb-4 opacity-30" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 0 1 3 19.875v-6.75ZM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 0 1-1.125-1.125V8.625ZM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 0 1-1.125-1.125V4.125Z" /></svg>
-        <p class="text-sm">暂无效能数据</p>
-        <p class="text-xs mt-1">Bot使用后将自动生成报告</p>
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          class="size-12 mb-4 opacity-30"
+          fill="none"
+          viewBox="0 0 24 24"
+          stroke="currentColor"
+          stroke-width="1.5"
+        ><path
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          d="M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 0 1 3 19.875v-6.75ZM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 0 1-1.125-1.125V8.625ZM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 0 1-1.125-1.125V4.125Z"
+        /></svg>
+        <p class="text-sm">
+          暂无效能数据
+        </p>
+        <p class="text-xs mt-1">
+          Bot使用后将自动生成报告
+        </p>
       </div>
     </template>
   </div>
