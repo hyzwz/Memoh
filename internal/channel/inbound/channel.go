@@ -372,7 +372,7 @@ func (p *ChannelInboundProcessor) HandleInbound(ctx context.Context, cfg channel
 	// For non-local channels, wrap the stream so events are mirrored to the
 	// RouteHub (and thus to WebUI/CLI subscribers).
 	if p.observer != nil && !isLocalChannelType(msg.Channel) {
-		stream = channel.NewTeeStream(stream, p.observer, strings.TrimSpace(identity.BotID), msg.Channel)
+		stream = channel.NewTeeStream(stream, p.observer, strings.TrimSpace(identity.BotID), msg.Channel, streamMeta)
 		// Broadcast the inbound user message so WebUI can display it.
 		p.broadcastInboundMessage(ctx, strings.TrimSpace(identity.BotID), msg, text, identity, resolvedAttachments)
 	}
@@ -1889,9 +1889,10 @@ func (p *ChannelInboundProcessor) broadcastInboundMessage(
 			Message: inboundMsg,
 		},
 		Metadata: map[string]any{
-			"source_channel": string(msg.Channel),
-			"role":           "user",
-			"sender_user_id": strings.TrimSpace(identity.UserID),
+			"source_channel":  string(msg.Channel),
+			"role":            "user",
+			"sender_user_id":  strings.TrimSpace(identity.UserID),
+			"context_user_id": strings.TrimSpace(identity.UserID),
 		},
 	})
 }

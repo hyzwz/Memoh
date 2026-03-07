@@ -121,12 +121,14 @@ func (s *localOutboundStream) Push(ctx context.Context, event channel.StreamEven
 	}
 	// Inject stream-level metadata (e.g. context_user_id) into each event
 	// so downstream subscribers can filter by user.
+	// Stream-scoped metadata wins over per-event metadata for reserved keys
+	// to prevent callers from spoofing the isolation boundary.
 	if len(s.metadata) > 0 {
 		merged := make(map[string]any, len(event.Metadata)+len(s.metadata))
-		for k, v := range s.metadata {
+		for k, v := range event.Metadata {
 			merged[k] = v
 		}
-		for k, v := range event.Metadata {
+		for k, v := range s.metadata {
 			merged[k] = v
 		}
 		event.Metadata = merged

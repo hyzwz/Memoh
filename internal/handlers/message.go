@@ -316,10 +316,10 @@ func (h *MessageHandler) StreamMessageEvents(c echo.Context) error {
 				continue
 			}
 			// Filter by context_user_id for user-level isolation in shared bots.
-			if msgUserID, ok := message.Metadata["context_user_id"].(string); ok {
-				if strings.TrimSpace(msgUserID) != userID {
-					continue
-				}
+			// Fail-closed: if context_user_id is missing or doesn't match, skip the event.
+			msgUserID, _ := message.Metadata["context_user_id"].(string)
+			if strings.TrimSpace(msgUserID) != userID {
+				continue
 			}
 			h.fillAssetMimeFromStorage(c.Request().Context(), botID, []messagepkg.Message{message})
 			if err := writeCreatedEvent(message); err != nil {

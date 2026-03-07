@@ -104,10 +104,9 @@ func (h *LocalChannelHandler) StreamMessages(c echo.Context) error {
 				return nil
 			}
 			// Filter stream events by context_user_id for user-level isolation.
-			if eventUserID := streamEventContextUserID(msg.Event); eventUserID != "" {
-				if eventUserID != channelIdentityID {
-					continue
-				}
+			// Fail-closed: if context_user_id is missing or doesn't match, skip the event.
+			if streamEventContextUserID(msg.Event) != channelIdentityID {
+				continue
 			}
 			data, err := formatLocalStreamEvent(msg.Event)
 			if err != nil {
