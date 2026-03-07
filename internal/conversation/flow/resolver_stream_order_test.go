@@ -49,7 +49,19 @@ func (s *blockingMessageService) ListLatest(ctx context.Context, botID string, l
 	return nil, nil
 }
 
+func (s *blockingMessageService) ListLatestForUser(ctx context.Context, botID string, limit int32, userID string) ([]messagepkg.Message, error) {
+	return nil, nil
+}
+
 func (s *blockingMessageService) ListBefore(ctx context.Context, botID string, before time.Time, limit int32) ([]messagepkg.Message, error) {
+	return nil, nil
+}
+
+func (s *blockingMessageService) ListBeforeForUser(ctx context.Context, botID string, before time.Time, limit int32, userID string) ([]messagepkg.Message, error) {
+	return nil, nil
+}
+
+func (s *blockingMessageService) ListSinceForUser(ctx context.Context, botID string, since time.Time, userID string) ([]messagepkg.Message, error) {
 	return nil, nil
 }
 

@@ -304,6 +304,9 @@ CREATE INDEX IF NOT EXISTS idx_bot_history_messages_source_lookup
   ON bot_history_messages(channel_type, source_message_id);
 CREATE INDEX IF NOT EXISTS idx_bot_history_messages_reply_lookup
   ON bot_history_messages(channel_type, source_reply_to_message_id);
+CREATE INDEX IF NOT EXISTS idx_bot_history_messages_context_user_id
+  ON bot_history_messages ((metadata->>'context_user_id'))
+  WHERE metadata->>'context_user_id' IS NOT NULL;
 
 CREATE TABLE IF NOT EXISTS containers (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),

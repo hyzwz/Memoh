@@ -37,7 +37,7 @@ func TestLocalOutboundStreamClose(t *testing.T) {
 	t.Parallel()
 
 	hub := NewRouteHub()
-	stream := newLocalOutboundStream(hub, "bot-2")
+	stream := newLocalOutboundStream(hub, "bot-2", nil)
 	if err := stream.Close(context.Background()); err != nil {
 		t.Fatalf("unexpected close error: %v", err)
 	}

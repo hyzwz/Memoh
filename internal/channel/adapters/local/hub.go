@@ -93,15 +93,17 @@ func (h *RouteHub) PublishEvent(routeKey string, event channel.StreamEvent) {
 }
 
 type localOutboundStream struct {
-	hub    *RouteHub
-	target string
-	closed atomic.Bool
+	hub      *RouteHub
+	target   string
+	closed   atomic.Bool
+	metadata map[string]any
 }
 
-func newLocalOutboundStream(hub *RouteHub, target string) channel.OutboundStream {
+func newLocalOutboundStream(hub *RouteHub, target string, metadata map[string]any) channel.OutboundStream {
 	return &localOutboundStream{
-		hub:    hub,
-		target: target,
+		hub:      hub,
+		target:   target,
+		metadata: metadata,
 	}
 }
 
@@ -116,6 +118,18 @@ func (s *localOutboundStream) Push(ctx context.Context, event channel.StreamEven
 	case <-ctx.Done():
 		return ctx.Err()
 	default:
+	}
+	// Inject stream-level metadata (e.g. context_user_id) into each event
+	// so downstream subscribers can filter by user.
+	if len(s.metadata) > 0 {
+		merged := make(map[string]any, len(event.Metadata)+len(s.metadata))
+		for k, v := range s.metadata {
+			merged[k] = v
+		}
+		for k, v := range event.Metadata {
+			merged[k] = v
+		}
+		event.Metadata = merged
 	}
 	s.hub.PublishEvent(s.target, event)
 	return nil

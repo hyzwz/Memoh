@@ -464,6 +464,98 @@ func (q *Queries) ListMessagesBefore(ctx context.Context, arg ListMessagesBefore
 	return items, nil
 }
 
+const listMessagesBeforeForUser = `-- name: ListMessagesBeforeForUser :many
+SELECT
+  m.id,
+  m.bot_id,
+  m.route_id,
+  m.sender_channel_identity_id,
+  m.sender_account_user_id AS sender_user_id,
+  m.channel_type AS platform,
+  m.source_message_id AS external_message_id,
+  m.source_reply_to_message_id,
+  m.role,
+  m.content,
+  m.metadata,
+  m.usage,
+  m.created_at,
+  ci.display_name AS sender_display_name,
+  ci.avatar_url AS sender_avatar_url
+FROM bot_history_messages m
+LEFT JOIN channel_identities ci ON ci.id = m.sender_channel_identity_id
+WHERE m.bot_id = $1
+  AND m.created_at < $2
+  AND (m.metadata->>'context_user_id') = $3
+ORDER BY m.created_at DESC
+LIMIT $4
+`
+
+type ListMessagesBeforeForUserParams struct {
+	BotID         pgtype.UUID        `json:"bot_id"`
+	CreatedAt     pgtype.Timestamptz `json:"created_at"`
+	ContextUserID []byte             `json:"context_user_id"`
+	MaxCount      int32              `json:"max_count"`
+}
+
+type ListMessagesBeforeForUserRow struct {
+	ID                      pgtype.UUID        `json:"id"`
+	BotID                   pgtype.UUID        `json:"bot_id"`
+	RouteID                 pgtype.UUID        `json:"route_id"`
+	SenderChannelIdentityID pgtype.UUID        `json:"sender_channel_identity_id"`
+	SenderUserID            pgtype.UUID        `json:"sender_user_id"`
+	Platform                pgtype.Text        `json:"platform"`
+	ExternalMessageID       pgtype.Text        `json:"external_message_id"`
+	SourceReplyToMessageID  pgtype.Text        `json:"source_reply_to_message_id"`
+	Role                    string             `json:"role"`
+	Content                 []byte             `json:"content"`
+	Metadata                []byte             `json:"metadata"`
+	Usage                   []byte             `json:"usage"`
+	CreatedAt               pgtype.Timestamptz `json:"created_at"`
+	SenderDisplayName       pgtype.Text        `json:"sender_display_name"`
+	SenderAvatarUrl         pgtype.Text        `json:"sender_avatar_url"`
+}
+
+func (q *Queries) ListMessagesBeforeForUser(ctx context.Context, arg ListMessagesBeforeForUserParams) ([]ListMessagesBeforeForUserRow, error) {
+	rows, err := q.db.Query(ctx, listMessagesBeforeForUser,
+		arg.BotID,
+		arg.CreatedAt,
+		arg.ContextUserID,
+		arg.MaxCount,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListMessagesBeforeForUserRow
+	for rows.Next() {
+		var i ListMessagesBeforeForUserRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.BotID,
+			&i.RouteID,
+			&i.SenderChannelIdentityID,
+			&i.SenderUserID,
+			&i.Platform,
+			&i.ExternalMessageID,
+			&i.SourceReplyToMessageID,
+			&i.Role,
+			&i.Content,
+			&i.Metadata,
+			&i.Usage,
+			&i.CreatedAt,
+			&i.SenderDisplayName,
+			&i.SenderAvatarUrl,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listMessagesLatest = `-- name: ListMessagesLatest :many
 SELECT
   m.id,
@@ -547,6 +639,91 @@ func (q *Queries) ListMessagesLatest(ctx context.Context, arg ListMessagesLatest
 	return items, nil
 }
 
+const listMessagesLatestForUser = `-- name: ListMessagesLatestForUser :many
+SELECT
+  m.id,
+  m.bot_id,
+  m.route_id,
+  m.sender_channel_identity_id,
+  m.sender_account_user_id AS sender_user_id,
+  m.channel_type AS platform,
+  m.source_message_id AS external_message_id,
+  m.source_reply_to_message_id,
+  m.role,
+  m.content,
+  m.metadata,
+  m.usage,
+  m.created_at,
+  ci.display_name AS sender_display_name,
+  ci.avatar_url AS sender_avatar_url
+FROM bot_history_messages m
+LEFT JOIN channel_identities ci ON ci.id = m.sender_channel_identity_id
+WHERE m.bot_id = $1
+  AND (m.metadata->>'context_user_id') = $2
+ORDER BY m.created_at DESC
+LIMIT $3
+`
+
+type ListMessagesLatestForUserParams struct {
+	BotID         pgtype.UUID `json:"bot_id"`
+	ContextUserID []byte      `json:"context_user_id"`
+	MaxCount      int32       `json:"max_count"`
+}
+
+type ListMessagesLatestForUserRow struct {
+	ID                      pgtype.UUID        `json:"id"`
+	BotID                   pgtype.UUID        `json:"bot_id"`
+	RouteID                 pgtype.UUID        `json:"route_id"`
+	SenderChannelIdentityID pgtype.UUID        `json:"sender_channel_identity_id"`
+	SenderUserID            pgtype.UUID        `json:"sender_user_id"`
+	Platform                pgtype.Text        `json:"platform"`
+	ExternalMessageID       pgtype.Text        `json:"external_message_id"`
+	SourceReplyToMessageID  pgtype.Text        `json:"source_reply_to_message_id"`
+	Role                    string             `json:"role"`
+	Content                 []byte             `json:"content"`
+	Metadata                []byte             `json:"metadata"`
+	Usage                   []byte             `json:"usage"`
+	CreatedAt               pgtype.Timestamptz `json:"created_at"`
+	SenderDisplayName       pgtype.Text        `json:"sender_display_name"`
+	SenderAvatarUrl         pgtype.Text        `json:"sender_avatar_url"`
+}
+
+func (q *Queries) ListMessagesLatestForUser(ctx context.Context, arg ListMessagesLatestForUserParams) ([]ListMessagesLatestForUserRow, error) {
+	rows, err := q.db.Query(ctx, listMessagesLatestForUser, arg.BotID, arg.ContextUserID, arg.MaxCount)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListMessagesLatestForUserRow
+	for rows.Next() {
+		var i ListMessagesLatestForUserRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.BotID,
+			&i.RouteID,
+			&i.SenderChannelIdentityID,
+			&i.SenderUserID,
+			&i.Platform,
+			&i.ExternalMessageID,
+			&i.SourceReplyToMessageID,
+			&i.Role,
+			&i.Content,
+			&i.Metadata,
+			&i.Usage,
+			&i.CreatedAt,
+			&i.SenderDisplayName,
+			&i.SenderAvatarUrl,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listMessagesSince = `-- name: ListMessagesSince :many
 SELECT
   m.id,
@@ -603,6 +780,91 @@ func (q *Queries) ListMessagesSince(ctx context.Context, arg ListMessagesSincePa
 	var items []ListMessagesSinceRow
 	for rows.Next() {
 		var i ListMessagesSinceRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.BotID,
+			&i.RouteID,
+			&i.SenderChannelIdentityID,
+			&i.SenderUserID,
+			&i.Platform,
+			&i.ExternalMessageID,
+			&i.SourceReplyToMessageID,
+			&i.Role,
+			&i.Content,
+			&i.Metadata,
+			&i.Usage,
+			&i.CreatedAt,
+			&i.SenderDisplayName,
+			&i.SenderAvatarUrl,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listMessagesSinceForUser = `-- name: ListMessagesSinceForUser :many
+SELECT
+  m.id,
+  m.bot_id,
+  m.route_id,
+  m.sender_channel_identity_id,
+  m.sender_account_user_id AS sender_user_id,
+  m.channel_type AS platform,
+  m.source_message_id AS external_message_id,
+  m.source_reply_to_message_id,
+  m.role,
+  m.content,
+  m.metadata,
+  m.usage,
+  m.created_at,
+  ci.display_name AS sender_display_name,
+  ci.avatar_url AS sender_avatar_url
+FROM bot_history_messages m
+LEFT JOIN channel_identities ci ON ci.id = m.sender_channel_identity_id
+WHERE m.bot_id = $1
+  AND m.created_at >= $2
+  AND (m.metadata->>'context_user_id') = $3
+ORDER BY m.created_at ASC
+`
+
+type ListMessagesSinceForUserParams struct {
+	BotID         pgtype.UUID        `json:"bot_id"`
+	CreatedAt     pgtype.Timestamptz `json:"created_at"`
+	ContextUserID []byte             `json:"context_user_id"`
+}
+
+type ListMessagesSinceForUserRow struct {
+	ID                      pgtype.UUID        `json:"id"`
+	BotID                   pgtype.UUID        `json:"bot_id"`
+	RouteID                 pgtype.UUID        `json:"route_id"`
+	SenderChannelIdentityID pgtype.UUID        `json:"sender_channel_identity_id"`
+	SenderUserID            pgtype.UUID        `json:"sender_user_id"`
+	Platform                pgtype.Text        `json:"platform"`
+	ExternalMessageID       pgtype.Text        `json:"external_message_id"`
+	SourceReplyToMessageID  pgtype.Text        `json:"source_reply_to_message_id"`
+	Role                    string             `json:"role"`
+	Content                 []byte             `json:"content"`
+	Metadata                []byte             `json:"metadata"`
+	Usage                   []byte             `json:"usage"`
+	CreatedAt               pgtype.Timestamptz `json:"created_at"`
+	SenderDisplayName       pgtype.Text        `json:"sender_display_name"`
+	SenderAvatarUrl         pgtype.Text        `json:"sender_avatar_url"`
+}
+
+func (q *Queries) ListMessagesSinceForUser(ctx context.Context, arg ListMessagesSinceForUserParams) ([]ListMessagesSinceForUserRow, error) {
+	rows, err := q.db.Query(ctx, listMessagesSinceForUser, arg.BotID, arg.CreatedAt, arg.ContextUserID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListMessagesSinceForUserRow
+	for rows.Next() {
+		var i ListMessagesSinceForUserRow
 		if err := rows.Scan(
 			&i.ID,
 			&i.BotID,

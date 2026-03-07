@@ -1,0 +1,1 @@
+DROP INDEX IF EXISTS idx_bot_history_messages_context_user_id;

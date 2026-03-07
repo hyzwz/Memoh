@@ -78,6 +78,9 @@ type Service interface {
 	ListActiveSince(ctx context.Context, botID string, since time.Time) ([]Message, error)
 	ListActiveSinceForUser(ctx context.Context, botID string, since time.Time, userID string) ([]Message, error)
 	ListLatest(ctx context.Context, botID string, limit int32) ([]Message, error)
+	ListLatestForUser(ctx context.Context, botID string, limit int32, userID string) ([]Message, error)
 	ListBefore(ctx context.Context, botID string, before time.Time, limit int32) ([]Message, error)
+	ListBeforeForUser(ctx context.Context, botID string, before time.Time, limit int32, userID string) ([]Message, error)
+	ListSinceForUser(ctx context.Context, botID string, since time.Time, userID string) ([]Message, error)
 	DeleteByBot(ctx context.Context, botID string) error
 }

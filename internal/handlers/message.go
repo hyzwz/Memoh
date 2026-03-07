@@ -146,11 +146,15 @@ func (h *MessageHandler) ListMessages(c echo.Context) error {
 
 	before, hasBefore := parseBeforeParam(c.QueryParam("before"))
 
+	// Use the authenticated user's channelIdentityID to scope messages,
+	// ensuring user-level conversation isolation in shared bots.
+	userID := channelIdentityID
+
 	var messages []messagepkg.Message
 	if hasBefore {
-		messages, err = h.messageService.ListBefore(c.Request().Context(), botID, before, limit)
+		messages, err = h.messageService.ListBeforeForUser(c.Request().Context(), botID, before, limit, userID)
 	} else {
-		messages, err = h.messageService.ListLatest(c.Request().Context(), botID, limit)
+		messages, err = h.messageService.ListLatestForUser(c.Request().Context(), botID, limit, userID)
 		if err == nil {
 			reverseMessages(messages)
 		}
@@ -246,6 +250,10 @@ func (h *MessageHandler) StreamMessageEvents(c echo.Context) error {
 	}
 	writer := bufio.NewWriter(c.Response().Writer)
 
+	// Use the authenticated user's channelIdentityID to scope events,
+	// ensuring user-level isolation in shared bots.
+	userID := channelIdentityID
+
 	sentMessageIDs := map[string]struct{}{}
 	writeCreatedEvent := func(message messagepkg.Message) error {
 		msgID := strings.TrimSpace(message.ID)
@@ -266,7 +274,7 @@ func (h *MessageHandler) StreamMessageEvents(c echo.Context) error {
 	defer cancel()
 
 	if hasSince {
-		backlog, err := h.messageService.ListSince(c.Request().Context(), botID, since)
+		backlog, err := h.messageService.ListSinceForUser(c.Request().Context(), botID, since, userID)
 		if err != nil {
 			return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 		}
@@ -306,6 +314,12 @@ func (h *MessageHandler) StreamMessageEvents(c echo.Context) error {
 			if err := json.Unmarshal(event.Data, &message); err != nil {
 				h.logger.Warn("decode message event failed", slog.Any("error", err))
 				continue
+			}
+			// Filter by context_user_id for user-level isolation in shared bots.
+			if msgUserID, ok := message.Metadata["context_user_id"].(string); ok {
+				if strings.TrimSpace(msgUserID) != userID {
+					continue
+				}
 			}
 			h.fillAssetMimeFromStorage(c.Request().Context(), botID, []messagepkg.Message{message})
 			if err := writeCreatedEvent(message); err != nil {

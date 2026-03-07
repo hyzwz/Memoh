@@ -345,13 +345,17 @@ func (p *ChannelInboundProcessor) HandleInbound(ctx context.Context, cfg channel
 	if sourceMessageID != "" {
 		replyRef.MessageID = sourceMessageID
 	}
+	streamMeta := map[string]any{
+		"route_id":          resolved.RouteID,
+		"conversation_type": msg.Conversation.Type,
+	}
+	if strings.TrimSpace(identity.UserID) != "" {
+		streamMeta["context_user_id"] = strings.TrimSpace(identity.UserID)
+	}
 	stream, err := sender.OpenStream(ctx, target, channel.StreamOptions{
 		Reply:           replyRef,
 		SourceMessageID: sourceMessageID,
-		Metadata: map[string]any{
-			"route_id":          resolved.RouteID,
-			"conversation_type": msg.Conversation.Type,
-		},
+		Metadata:        streamMeta,
 	})
 	if err != nil {
 		if statusNotifier != nil {

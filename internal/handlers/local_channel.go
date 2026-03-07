@@ -103,6 +103,12 @@ func (h *LocalChannelHandler) StreamMessages(c echo.Context) error {
 			if !ok {
 				return nil
 			}
+			// Filter stream events by context_user_id for user-level isolation.
+			if eventUserID := streamEventContextUserID(msg.Event); eventUserID != "" {
+				if eventUserID != channelIdentityID {
+					continue
+				}
+			}
 			data, err := formatLocalStreamEvent(msg.Event)
 			if err != nil {
 				continue
@@ -118,6 +124,16 @@ func (h *LocalChannelHandler) StreamMessages(c echo.Context) error {
 
 func formatLocalStreamEvent(event channel.StreamEvent) ([]byte, error) {
 	return json.Marshal(event)
+}
+
+// streamEventContextUserID extracts context_user_id from a stream event's metadata.
+func streamEventContextUserID(event channel.StreamEvent) string {
+	if event.Metadata != nil {
+		if uid, ok := event.Metadata["context_user_id"].(string); ok {
+			return strings.TrimSpace(uid)
+		}
+	}
+	return ""
 }
 
 // LocalChannelMessageRequest is the request body for posting a local channel message.

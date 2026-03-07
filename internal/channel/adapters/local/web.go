@@ -75,5 +75,5 @@ func (a *WebAdapter) OpenStream(ctx context.Context, cfg channel.ChannelConfig, 
 		return nil, ctx.Err()
 	default:
 	}
-	return newLocalOutboundStream(a.hub, target), nil
+	return newLocalOutboundStream(a.hub, target, opts.Metadata), nil
 }

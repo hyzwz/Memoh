@@ -247,6 +247,64 @@ func (s *DBService) ListBefore(ctx context.Context, botID string, before time.Ti
 	return msgs, nil
 }
 
+// ListLatestForUser returns the latest N bot messages scoped to a specific user's context.
+func (s *DBService) ListLatestForUser(ctx context.Context, botID string, limit int32, userID string) ([]Message, error) {
+	pgBotID, err := dbpkg.ParseUUID(botID)
+	if err != nil {
+		return nil, err
+	}
+	rows, err := s.queries.ListMessagesLatestForUser(ctx, sqlc.ListMessagesLatestForUserParams{
+		BotID:         pgBotID,
+		ContextUserID: []byte(strings.TrimSpace(userID)),
+		MaxCount:      limit,
+	})
+	if err != nil {
+		return nil, err
+	}
+	msgs := toMessagesFromLatestForUser(rows)
+	s.enrichAssets(ctx, msgs)
+	return msgs, nil
+}
+
+// ListBeforeForUser returns up to limit messages older than before, scoped to a specific user's context.
+func (s *DBService) ListBeforeForUser(ctx context.Context, botID string, before time.Time, limit int32, userID string) ([]Message, error) {
+	pgBotID, err := dbpkg.ParseUUID(botID)
+	if err != nil {
+		return nil, err
+	}
+	rows, err := s.queries.ListMessagesBeforeForUser(ctx, sqlc.ListMessagesBeforeForUserParams{
+		BotID:         pgBotID,
+		CreatedAt:     pgtype.Timestamptz{Time: before, Valid: true},
+		ContextUserID: []byte(strings.TrimSpace(userID)),
+		MaxCount:      limit,
+	})
+	if err != nil {
+		return nil, err
+	}
+	msgs := toMessagesFromBeforeForUser(rows)
+	s.enrichAssets(ctx, msgs)
+	return msgs, nil
+}
+
+// ListSinceForUser returns bot messages since a given time, scoped to a specific user's context.
+func (s *DBService) ListSinceForUser(ctx context.Context, botID string, since time.Time, userID string) ([]Message, error) {
+	pgBotID, err := dbpkg.ParseUUID(botID)
+	if err != nil {
+		return nil, err
+	}
+	rows, err := s.queries.ListMessagesSinceForUser(ctx, sqlc.ListMessagesSinceForUserParams{
+		BotID:         pgBotID,
+		CreatedAt:     pgtype.Timestamptz{Time: since, Valid: true},
+		ContextUserID: []byte(strings.TrimSpace(userID)),
+	})
+	if err != nil {
+		return nil, err
+	}
+	msgs := toMessagesFromSinceForUser(rows)
+	s.enrichAssets(ctx, msgs)
+	return msgs, nil
+}
+
 // DeleteByBot deletes all messages for a bot.
 func (s *DBService) DeleteByBot(ctx context.Context, botID string) error {
 	pgBotID, err := dbpkg.ParseUUID(botID)
@@ -477,6 +535,91 @@ func toMessagesFromBefore(rows []sqlc.ListMessagesBeforeRow) []Message {
 	messages := make([]Message, 0, len(rows))
 	for i := len(rows) - 1; i >= 0; i-- {
 		messages = append(messages, toMessageFromBeforeRow(rows[i]))
+	}
+	return messages
+}
+
+func toMessageFromLatestForUserRow(row sqlc.ListMessagesLatestForUserRow) Message {
+	return toMessageFields(
+		row.ID,
+		row.BotID,
+		row.RouteID,
+		row.SenderChannelIdentityID,
+		row.SenderUserID,
+		row.SenderDisplayName,
+		row.SenderAvatarUrl,
+		row.Platform,
+		row.ExternalMessageID,
+		row.SourceReplyToMessageID,
+		row.Role,
+		row.Content,
+		row.Metadata,
+		row.Usage,
+		row.CreatedAt,
+	)
+}
+
+func toMessagesFromLatestForUser(rows []sqlc.ListMessagesLatestForUserRow) []Message {
+	messages := make([]Message, 0, len(rows))
+	for _, row := range rows {
+		messages = append(messages, toMessageFromLatestForUserRow(row))
+	}
+	return messages
+}
+
+func toMessageFromBeforeForUserRow(row sqlc.ListMessagesBeforeForUserRow) Message {
+	return toMessageFields(
+		row.ID,
+		row.BotID,
+		row.RouteID,
+		row.SenderChannelIdentityID,
+		row.SenderUserID,
+		row.SenderDisplayName,
+		row.SenderAvatarUrl,
+		row.Platform,
+		row.ExternalMessageID,
+		row.SourceReplyToMessageID,
+		row.Role,
+		row.Content,
+		row.Metadata,
+		row.Usage,
+		row.CreatedAt,
+	)
+}
+
+// toMessagesFromBeforeForUser returns messages in oldest-first order (query returns DESC; we reverse).
+func toMessagesFromBeforeForUser(rows []sqlc.ListMessagesBeforeForUserRow) []Message {
+	messages := make([]Message, 0, len(rows))
+	for i := len(rows) - 1; i >= 0; i-- {
+		messages = append(messages, toMessageFromBeforeForUserRow(rows[i]))
+	}
+	return messages
+}
+
+func toMessageFromSinceForUserRow(row sqlc.ListMessagesSinceForUserRow) Message {
+	return toMessageFields(
+		row.ID,
+		row.BotID,
+		row.RouteID,
+		row.SenderChannelIdentityID,
+		row.SenderUserID,
+		row.SenderDisplayName,
+		row.SenderAvatarUrl,
+		row.Platform,
+		row.ExternalMessageID,
+		row.SourceReplyToMessageID,
+		row.Role,
+		row.Content,
+		row.Metadata,
+		row.Usage,
+		row.CreatedAt,
+	)
+}
+
+func toMessagesFromSinceForUser(rows []sqlc.ListMessagesSinceForUserRow) []Message {
+	messages := make([]Message, 0, len(rows))
+	for _, row := range rows {
+		messages = append(messages, toMessageFromSinceForUserRow(row))
 	}
 	return messages
 }
