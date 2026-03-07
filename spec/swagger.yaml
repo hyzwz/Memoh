@@ -690,21 +690,6 @@ definitions:
       provider:
         type: string
     type: object
-  github_com_memohai_memoh_internal_fs.FileInfo:
-    properties:
-      isDir:
-        type: boolean
-      modTime:
-        type: string
-      mode:
-        type: string
-      name:
-        type: string
-      path:
-        type: string
-      size:
-        type: integer
-    type: object
   github_com_memohai_memoh_internal_mcp.Connection:
     properties:
       auth_type:
@@ -744,6 +729,40 @@ definitions:
           type: string
         type: array
     type: object
+  handlers.BudgetCheckDTO:
+    properties:
+      action:
+        type: string
+      alert:
+        type: boolean
+      allowed:
+        type: boolean
+      limit:
+        type: number
+      percentage:
+        type: number
+      spent:
+        type: number
+    type: object
+  handlers.BudgetDTO:
+    properties:
+      action_on_exceed:
+        type: string
+      alert_threshold:
+        type: number
+      id:
+        type: string
+      is_enabled:
+        type: boolean
+      limit_amount:
+        type: number
+      period:
+        type: string
+      scope_id:
+        type: string
+      scope_type:
+        type: string
+    type: object
   handlers.ChannelMeta:
     properties:
       capabilities:
@@ -761,6 +780,36 @@ definitions:
       user_config_schema:
         $ref: '#/definitions/channel.ConfigSchema'
     type: object
+  handlers.CockpitSummaryDTO:
+    properties:
+      average_efficiency_multiple:
+        type: number
+      labor_cost_cny:
+        type: number
+      total_ai_time_minutes:
+        type: integer
+      total_innovations:
+        type: integer
+      total_reports:
+        type: integer
+      total_saved_hours:
+        type: number
+    type: object
+  handlers.CreateBudgetRequest:
+    properties:
+      action_on_exceed:
+        type: string
+      alert_threshold:
+        type: number
+      limit_amount:
+        type: number
+      period:
+        type: string
+      scope_id:
+        type: string
+      scope_type:
+        type: string
+    type: object
   handlers.CreateContainerRequest:
     properties:
       snapshotter:
@@ -776,6 +825,36 @@ definitions:
         type: string
       started:
         type: boolean
+    type: object
+  handlers.CreateDepartmentRequest:
+    properties:
+      description:
+        type: string
+      name:
+        type: string
+      parent_id:
+        type: string
+    type: object
+  handlers.CreateHandRequest:
+    properties:
+      markdown:
+        type: string
+    type: object
+  handlers.CreateModelRouteRequest:
+    properties:
+      complexity_tier:
+        type: string
+      is_enabled:
+        type: boolean
+      metadata:
+        additionalProperties: {}
+        type: object
+      model_id:
+        type: string
+      name:
+        type: string
+      priority:
+        type: integer
     type: object
   handlers.CreateSnapshotRequest:
     properties:
@@ -810,6 +889,17 @@ definitions:
       reasoning_tokens:
         type: integer
     type: object
+  handlers.DepartmentDTO:
+    properties:
+      description:
+        type: string
+      id:
+        type: string
+      name:
+        type: string
+      parent_id:
+        type: string
+    type: object
   handlers.ErrorResponse:
     properties:
       message:
@@ -841,7 +931,7 @@ definitions:
     properties:
       entries:
         items:
-          $ref: '#/definitions/github_com_memohai_memoh_internal_fs.FileInfo'
+          $ref: '#/definitions/handlers.FSFileInfo'
         type: array
       path:
         type: string
@@ -889,8 +979,6 @@ definitions:
         type: string
       created_at:
         type: string
-      host_path:
-        type: string
       image:
         type: string
       namespace:
@@ -900,6 +988,43 @@ definitions:
       task_running:
         type: boolean
       updated_at:
+        type: string
+    type: object
+  handlers.HandDTO:
+    properties:
+      content:
+        type: string
+      description:
+        type: string
+      id:
+        type: string
+      is_enabled:
+        type: boolean
+      metadata:
+        additionalProperties: {}
+        type: object
+      name:
+        type: string
+      schedule:
+        additionalProperties: {}
+        type: object
+      triggers:
+        items: {}
+        type: array
+      type:
+        type: string
+    type: object
+  handlers.HandExecutionResultDTO:
+    properties:
+      completed_at:
+        type: string
+      error_message:
+        type: string
+      result_text:
+        type: string
+      started_at:
+        type: string
+      status:
         type: string
     type: object
   handlers.ListSnapshotsResponse:
@@ -967,6 +1092,24 @@ definitions:
         type: array
       url:
         type: string
+    type: object
+  handlers.ModelRouteDTO:
+    properties:
+      complexity_tier:
+        type: string
+      id:
+        type: string
+      is_enabled:
+        type: boolean
+      metadata:
+        additionalProperties: {}
+        type: object
+      model_id:
+        type: string
+      name:
+        type: string
+      priority:
+        type: integer
     type: object
   handlers.ModelTokenUsage:
     properties:
@@ -1169,12 +1312,23 @@ definitions:
     type: object
   handlers.oauthAuthorizeRequest:
     properties:
+      callback_url:
+        type: string
       client_id:
+        type: string
+      client_secret:
         type: string
     type: object
   handlers.oauthDiscoverRequest:
     properties:
       url:
+        type: string
+    type: object
+  handlers.oauthExchangeRequest:
+    properties:
+      code:
+        type: string
+      state:
         type: string
     type: object
   handlers.skillsOpResponse:
@@ -1343,6 +1497,8 @@ definitions:
   mcp.OAuthStatus:
     properties:
       auth_server:
+        type: string
+      callback_url:
         type: string
       configured:
         type: boolean
@@ -2163,32 +2319,6 @@ info:
   title: Memoh API
   version: 1.0.0
 paths:
-  /api/oauth/mcp/callback:
-    get:
-      description: Handles the OAuth authorization callback, exchanges code for tokens
-      parameters:
-      - description: Authorization code
-        in: query
-        name: code
-        required: true
-        type: string
-      - description: State parameter
-        in: query
-        name: state
-        required: true
-        type: string
-      responses:
-        "200":
-          description: HTML page that closes the popup
-          schema:
-            type: string
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/handlers.ErrorResponse'
-      summary: OAuth callback handler
-      tags:
-      - mcp
   /auth/login:
     post:
       description: Validate user credentials and issue a JWT
@@ -2297,6 +2427,45 @@ paths:
       summary: Create bot user
       tags:
       - bots
+  /bots/{bot_id}/audit-logs:
+    get:
+      parameters:
+      - description: Bot ID
+        in: path
+        name: bot_id
+        required: true
+        type: string
+      - description: Filter by user
+        in: query
+        name: user_id
+        type: string
+      - description: Filter by action
+        in: query
+        name: action
+        type: string
+      - default: 50
+        description: Limit
+        in: query
+        name: limit
+        type: integer
+      - default: 0
+        description: Offset
+        in: query
+        name: offset
+        type: integer
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+      summary: List audit logs for a bot
+      tags:
+      - audit
   /bots/{bot_id}/cli/messages:
     post:
       consumes:
@@ -2371,6 +2540,58 @@ paths:
       summary: Subscribe to local channel events via SSE
       tags:
       - local-channel
+  /bots/{bot_id}/cockpit/generate-report:
+    post:
+      parameters:
+      - description: Bot ID
+        in: path
+        name: bot_id
+        required: true
+        type: string
+      - default: yesterday
+        description: Report date (YYYY-MM-DD)
+        in: query
+        name: date
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+      summary: Generate daily cockpit report for a bot
+      tags:
+      - cockpit
+  /bots/{bot_id}/cockpit/summary:
+    get:
+      parameters:
+      - description: Bot ID
+        in: path
+        name: bot_id
+        required: true
+        type: string
+      - default: 7
+        description: Number of days
+        in: query
+        name: days
+        type: integer
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/handlers.CockpitSummaryDTO'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+      summary: Get cockpit efficiency summary
+      tags:
+      - cockpit
   /bots/{bot_id}/container:
     delete:
       parameters:
@@ -2976,6 +3197,53 @@ paths:
       summary: Stop container task for bot
       tags:
       - containerd
+  /bots/{bot_id}/departments:
+    get:
+      parameters:
+      - description: Bot ID
+        in: path
+        name: bot_id
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/handlers.DepartmentDTO'
+            type: array
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+      summary: List departments for a bot
+      tags:
+      - departments
+    post:
+      parameters:
+      - description: Bot ID
+        in: path
+        name: bot_id
+        required: true
+        type: string
+      - description: Department data
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/handlers.CreateDepartmentRequest'
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/handlers.DepartmentDTO'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+      summary: Create a department
+      tags:
+      - departments
   /bots/{bot_id}/email-bindings:
     get:
       parameters:
@@ -3154,6 +3422,125 @@ paths:
       summary: Get outbox email detail
       tags:
       - email-outbox
+  /bots/{bot_id}/hands:
+    get:
+      parameters:
+      - description: Bot ID
+        in: path
+        name: bot_id
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/handlers.HandDTO'
+            type: array
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+      summary: List hands for a bot
+      tags:
+      - hands
+    post:
+      parameters:
+      - description: Bot ID
+        in: path
+        name: bot_id
+        required: true
+        type: string
+      - description: Hand markdown
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/handlers.CreateHandRequest'
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/handlers.HandDTO'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+      summary: Create a hand from markdown
+      tags:
+      - hands
+  /bots/{bot_id}/hands/{hand_id}:
+    delete:
+      parameters:
+      - description: Bot ID
+        in: path
+        name: bot_id
+        required: true
+        type: string
+      - description: Hand ID
+        in: path
+        name: hand_id
+        required: true
+        type: string
+      responses:
+        "204":
+          description: No Content
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+      summary: Delete a hand
+      tags:
+      - hands
+    get:
+      parameters:
+      - description: Bot ID
+        in: path
+        name: bot_id
+        required: true
+        type: string
+      - description: Hand ID
+        in: path
+        name: hand_id
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/handlers.HandDTO'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+      summary: Get a hand by ID
+      tags:
+      - hands
+  /bots/{bot_id}/hands/{hand_id}/execute:
+    post:
+      parameters:
+      - description: Bot ID
+        in: path
+        name: bot_id
+        required: true
+        type: string
+      - description: Hand ID
+        in: path
+        name: hand_id
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/handlers.HandExecutionResultDTO'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+      summary: Manually execute a hand
+      tags:
+      - hands
   /bots/{bot_id}/heartbeat/logs:
     delete:
       description: Delete all heartbeat execution logs for a bot
@@ -3726,6 +4113,31 @@ paths:
       summary: Discover OAuth configuration for MCP server
       tags:
       - mcp
+  /bots/{bot_id}/mcp/{id}/oauth/exchange:
+    post:
+      description: Frontend callback page calls this to exchange the authorization
+        code for access/refresh tokens
+      parameters:
+      - description: Authorization code and state
+        in: body
+        name: payload
+        required: true
+        schema:
+          $ref: '#/definitions/handlers.oauthExchangeRequest'
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties:
+              type: boolean
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+      summary: Exchange OAuth authorization code for tokens
+      tags:
+      - mcp
   /bots/{bot_id}/mcp/{id}/oauth/status:
     get:
       description: Returns the current OAuth status including whether tokens are available
@@ -4262,6 +4674,76 @@ paths:
       summary: List bot history messages
       tags:
       - messages
+  /bots/{bot_id}/model-routes:
+    get:
+      parameters:
+      - description: Bot ID
+        in: path
+        name: bot_id
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/handlers.ModelRouteDTO'
+            type: array
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+      summary: List model routes for a bot
+      tags:
+      - model-routing
+    post:
+      parameters:
+      - description: Bot ID
+        in: path
+        name: bot_id
+        required: true
+        type: string
+      - description: Route data
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/handlers.CreateModelRouteRequest'
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/handlers.ModelRouteDTO'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+      summary: Create a model route
+      tags:
+      - model-routing
+  /bots/{bot_id}/model-routes/{route_id}:
+    delete:
+      parameters:
+      - description: Bot ID
+        in: path
+        name: bot_id
+        required: true
+        type: string
+      - description: Route ID
+        in: path
+        name: route_id
+        required: true
+        type: string
+      responses:
+        "204":
+          description: No Content
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+      summary: Delete a model route
+      tags:
+      - model-routing
   /bots/{bot_id}/schedule:
     get:
       description: List schedules for current user
@@ -5450,6 +5932,86 @@ paths:
       summary: Transfer bot owner (admin only)
       tags:
       - bots
+  /budgets:
+    get:
+      parameters:
+      - description: Filter by scope type
+        in: query
+        name: scope_type
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/handlers.BudgetDTO'
+            type: array
+      summary: List budgets
+      tags:
+      - cost
+    post:
+      parameters:
+      - description: Budget data
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/handlers.CreateBudgetRequest'
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/handlers.BudgetDTO'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+      summary: Create a budget
+      tags:
+      - cost
+  /budgets/{budget_id}:
+    delete:
+      parameters:
+      - description: Budget ID
+        in: path
+        name: budget_id
+        required: true
+        type: string
+      responses:
+        "204":
+          description: No Content
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+      summary: Delete a budget
+      tags:
+      - cost
+  /budgets/check:
+    get:
+      parameters:
+      - description: Scope type
+        in: query
+        name: scope_type
+        required: true
+        type: string
+      - description: Scope ID
+        in: query
+        name: scope_id
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/handlers.BudgetCheckDTO'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+      summary: Check budget status
+      tags:
+      - cost
   /channels:
     get:
       description: List channel meta information including capabilities and schemas

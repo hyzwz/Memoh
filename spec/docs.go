@@ -15,45 +15,6 @@ const docTemplate = `{
     "host": "{{.Host}}",
     "basePath": "{{.BasePath}}",
     "paths": {
-        "/api/oauth/mcp/callback": {
-            "get": {
-                "description": "Handles the OAuth authorization callback, exchanges code for tokens",
-                "tags": [
-                    "mcp"
-                ],
-                "summary": "OAuth callback handler",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "Authorization code",
-                        "name": "code",
-                        "in": "query",
-                        "required": true
-                    },
-                    {
-                        "type": "string",
-                        "description": "State parameter",
-                        "name": "state",
-                        "in": "query",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "HTML page that closes the popup",
-                        "schema": {
-                            "type": "string"
-                        }
-                    },
-                    "400": {
-                        "description": "Bad Request",
-                        "schema": {
-                            "$ref": "#/definitions/handlers.ErrorResponse"
-                        }
-                    }
-                }
-            }
-        },
         "/auth/login": {
             "post": {
                 "description": "Validate user credentials and issue a JWT",
@@ -221,6 +182,64 @@ const docTemplate = `{
                 }
             }
         },
+        "/bots/{bot_id}/audit-logs": {
+            "get": {
+                "tags": [
+                    "audit"
+                ],
+                "summary": "List audit logs for a bot",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Bot ID",
+                        "name": "bot_id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Filter by user",
+                        "name": "user_id",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Filter by action",
+                        "name": "action",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "default": 50,
+                        "description": "Limit",
+                        "name": "limit",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "default": 0,
+                        "description": "Offset",
+                        "name": "offset",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/handlers.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/bots/{bot_id}/cli/messages": {
             "post": {
                 "description": "Post a user message (with optional attachments) through the local channel pipeline.",
@@ -323,6 +342,85 @@ const docTemplate = `{
                     },
                     "500": {
                         "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/handlers.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/bots/{bot_id}/cockpit/generate-report": {
+            "post": {
+                "tags": [
+                    "cockpit"
+                ],
+                "summary": "Generate daily cockpit report for a bot",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Bot ID",
+                        "name": "bot_id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "default": "yesterday",
+                        "description": "Report date (YYYY-MM-DD)",
+                        "name": "date",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/handlers.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/bots/{bot_id}/cockpit/summary": {
+            "get": {
+                "tags": [
+                    "cockpit"
+                ],
+                "summary": "Get cockpit efficiency summary",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Bot ID",
+                        "name": "bot_id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "default": 7,
+                        "description": "Number of days",
+                        "name": "days",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/handlers.CockpitSummaryDTO"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
                         "schema": {
                             "$ref": "#/definitions/handlers.ErrorResponse"
                         }
@@ -1245,6 +1343,78 @@ const docTemplate = `{
                 }
             }
         },
+        "/bots/{bot_id}/departments": {
+            "get": {
+                "tags": [
+                    "departments"
+                ],
+                "summary": "List departments for a bot",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Bot ID",
+                        "name": "bot_id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/handlers.DepartmentDTO"
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/handlers.ErrorResponse"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "tags": [
+                    "departments"
+                ],
+                "summary": "Create a department",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Bot ID",
+                        "name": "bot_id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Department data",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/handlers.CreateDepartmentRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/handlers.DepartmentDTO"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/handlers.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/bots/{bot_id}/email-bindings": {
             "get": {
                 "produces": [
@@ -1507,6 +1677,187 @@ const docTemplate = `{
                     },
                     "404": {
                         "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/handlers.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/bots/{bot_id}/hands": {
+            "get": {
+                "tags": [
+                    "hands"
+                ],
+                "summary": "List hands for a bot",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Bot ID",
+                        "name": "bot_id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/handlers.HandDTO"
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/handlers.ErrorResponse"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "tags": [
+                    "hands"
+                ],
+                "summary": "Create a hand from markdown",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Bot ID",
+                        "name": "bot_id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Hand markdown",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/handlers.CreateHandRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/handlers.HandDTO"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/handlers.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/bots/{bot_id}/hands/{hand_id}": {
+            "get": {
+                "tags": [
+                    "hands"
+                ],
+                "summary": "Get a hand by ID",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Bot ID",
+                        "name": "bot_id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Hand ID",
+                        "name": "hand_id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/handlers.HandDTO"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/handlers.ErrorResponse"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "tags": [
+                    "hands"
+                ],
+                "summary": "Delete a hand",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Bot ID",
+                        "name": "bot_id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Hand ID",
+                        "name": "hand_id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "No Content"
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/handlers.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/bots/{bot_id}/hands/{hand_id}/execute": {
+            "post": {
+                "tags": [
+                    "hands"
+                ],
+                "summary": "Manually execute a hand",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Bot ID",
+                        "name": "bot_id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Hand ID",
+                        "name": "hand_id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/handlers.HandExecutionResultDTO"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
                         "schema": {
                             "$ref": "#/definitions/handlers.ErrorResponse"
                         }
@@ -2455,6 +2806,43 @@ const docTemplate = `{
                 }
             }
         },
+        "/bots/{bot_id}/mcp/{id}/oauth/exchange": {
+            "post": {
+                "description": "Frontend callback page calls this to exchange the authorization code for access/refresh tokens",
+                "tags": [
+                    "mcp"
+                ],
+                "summary": "Exchange OAuth authorization code for tokens",
+                "parameters": [
+                    {
+                        "description": "Authorization code and state",
+                        "name": "payload",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/handlers.oauthExchangeRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "boolean"
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/handlers.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/bots/{bot_id}/mcp/{id}/oauth/status": {
             "get": {
                 "description": "Returns the current OAuth status including whether tokens are available",
@@ -3158,6 +3546,113 @@ const docTemplate = `{
                     },
                     "500": {
                         "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/handlers.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/bots/{bot_id}/model-routes": {
+            "get": {
+                "tags": [
+                    "model-routing"
+                ],
+                "summary": "List model routes for a bot",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Bot ID",
+                        "name": "bot_id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/handlers.ModelRouteDTO"
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/handlers.ErrorResponse"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "tags": [
+                    "model-routing"
+                ],
+                "summary": "Create a model route",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Bot ID",
+                        "name": "bot_id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Route data",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/handlers.CreateModelRouteRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/handlers.ModelRouteDTO"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/handlers.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/bots/{bot_id}/model-routes/{route_id}": {
+            "delete": {
+                "tags": [
+                    "model-routing"
+                ],
+                "summary": "Delete a model route",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Bot ID",
+                        "name": "bot_id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Route ID",
+                        "name": "route_id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "No Content"
+                    },
+                    "400": {
+                        "description": "Bad Request",
                         "schema": {
                             "$ref": "#/definitions/handlers.ErrorResponse"
                         }
@@ -4943,6 +5438,130 @@ const docTemplate = `{
                     },
                     "500": {
                         "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/handlers.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/budgets": {
+            "get": {
+                "tags": [
+                    "cost"
+                ],
+                "summary": "List budgets",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Filter by scope type",
+                        "name": "scope_type",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/handlers.BudgetDTO"
+                            }
+                        }
+                    }
+                }
+            },
+            "post": {
+                "tags": [
+                    "cost"
+                ],
+                "summary": "Create a budget",
+                "parameters": [
+                    {
+                        "description": "Budget data",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/handlers.CreateBudgetRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/handlers.BudgetDTO"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/handlers.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/budgets/check": {
+            "get": {
+                "tags": [
+                    "cost"
+                ],
+                "summary": "Check budget status",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Scope type",
+                        "name": "scope_type",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Scope ID",
+                        "name": "scope_id",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/handlers.BudgetCheckDTO"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/handlers.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/budgets/{budget_id}": {
+            "delete": {
+                "tags": [
+                    "cost"
+                ],
+                "summary": "Delete a budget",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Budget ID",
+                        "name": "budget_id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "No Content"
+                    },
+                    "400": {
+                        "description": "Bad Request",
                         "schema": {
                             "$ref": "#/definitions/handlers.ErrorResponse"
                         }
@@ -8150,29 +8769,6 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_memohai_memoh_internal_fs.FileInfo": {
-            "type": "object",
-            "properties": {
-                "isDir": {
-                    "type": "boolean"
-                },
-                "modTime": {
-                    "type": "string"
-                },
-                "mode": {
-                    "type": "string"
-                },
-                "name": {
-                    "type": "string"
-                },
-                "path": {
-                    "type": "string"
-                },
-                "size": {
-                    "type": "integer"
-                }
-            }
-        },
         "github_com_memohai_memoh_internal_mcp.Connection": {
             "type": "object",
             "properties": {
@@ -8232,6 +8828,58 @@ const docTemplate = `{
                 }
             }
         },
+        "handlers.BudgetCheckDTO": {
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string"
+                },
+                "alert": {
+                    "type": "boolean"
+                },
+                "allowed": {
+                    "type": "boolean"
+                },
+                "limit": {
+                    "type": "number"
+                },
+                "percentage": {
+                    "type": "number"
+                },
+                "spent": {
+                    "type": "number"
+                }
+            }
+        },
+        "handlers.BudgetDTO": {
+            "type": "object",
+            "properties": {
+                "action_on_exceed": {
+                    "type": "string"
+                },
+                "alert_threshold": {
+                    "type": "number"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "is_enabled": {
+                    "type": "boolean"
+                },
+                "limit_amount": {
+                    "type": "number"
+                },
+                "period": {
+                    "type": "string"
+                },
+                "scope_id": {
+                    "type": "string"
+                },
+                "scope_type": {
+                    "type": "string"
+                }
+            }
+        },
         "handlers.ChannelMeta": {
             "type": "object",
             "properties": {
@@ -8258,6 +8906,52 @@ const docTemplate = `{
                 }
             }
         },
+        "handlers.CockpitSummaryDTO": {
+            "type": "object",
+            "properties": {
+                "average_efficiency_multiple": {
+                    "type": "number"
+                },
+                "labor_cost_cny": {
+                    "type": "number"
+                },
+                "total_ai_time_minutes": {
+                    "type": "integer"
+                },
+                "total_innovations": {
+                    "type": "integer"
+                },
+                "total_reports": {
+                    "type": "integer"
+                },
+                "total_saved_hours": {
+                    "type": "number"
+                }
+            }
+        },
+        "handlers.CreateBudgetRequest": {
+            "type": "object",
+            "properties": {
+                "action_on_exceed": {
+                    "type": "string"
+                },
+                "alert_threshold": {
+                    "type": "number"
+                },
+                "limit_amount": {
+                    "type": "number"
+                },
+                "period": {
+                    "type": "string"
+                },
+                "scope_id": {
+                    "type": "string"
+                },
+                "scope_type": {
+                    "type": "string"
+                }
+            }
+        },
         "handlers.CreateContainerRequest": {
             "type": "object",
             "properties": {
@@ -8280,6 +8974,52 @@ const docTemplate = `{
                 },
                 "started": {
                     "type": "boolean"
+                }
+            }
+        },
+        "handlers.CreateDepartmentRequest": {
+            "type": "object",
+            "properties": {
+                "description": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "parent_id": {
+                    "type": "string"
+                }
+            }
+        },
+        "handlers.CreateHandRequest": {
+            "type": "object",
+            "properties": {
+                "markdown": {
+                    "type": "string"
+                }
+            }
+        },
+        "handlers.CreateModelRouteRequest": {
+            "type": "object",
+            "properties": {
+                "complexity_tier": {
+                    "type": "string"
+                },
+                "is_enabled": {
+                    "type": "boolean"
+                },
+                "metadata": {
+                    "type": "object",
+                    "additionalProperties": {}
+                },
+                "model_id": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "priority": {
+                    "type": "integer"
                 }
             }
         },
@@ -8334,6 +9074,23 @@ const docTemplate = `{
                 }
             }
         },
+        "handlers.DepartmentDTO": {
+            "type": "object",
+            "properties": {
+                "description": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "parent_id": {
+                    "type": "string"
+                }
+            }
+        },
         "handlers.ErrorResponse": {
             "type": "object",
             "properties": {
@@ -8382,7 +9139,7 @@ const docTemplate = `{
                 "entries": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/github_com_memohai_memoh_internal_fs.FileInfo"
+                        "$ref": "#/definitions/handlers.FSFileInfo"
                     }
                 },
                 "path": {
@@ -8457,9 +9214,6 @@ const docTemplate = `{
                 "created_at": {
                     "type": "string"
                 },
-                "host_path": {
-                    "type": "string"
-                },
                 "image": {
                     "type": "string"
                 },
@@ -8473,6 +9227,61 @@ const docTemplate = `{
                     "type": "boolean"
                 },
                 "updated_at": {
+                    "type": "string"
+                }
+            }
+        },
+        "handlers.HandDTO": {
+            "type": "object",
+            "properties": {
+                "content": {
+                    "type": "string"
+                },
+                "description": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "is_enabled": {
+                    "type": "boolean"
+                },
+                "metadata": {
+                    "type": "object",
+                    "additionalProperties": {}
+                },
+                "name": {
+                    "type": "string"
+                },
+                "schedule": {
+                    "type": "object",
+                    "additionalProperties": {}
+                },
+                "triggers": {
+                    "type": "array",
+                    "items": {}
+                },
+                "type": {
+                    "type": "string"
+                }
+            }
+        },
+        "handlers.HandExecutionResultDTO": {
+            "type": "object",
+            "properties": {
+                "completed_at": {
+                    "type": "string"
+                },
+                "error_message": {
+                    "type": "string"
+                },
+                "result_text": {
+                    "type": "string"
+                },
+                "started_at": {
+                    "type": "string"
+                },
+                "status": {
                     "type": "string"
                 }
             }
@@ -8576,6 +9385,33 @@ const docTemplate = `{
                 },
                 "url": {
                     "type": "string"
+                }
+            }
+        },
+        "handlers.ModelRouteDTO": {
+            "type": "object",
+            "properties": {
+                "complexity_tier": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "is_enabled": {
+                    "type": "boolean"
+                },
+                "metadata": {
+                    "type": "object",
+                    "additionalProperties": {}
+                },
+                "model_id": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "priority": {
+                    "type": "integer"
                 }
             }
         },
@@ -8887,7 +9723,13 @@ const docTemplate = `{
         "handlers.oauthAuthorizeRequest": {
             "type": "object",
             "properties": {
+                "callback_url": {
+                    "type": "string"
+                },
                 "client_id": {
+                    "type": "string"
+                },
+                "client_secret": {
                     "type": "string"
                 }
             }
@@ -8896,6 +9738,17 @@ const docTemplate = `{
             "type": "object",
             "properties": {
                 "url": {
+                    "type": "string"
+                }
+            }
+        },
+        "handlers.oauthExchangeRequest": {
+            "type": "object",
+            "properties": {
+                "code": {
+                    "type": "string"
+                },
+                "state": {
                     "type": "string"
                 }
             }
@@ -9153,6 +10006,9 @@ const docTemplate = `{
             "type": "object",
             "properties": {
                 "auth_server": {
+                    "type": "string"
+                },
+                "callback_url": {
                     "type": "string"
                 },
                 "configured": {
