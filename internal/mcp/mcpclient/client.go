@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"io"
 	"sync"
+	"time"
 
 	"github.com/memohai/memoh/internal/config"
 	pb "github.com/memohai/memoh/internal/mcp/mcpcontainer"
@@ -18,11 +19,14 @@ import (
 	"google.golang.org/grpc/credentials/insecure"
 )
 
+const connectingTimeout = 30 * time.Second
+
 // Client wraps a gRPC connection to a single MCP container.
 type Client struct {
-	conn   *grpc.ClientConn
-	svc    pb.ContainerServiceClient
-	target string
+	conn      *grpc.ClientConn
+	svc       pb.ContainerServiceClient
+	target    string
+	createdAt time.Time
 }
 
 // NewClientFromConn wraps an existing gRPC connection into a Client.
@@ -45,9 +49,10 @@ func Dial(ctx context.Context, ip string) (*Client, error) {
 		return nil, fmt.Errorf("grpc dial %s: %w", target, err)
 	}
 	return &Client{
-		conn:   conn,
-		svc:    pb.NewContainerServiceClient(conn),
-		target: target,
+		conn:      conn,
+		svc:       pb.NewContainerServiceClient(conn),
+		target:    target,
+		createdAt: time.Now(),
 	}, nil
 }
 
@@ -306,12 +311,14 @@ func (p *Pool) MCPClient(ctx context.Context, botID string) (*Client, error) {
 }
 
 // Get returns a cached client or dials a new one.
-// Stale connections (Shutdown / TransientFailure) are evicted automatically.
+// Stale connections (Shutdown / TransientFailure / stuck Connecting) are evicted automatically.
 func (p *Pool) Get(ctx context.Context, botID string) (*Client, error) {
 	p.mu.RLock()
 	if c, ok := p.clients[botID]; ok {
 		state := c.conn.GetState()
-		if state != connectivity.Shutdown && state != connectivity.TransientFailure {
+		stale := state == connectivity.Shutdown || state == connectivity.TransientFailure ||
+			(state == connectivity.Connecting && time.Since(c.createdAt) > connectingTimeout)
+		if !stale {
 			p.mu.RUnlock()
 			return c, nil
 		}
