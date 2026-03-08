@@ -3,8 +3,9 @@ package mcp
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
-	"log/slog"
+	"math"
 	"strings"
 	"time"
 
@@ -13,7 +14,6 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 
 	"github.com/memohai/memoh/internal/config"
-
 	ctr "github.com/memohai/memoh/internal/containerd"
 	"github.com/memohai/memoh/internal/db"
 	dbsqlc "github.com/memohai/memoh/internal/db/sqlc"
@@ -26,23 +26,28 @@ const (
 )
 
 type VersionInfo struct {
-	ID           string
-	Version      int
-	SnapshotName string
-	CreatedAt    time.Time
+	ID                  string
+	Version             int
+	SnapshotName        string
+	RuntimeSnapshotName string
+	DisplayName         string
+	CreatedAt           time.Time
 }
 
 type SnapshotCreateInfo struct {
-	ContainerID  string
-	SnapshotName string
-	Snapshotter  string
-	Version      int
-	CreatedAt    time.Time
+	ContainerID         string
+	SnapshotName        string
+	RuntimeSnapshotName string
+	DisplayName         string
+	Snapshotter         string
+	Version             int
+	CreatedAt           time.Time
 }
 
 type ManagedSnapshotMeta struct {
-	Source  string
-	Version *int
+	Source      string
+	Version     *int
+	DisplayName string
 }
 
 type BotSnapshotData struct {
@@ -55,7 +60,7 @@ type BotSnapshotData struct {
 
 func (m *Manager) CreateSnapshot(ctx context.Context, botID, snapshotName, source string) (*SnapshotCreateInfo, error) {
 	if m.db == nil || m.queries == nil {
-		return nil, fmt.Errorf("db is not configured")
+		return nil, errors.New("db is not configured")
 	}
 	if err := validateBotID(botID); err != nil {
 		return nil, err
@@ -73,10 +78,8 @@ func (m *Manager) CreateSnapshot(ctx context.Context, botID, snapshotName, sourc
 		return nil, err
 	}
 
-	normalizedSnapshotName := strings.TrimSpace(snapshotName)
-	if normalizedSnapshotName == "" {
-		normalizedSnapshotName = fmt.Sprintf("%s-%d", containerID, time.Now().UnixNano())
-	}
+	displayName := strings.TrimSpace(snapshotName)
+	runtimeSnapshotName := fmt.Sprintf("%s-snapshot-%d", containerID, time.Now().UnixNano())
 	normalizedSource := normalizeSnapshotSource(source)
 
 	// The sequence below (stop → commit → replace → start) is atomic from the
@@ -88,19 +91,20 @@ func (m *Manager) CreateSnapshot(ctx context.Context, botID, snapshotName, sourc
 		return nil, err
 	}
 
-	if err := m.service.CommitSnapshot(dctx, info.Snapshotter, normalizedSnapshotName, info.SnapshotKey); err != nil {
+	if err := m.service.CommitSnapshot(dctx, info.Snapshotter, runtimeSnapshotName, info.SnapshotKey); err != nil {
 		return nil, err
 	}
 
 	activeSnapshotName := fmt.Sprintf("%s-active-%d", containerID, time.Now().UnixNano())
-	if err := m.replaceContainerSnapshot(dctx, botID, containerID, info, activeSnapshotName, normalizedSnapshotName); err != nil {
+	if err := m.replaceContainerSnapshot(dctx, botID, containerID, info, activeSnapshotName, runtimeSnapshotName); err != nil {
 		return nil, err
 	}
 
 	_, versionNumber, createdAt, err := m.recordSnapshotVersion(
 		dctx,
 		containerID,
-		normalizedSnapshotName,
+		runtimeSnapshotName,
+		displayName,
 		info.SnapshotKey,
 		info.Snapshotter,
 		normalizedSource,
@@ -109,26 +113,30 @@ func (m *Manager) CreateSnapshot(ctx context.Context, botID, snapshotName, sourc
 		return nil, err
 	}
 	if err := m.insertEvent(dctx, containerID, "snapshot_create", map[string]any{
-		"snapshot_name": normalizedSnapshotName,
-		"snapshotter":   info.Snapshotter,
-		"source":        normalizedSource,
-		"version":       versionNumber,
+		"snapshot_name":         coalesceSnapshotName(displayName, versionNumber),
+		"display_name":          displayName,
+		"runtime_snapshot_name": runtimeSnapshotName,
+		"snapshotter":           info.Snapshotter,
+		"source":                normalizedSource,
+		"version":               versionNumber,
 	}); err != nil {
 		return nil, err
 	}
 
 	return &SnapshotCreateInfo{
-		ContainerID:  containerID,
-		SnapshotName: normalizedSnapshotName,
-		Snapshotter:  info.Snapshotter,
-		Version:      versionNumber,
-		CreatedAt:    createdAt,
+		ContainerID:         containerID,
+		SnapshotName:        coalesceSnapshotName(displayName, versionNumber),
+		RuntimeSnapshotName: runtimeSnapshotName,
+		DisplayName:         displayName,
+		Snapshotter:         info.Snapshotter,
+		Version:             versionNumber,
+		CreatedAt:           createdAt,
 	}, nil
 }
 
 func (m *Manager) CreateVersion(ctx context.Context, botID string) (*VersionInfo, error) {
 	if m.db == nil || m.queries == nil {
-		return nil, fmt.Errorf("db is not configured")
+		return nil, errors.New("db is not configured")
 	}
 	if err := validateBotID(botID); err != nil {
 		return nil, err
@@ -167,6 +175,7 @@ func (m *Manager) CreateVersion(ctx context.Context, botID string) (*VersionInfo
 		dctx,
 		containerID,
 		versionSnapshotName,
+		"",
 		info.SnapshotKey,
 		info.Snapshotter,
 		SnapshotSourcePreExec,
@@ -184,10 +193,12 @@ func (m *Manager) CreateVersion(ctx context.Context, botID string) (*VersionInfo
 	}
 
 	return &VersionInfo{
-		ID:           versionID,
-		Version:      versionNumber,
-		SnapshotName: versionSnapshotName,
-		CreatedAt:    createdAt,
+		ID:                  versionID,
+		Version:             versionNumber,
+		SnapshotName:        fmt.Sprintf("Version %d", versionNumber),
+		RuntimeSnapshotName: versionSnapshotName,
+		DisplayName:         "",
+		CreatedAt:           createdAt,
 	}, nil
 }
 
@@ -233,7 +244,8 @@ func (m *Manager) ListBotSnapshotData(ctx context.Context, botID string) (*BotSn
 				continue
 			}
 			meta := ManagedSnapshotMeta{
-				Source: strings.TrimSpace(row.Source),
+				Source:      strings.TrimSpace(row.Source),
+				DisplayName: strings.TrimSpace(row.DisplayName.String),
 			}
 			if row.Version.Valid {
 				v := int(row.Version.Int32)
@@ -254,7 +266,7 @@ func (m *Manager) ListBotSnapshotData(ctx context.Context, botID string) (*BotSn
 
 func (m *Manager) ListVersions(ctx context.Context, botID string) ([]VersionInfo, error) {
 	if m.db == nil || m.queries == nil {
-		return nil, fmt.Errorf("db is not configured")
+		return nil, errors.New("db is not configured")
 	}
 	if err := validateBotID(botID); err != nil {
 		return nil, err
@@ -273,10 +285,12 @@ func (m *Manager) ListVersions(ctx context.Context, botID string) ([]VersionInfo
 			createdAt = row.CreatedAt.Time
 		}
 		out = append(out, VersionInfo{
-			ID:           uuidString(row.ID),
-			Version:      int(row.Version),
-			SnapshotName: row.RuntimeSnapshotName,
-			CreatedAt:    createdAt,
+			ID:                  uuidString(row.ID),
+			Version:             int(row.Version),
+			SnapshotName:        coalesceSnapshotName(row.DisplayName.String, int(row.Version)),
+			RuntimeSnapshotName: row.RuntimeSnapshotName,
+			DisplayName:         strings.TrimSpace(row.DisplayName.String),
+			CreatedAt:           createdAt,
 		})
 	}
 	return out, nil
@@ -284,10 +298,13 @@ func (m *Manager) ListVersions(ctx context.Context, botID string) ([]VersionInfo
 
 func (m *Manager) RollbackVersion(ctx context.Context, botID string, version int) error {
 	if m.db == nil || m.queries == nil {
-		return fmt.Errorf("db is not configured")
+		return errors.New("db is not configured")
 	}
 	if err := validateBotID(botID); err != nil {
 		return err
+	}
+	if version < 1 || version > math.MaxInt32 {
+		return errors.New("version out of range")
 	}
 
 	containerID := m.containerID(botID)
@@ -327,10 +344,13 @@ func (m *Manager) RollbackVersion(ctx context.Context, botID string, version int
 
 func (m *Manager) VersionSnapshotName(ctx context.Context, botID string, version int) (string, error) {
 	if m.db == nil || m.queries == nil {
-		return "", fmt.Errorf("db is not configured")
+		return "", errors.New("db is not configured")
 	}
 	if err := validateBotID(botID); err != nil {
 		return "", err
+	}
+	if version < 1 || version > math.MaxInt32 {
+		return "", errors.New("version out of range")
 	}
 
 	containerID := m.containerID(botID)
@@ -371,16 +391,18 @@ func (m *Manager) replaceContainerSnapshot(ctx context.Context, botID, container
 	// unconditionally so the next call dials fresh to the new process.
 	m.grpcPool.Remove(botID)
 
-	if netResult, err := m.service.SetupNetwork(ctx, ctr.NetworkSetupRequest{
+	netResult, err := m.service.SetupNetwork(ctx, ctr.NetworkSetupRequest{
 		ContainerID: containerID,
 		CNIBinDir:   m.cfg.CNIBinaryDir,
 		CNIConfDir:  m.cfg.CNIConfigDir,
-	}); err != nil {
-		m.logger.Warn("network setup failed after snapshot replace",
-			slog.String("container_id", containerID), slog.Any("error", err))
-	} else {
-		m.SetContainerIP(botID, netResult.IP)
+	})
+	if err != nil {
+		return fmt.Errorf("network setup after snapshot replace: %w", err)
 	}
+	if netResult.IP == "" {
+		return fmt.Errorf("network setup returned no IP after snapshot replace for %s", containerID)
+	}
+	m.SetContainerIP(botID, netResult.IP)
 	return nil
 }
 
@@ -419,7 +441,7 @@ func (m *Manager) safeStopTask(ctx context.Context, containerID string) error {
 	return err
 }
 
-func (m *Manager) ensureDBRecords(ctx context.Context, botID, containerID, runtime, imageRef string) (pgtype.UUID, error) {
+func (m *Manager) ensureDBRecords(ctx context.Context, botID, containerID, _ string, imageRef string) (pgtype.UUID, error) {
 	botUUID, err := db.ParseUUID(botID)
 	if err != nil {
 		return pgtype.UUID{}, err
@@ -447,7 +469,7 @@ func (m *Manager) ensureDBRecords(ctx context.Context, botID, containerID, runti
 	return botUUID, nil
 }
 
-func (m *Manager) recordSnapshotVersion(ctx context.Context, containerID, runtimeSnapshotName, parentRuntimeSnapshotName, snapshotter, source string) (string, int, time.Time, error) {
+func (m *Manager) recordSnapshotVersion(ctx context.Context, containerID, runtimeSnapshotName, displayName, parentRuntimeSnapshotName, snapshotter, source string) (string, int, time.Time, error) {
 	containerID = strings.TrimSpace(containerID)
 	runtimeSnapshotName = strings.TrimSpace(runtimeSnapshotName)
 	snapshotter = strings.TrimSpace(snapshotter)
@@ -459,7 +481,7 @@ func (m *Manager) recordSnapshotVersion(ctx context.Context, containerID, runtim
 	if err != nil {
 		return "", 0, time.Time{}, err
 	}
-	defer tx.Rollback(ctx)
+	defer func() { _ = tx.Rollback(ctx) }()
 
 	qtx := m.queries.WithTx(tx)
 
@@ -471,6 +493,7 @@ func (m *Manager) recordSnapshotVersion(ctx context.Context, containerID, runtim
 	snapshotRow, err := qtx.UpsertSnapshot(ctx, dbsqlc.UpsertSnapshotParams{
 		ContainerID:               containerID,
 		RuntimeSnapshotName:       runtimeSnapshotName,
+		DisplayName:               pgtype.Text{String: strings.TrimSpace(displayName), Valid: strings.TrimSpace(displayName) != ""},
 		ParentRuntimeSnapshotName: parent,
 		Snapshotter:               snapshotter,
 		Source:                    normalizeSnapshotSource(source),
@@ -524,6 +547,17 @@ func normalizeSnapshotSource(source string) string {
 		return SnapshotSourceManual
 	}
 	return s
+}
+
+func coalesceSnapshotName(displayName string, version int) string {
+	displayName = strings.TrimSpace(displayName)
+	if displayName != "" {
+		return displayName
+	}
+	if version > 0 {
+		return fmt.Sprintf("Version %d", version)
+	}
+	return ""
 }
 
 func uuidString(v pgtype.UUID) string {

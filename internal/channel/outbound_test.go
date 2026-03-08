@@ -2,7 +2,7 @@ package channel
 
 import (
 	"context"
-	"fmt"
+	"errors"
 	"strings"
 	"sync"
 	"testing"
@@ -119,7 +119,7 @@ func (r *recordingStream) Push(_ context.Context, event StreamEvent) error {
 	return nil
 }
 
-func (r *recordingStream) Close(_ context.Context) error { return nil }
+func (*recordingStream) Close(_ context.Context) error { return nil }
 
 func (r *recordingStream) Events() []StreamEvent {
 	r.mu.Lock()
@@ -133,11 +133,11 @@ type failingFinalStream struct {
 	recordingStream
 }
 
-func (f *failingFinalStream) Push(_ context.Context, event StreamEvent) error {
+func (f *failingFinalStream) Push(ctx context.Context, event StreamEvent) error {
 	if event.Type == StreamEventFinal {
 		return context.DeadlineExceeded
 	}
-	return f.recordingStream.Push(context.Background(), event)
+	return f.recordingStream.Push(ctx, event)
 }
 
 func newChunkingTestStream(t *testing.T, chunkLimit int) (*managerOutboundStream, *recordingStream, *[]OutboundMessage) {
@@ -288,6 +288,40 @@ func TestPushFinalWithChunking_AttachmentsSeparated(t *testing.T) {
 	}
 	if !hasAttachment {
 		t.Fatal("expected attachments in overflow sends")
+	}
+}
+
+func TestBuildOutboundMessages_InlineTextWithMediaMovesTextToCaption(t *testing.T) {
+	t.Parallel()
+
+	msgs, err := buildOutboundMessages(OutboundMessage{
+		Target: "chat-1",
+		Message: Message{
+			Text: "test.jpg from QQ",
+			Attachments: []Attachment{{
+				Type: AttachmentImage,
+				URL:  "https://example.com/test.jpg",
+			}},
+		},
+	}, OutboundPolicy{
+		TextChunkLimit:      100,
+		MediaOrder:          OutboundOrderTextFirst,
+		InlineTextWithMedia: true,
+	})
+	if err != nil {
+		t.Fatalf("buildOutboundMessages failed: %v", err)
+	}
+	if len(msgs) != 1 {
+		t.Fatalf("expected 1 outbound message, got %d", len(msgs))
+	}
+	if got := strings.TrimSpace(msgs[0].Message.Text); got != "" {
+		t.Fatalf("expected inline caption to suppress standalone text, got %q", got)
+	}
+	if len(msgs[0].Message.Attachments) != 1 {
+		t.Fatalf("expected 1 attachment, got %d", len(msgs[0].Message.Attachments))
+	}
+	if got := msgs[0].Message.Attachments[0].Caption; got != "test.jpg from QQ" {
+		t.Fatalf("unexpected attachment caption: %q", got)
 	}
 }
 
@@ -540,7 +574,7 @@ func (r *reopenableStream) current() *recordingStream {
 func (r *reopenableStream) reopen(_ context.Context) (OutboundStream, error) {
 	r.idx++
 	if r.idx >= len(r.streams) {
-		return nil, fmt.Errorf("no more streams")
+		return nil, errors.New("no more streams")
 	}
 	return r.streams[r.idx], nil
 }

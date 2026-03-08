@@ -173,64 +173,6 @@
                 }
             }
         },
-        "/bots/{bot_id}/audit-logs": {
-            "get": {
-                "tags": [
-                    "audit"
-                ],
-                "summary": "List audit logs for a bot",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "Bot ID",
-                        "name": "bot_id",
-                        "in": "path",
-                        "required": true
-                    },
-                    {
-                        "type": "string",
-                        "description": "Filter by user",
-                        "name": "user_id",
-                        "in": "query"
-                    },
-                    {
-                        "type": "string",
-                        "description": "Filter by action",
-                        "name": "action",
-                        "in": "query"
-                    },
-                    {
-                        "type": "integer",
-                        "default": 50,
-                        "description": "Limit",
-                        "name": "limit",
-                        "in": "query"
-                    },
-                    {
-                        "type": "integer",
-                        "default": 0,
-                        "description": "Offset",
-                        "name": "offset",
-                        "in": "query"
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": true
-                        }
-                    },
-                    "400": {
-                        "description": "Bad Request",
-                        "schema": {
-                            "$ref": "#/definitions/handlers.ErrorResponse"
-                        }
-                    }
-                }
-            }
-        },
         "/bots/{bot_id}/cli/messages": {
             "post": {
                 "description": "Post a user message (with optional attachments) through the local channel pipeline.",
@@ -340,85 +282,6 @@
                 }
             }
         },
-        "/bots/{bot_id}/cockpit/generate-report": {
-            "post": {
-                "tags": [
-                    "cockpit"
-                ],
-                "summary": "Generate daily cockpit report for a bot",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "Bot ID",
-                        "name": "bot_id",
-                        "in": "path",
-                        "required": true
-                    },
-                    {
-                        "type": "string",
-                        "default": "yesterday",
-                        "description": "Report date (YYYY-MM-DD)",
-                        "name": "date",
-                        "in": "query"
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
-                        }
-                    },
-                    "400": {
-                        "description": "Bad Request",
-                        "schema": {
-                            "$ref": "#/definitions/handlers.ErrorResponse"
-                        }
-                    }
-                }
-            }
-        },
-        "/bots/{bot_id}/cockpit/summary": {
-            "get": {
-                "tags": [
-                    "cockpit"
-                ],
-                "summary": "Get cockpit efficiency summary",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "Bot ID",
-                        "name": "bot_id",
-                        "in": "path",
-                        "required": true
-                    },
-                    {
-                        "type": "integer",
-                        "default": 7,
-                        "description": "Number of days",
-                        "name": "days",
-                        "in": "query"
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/handlers.CockpitSummaryDTO"
-                        }
-                    },
-                    "400": {
-                        "description": "Bad Request",
-                        "schema": {
-                            "$ref": "#/definitions/handlers.ErrorResponse"
-                        }
-                    }
-                }
-            }
-        },
         "/bots/{bot_id}/container": {
             "get": {
                 "tags": [
@@ -511,11 +374,135 @@
                         "name": "bot_id",
                         "in": "path",
                         "required": true
+                    },
+                    {
+                        "type": "boolean",
+                        "description": "Export /data before deletion",
+                        "name": "preserve_data",
+                        "in": "query"
                     }
                 ],
                 "responses": {
                     "204": {
                         "description": "No Content"
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/handlers.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/handlers.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/bots/{bot_id}/container/data/export": {
+            "post": {
+                "produces": [
+                    "application/gzip"
+                ],
+                "tags": [
+                    "containerd"
+                ],
+                "summary": "Export container /data as a tar.gz archive",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Bot ID",
+                        "name": "bot_id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "file"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/handlers.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/bots/{bot_id}/container/data/import": {
+            "post": {
+                "consumes": [
+                    "multipart/form-data"
+                ],
+                "tags": [
+                    "containerd"
+                ],
+                "summary": "Import a tar.gz archive into container /data",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Bot ID",
+                        "name": "bot_id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "file",
+                        "description": "tar.gz archive",
+                        "name": "file",
+                        "in": "formData",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/handlers.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/handlers.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/bots/{bot_id}/container/data/restore": {
+            "post": {
+                "tags": [
+                    "containerd"
+                ],
+                "summary": "Restore previously preserved data into container",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Bot ID",
+                        "name": "bot_id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object"
+                        }
                     },
                     "404": {
                         "description": "Not Found",
@@ -1260,6 +1247,52 @@
                 }
             }
         },
+        "/bots/{bot_id}/container/snapshots/rollback": {
+            "post": {
+                "tags": [
+                    "containerd"
+                ],
+                "summary": "Rollback container to a previous snapshot version",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Bot ID",
+                        "name": "bot_id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Rollback payload",
+                        "name": "payload",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/handlers.RollbackRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/handlers.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/handlers.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/bots/{bot_id}/container/start": {
             "post": {
                 "tags": [
@@ -1327,78 +1360,6 @@
                     },
                     "500": {
                         "description": "Internal Server Error",
-                        "schema": {
-                            "$ref": "#/definitions/handlers.ErrorResponse"
-                        }
-                    }
-                }
-            }
-        },
-        "/bots/{bot_id}/departments": {
-            "get": {
-                "tags": [
-                    "departments"
-                ],
-                "summary": "List departments for a bot",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "Bot ID",
-                        "name": "bot_id",
-                        "in": "path",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "type": "array",
-                            "items": {
-                                "$ref": "#/definitions/handlers.DepartmentDTO"
-                            }
-                        }
-                    },
-                    "400": {
-                        "description": "Bad Request",
-                        "schema": {
-                            "$ref": "#/definitions/handlers.ErrorResponse"
-                        }
-                    }
-                }
-            },
-            "post": {
-                "tags": [
-                    "departments"
-                ],
-                "summary": "Create a department",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "Bot ID",
-                        "name": "bot_id",
-                        "in": "path",
-                        "required": true
-                    },
-                    {
-                        "description": "Department data",
-                        "name": "body",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/handlers.CreateDepartmentRequest"
-                        }
-                    }
-                ],
-                "responses": {
-                    "201": {
-                        "description": "Created",
-                        "schema": {
-                            "$ref": "#/definitions/handlers.DepartmentDTO"
-                        }
-                    },
-                    "400": {
-                        "description": "Bad Request",
                         "schema": {
                             "$ref": "#/definitions/handlers.ErrorResponse"
                         }
@@ -1668,187 +1629,6 @@
                     },
                     "404": {
                         "description": "Not Found",
-                        "schema": {
-                            "$ref": "#/definitions/handlers.ErrorResponse"
-                        }
-                    }
-                }
-            }
-        },
-        "/bots/{bot_id}/hands": {
-            "get": {
-                "tags": [
-                    "hands"
-                ],
-                "summary": "List hands for a bot",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "Bot ID",
-                        "name": "bot_id",
-                        "in": "path",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "type": "array",
-                            "items": {
-                                "$ref": "#/definitions/handlers.HandDTO"
-                            }
-                        }
-                    },
-                    "400": {
-                        "description": "Bad Request",
-                        "schema": {
-                            "$ref": "#/definitions/handlers.ErrorResponse"
-                        }
-                    }
-                }
-            },
-            "post": {
-                "tags": [
-                    "hands"
-                ],
-                "summary": "Create a hand from markdown",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "Bot ID",
-                        "name": "bot_id",
-                        "in": "path",
-                        "required": true
-                    },
-                    {
-                        "description": "Hand markdown",
-                        "name": "body",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/handlers.CreateHandRequest"
-                        }
-                    }
-                ],
-                "responses": {
-                    "201": {
-                        "description": "Created",
-                        "schema": {
-                            "$ref": "#/definitions/handlers.HandDTO"
-                        }
-                    },
-                    "400": {
-                        "description": "Bad Request",
-                        "schema": {
-                            "$ref": "#/definitions/handlers.ErrorResponse"
-                        }
-                    }
-                }
-            }
-        },
-        "/bots/{bot_id}/hands/{hand_id}": {
-            "get": {
-                "tags": [
-                    "hands"
-                ],
-                "summary": "Get a hand by ID",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "Bot ID",
-                        "name": "bot_id",
-                        "in": "path",
-                        "required": true
-                    },
-                    {
-                        "type": "string",
-                        "description": "Hand ID",
-                        "name": "hand_id",
-                        "in": "path",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/handlers.HandDTO"
-                        }
-                    },
-                    "404": {
-                        "description": "Not Found",
-                        "schema": {
-                            "$ref": "#/definitions/handlers.ErrorResponse"
-                        }
-                    }
-                }
-            },
-            "delete": {
-                "tags": [
-                    "hands"
-                ],
-                "summary": "Delete a hand",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "Bot ID",
-                        "name": "bot_id",
-                        "in": "path",
-                        "required": true
-                    },
-                    {
-                        "type": "string",
-                        "description": "Hand ID",
-                        "name": "hand_id",
-                        "in": "path",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "204": {
-                        "description": "No Content"
-                    },
-                    "400": {
-                        "description": "Bad Request",
-                        "schema": {
-                            "$ref": "#/definitions/handlers.ErrorResponse"
-                        }
-                    }
-                }
-            }
-        },
-        "/bots/{bot_id}/hands/{hand_id}/execute": {
-            "post": {
-                "tags": [
-                    "hands"
-                ],
-                "summary": "Manually execute a hand",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "Bot ID",
-                        "name": "bot_id",
-                        "in": "path",
-                        "required": true
-                    },
-                    {
-                        "type": "string",
-                        "description": "Hand ID",
-                        "name": "hand_id",
-                        "in": "path",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/handlers.HandExecutionResultDTO"
-                        }
-                    },
-                    "400": {
-                        "description": "Bad Request",
                         "schema": {
                             "$ref": "#/definitions/handlers.ErrorResponse"
                         }
@@ -3537,113 +3317,6 @@
                     },
                     "500": {
                         "description": "Internal Server Error",
-                        "schema": {
-                            "$ref": "#/definitions/handlers.ErrorResponse"
-                        }
-                    }
-                }
-            }
-        },
-        "/bots/{bot_id}/model-routes": {
-            "get": {
-                "tags": [
-                    "model-routing"
-                ],
-                "summary": "List model routes for a bot",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "Bot ID",
-                        "name": "bot_id",
-                        "in": "path",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "type": "array",
-                            "items": {
-                                "$ref": "#/definitions/handlers.ModelRouteDTO"
-                            }
-                        }
-                    },
-                    "400": {
-                        "description": "Bad Request",
-                        "schema": {
-                            "$ref": "#/definitions/handlers.ErrorResponse"
-                        }
-                    }
-                }
-            },
-            "post": {
-                "tags": [
-                    "model-routing"
-                ],
-                "summary": "Create a model route",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "Bot ID",
-                        "name": "bot_id",
-                        "in": "path",
-                        "required": true
-                    },
-                    {
-                        "description": "Route data",
-                        "name": "body",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/handlers.CreateModelRouteRequest"
-                        }
-                    }
-                ],
-                "responses": {
-                    "201": {
-                        "description": "Created",
-                        "schema": {
-                            "$ref": "#/definitions/handlers.ModelRouteDTO"
-                        }
-                    },
-                    "400": {
-                        "description": "Bad Request",
-                        "schema": {
-                            "$ref": "#/definitions/handlers.ErrorResponse"
-                        }
-                    }
-                }
-            }
-        },
-        "/bots/{bot_id}/model-routes/{route_id}": {
-            "delete": {
-                "tags": [
-                    "model-routing"
-                ],
-                "summary": "Delete a model route",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "Bot ID",
-                        "name": "bot_id",
-                        "in": "path",
-                        "required": true
-                    },
-                    {
-                        "type": "string",
-                        "description": "Route ID",
-                        "name": "route_id",
-                        "in": "path",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "204": {
-                        "description": "No Content"
-                    },
-                    "400": {
-                        "description": "Bad Request",
                         "schema": {
                             "$ref": "#/definitions/handlers.ErrorResponse"
                         }
@@ -5436,45 +5109,54 @@
                 }
             }
         },
-        "/budgets": {
+        "/browser-contexts": {
             "get": {
+                "description": "List all browser context configurations",
+                "produces": [
+                    "application/json"
+                ],
                 "tags": [
-                    "cost"
+                    "browser-contexts"
                 ],
-                "summary": "List budgets",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "Filter by scope type",
-                        "name": "scope_type",
-                        "in": "query"
-                    }
-                ],
+                "summary": "List browser contexts",
                 "responses": {
                     "200": {
                         "description": "OK",
                         "schema": {
                             "type": "array",
                             "items": {
-                                "$ref": "#/definitions/handlers.BudgetDTO"
+                                "$ref": "#/definitions/browsercontexts.BrowserContext"
                             }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/handlers.ErrorResponse"
                         }
                     }
                 }
             },
             "post": {
-                "tags": [
-                    "cost"
+                "description": "Create a browser context configuration",
+                "consumes": [
+                    "application/json"
                 ],
-                "summary": "Create a budget",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "browser-contexts"
+                ],
+                "summary": "Create a browser context",
                 "parameters": [
                     {
-                        "description": "Budget data",
-                        "name": "body",
+                        "description": "Browser context configuration",
+                        "name": "request",
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/handlers.CreateBudgetRequest"
+                            "$ref": "#/definitions/browsercontexts.CreateRequest"
                         }
                     }
                 ],
@@ -5482,7 +5164,7 @@
                     "201": {
                         "description": "Created",
                         "schema": {
-                            "$ref": "#/definitions/handlers.BudgetDTO"
+                            "$ref": "#/definitions/browsercontexts.BrowserContext"
                         }
                     },
                     "400": {
@@ -5490,29 +5172,32 @@
                         "schema": {
                             "$ref": "#/definitions/handlers.ErrorResponse"
                         }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/handlers.ErrorResponse"
+                        }
                     }
                 }
             }
         },
-        "/budgets/check": {
+        "/browser-contexts/{id}": {
             "get": {
-                "tags": [
-                    "cost"
+                "description": "Get browser context by ID",
+                "produces": [
+                    "application/json"
                 ],
-                "summary": "Check budget status",
+                "tags": [
+                    "browser-contexts"
+                ],
+                "summary": "Get a browser context",
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "Scope type",
-                        "name": "scope_type",
-                        "in": "query",
-                        "required": true
-                    },
-                    {
-                        "type": "string",
-                        "description": "Scope ID",
-                        "name": "scope_id",
-                        "in": "query",
+                        "description": "Browser Context ID",
+                        "name": "id",
+                        "in": "path",
                         "required": true
                     }
                 ],
@@ -5520,7 +5205,7 @@
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/handlers.BudgetCheckDTO"
+                            "$ref": "#/definitions/browsercontexts.BrowserContext"
                         }
                     },
                     "400": {
@@ -5528,21 +5213,77 @@
                         "schema": {
                             "$ref": "#/definitions/handlers.ErrorResponse"
                         }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/handlers.ErrorResponse"
+                        }
                     }
                 }
-            }
-        },
-        "/budgets/{budget_id}": {
-            "delete": {
-                "tags": [
-                    "cost"
+            },
+            "put": {
+                "description": "Update browser context by ID",
+                "consumes": [
+                    "application/json"
                 ],
-                "summary": "Delete a budget",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "browser-contexts"
+                ],
+                "summary": "Update a browser context",
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "Budget ID",
-                        "name": "budget_id",
+                        "description": "Browser Context ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Updated configuration",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/browsercontexts.UpdateRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/browsercontexts.BrowserContext"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/handlers.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/handlers.ErrorResponse"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "description": "Delete browser context by ID",
+                "tags": [
+                    "browser-contexts"
+                ],
+                "summary": "Delete a browser context",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Browser Context ID",
+                        "name": "id",
                         "in": "path",
                         "required": true
                     }
@@ -5553,6 +5294,12 @@
                     },
                     "400": {
                         "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/handlers.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
                         "schema": {
                             "$ref": "#/definitions/handlers.ErrorResponse"
                         }
@@ -8034,6 +7781,57 @@
                 }
             }
         },
+        "browsercontexts.BrowserContext": {
+            "type": "object",
+            "properties": {
+                "config": {
+                    "type": "array",
+                    "items": {
+                        "type": "integer"
+                    }
+                },
+                "created_at": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "updated_at": {
+                    "type": "string"
+                }
+            }
+        },
+        "browsercontexts.CreateRequest": {
+            "type": "object",
+            "properties": {
+                "config": {
+                    "type": "array",
+                    "items": {
+                        "type": "integer"
+                    }
+                },
+                "name": {
+                    "type": "string"
+                }
+            }
+        },
+        "browsercontexts.UpdateRequest": {
+            "type": "object",
+            "properties": {
+                "config": {
+                    "type": "array",
+                    "items": {
+                        "type": "integer"
+                    }
+                },
+                "name": {
+                    "type": "string"
+                }
+            }
+        },
         "channel.Action": {
             "type": "object",
             "properties": {
@@ -8819,58 +8617,6 @@
                 }
             }
         },
-        "handlers.BudgetCheckDTO": {
-            "type": "object",
-            "properties": {
-                "action": {
-                    "type": "string"
-                },
-                "alert": {
-                    "type": "boolean"
-                },
-                "allowed": {
-                    "type": "boolean"
-                },
-                "limit": {
-                    "type": "number"
-                },
-                "percentage": {
-                    "type": "number"
-                },
-                "spent": {
-                    "type": "number"
-                }
-            }
-        },
-        "handlers.BudgetDTO": {
-            "type": "object",
-            "properties": {
-                "action_on_exceed": {
-                    "type": "string"
-                },
-                "alert_threshold": {
-                    "type": "number"
-                },
-                "id": {
-                    "type": "string"
-                },
-                "is_enabled": {
-                    "type": "boolean"
-                },
-                "limit_amount": {
-                    "type": "number"
-                },
-                "period": {
-                    "type": "string"
-                },
-                "scope_id": {
-                    "type": "string"
-                },
-                "scope_type": {
-                    "type": "string"
-                }
-            }
-        },
         "handlers.ChannelMeta": {
             "type": "object",
             "properties": {
@@ -8897,55 +8643,12 @@
                 }
             }
         },
-        "handlers.CockpitSummaryDTO": {
-            "type": "object",
-            "properties": {
-                "average_efficiency_multiple": {
-                    "type": "number"
-                },
-                "labor_cost_cny": {
-                    "type": "number"
-                },
-                "total_ai_time_minutes": {
-                    "type": "integer"
-                },
-                "total_innovations": {
-                    "type": "integer"
-                },
-                "total_reports": {
-                    "type": "integer"
-                },
-                "total_saved_hours": {
-                    "type": "number"
-                }
-            }
-        },
-        "handlers.CreateBudgetRequest": {
-            "type": "object",
-            "properties": {
-                "action_on_exceed": {
-                    "type": "string"
-                },
-                "alert_threshold": {
-                    "type": "number"
-                },
-                "limit_amount": {
-                    "type": "number"
-                },
-                "period": {
-                    "type": "string"
-                },
-                "scope_id": {
-                    "type": "string"
-                },
-                "scope_type": {
-                    "type": "string"
-                }
-            }
-        },
         "handlers.CreateContainerRequest": {
             "type": "object",
             "properties": {
+                "restore_data": {
+                    "type": "boolean"
+                },
                 "snapshotter": {
                     "type": "string"
                 }
@@ -8957,6 +8660,12 @@
                 "container_id": {
                     "type": "string"
                 },
+                "data_restored": {
+                    "type": "boolean"
+                },
+                "has_preserved_data": {
+                    "type": "boolean"
+                },
                 "image": {
                     "type": "string"
                 },
@@ -8965,52 +8674,6 @@
                 },
                 "started": {
                     "type": "boolean"
-                }
-            }
-        },
-        "handlers.CreateDepartmentRequest": {
-            "type": "object",
-            "properties": {
-                "description": {
-                    "type": "string"
-                },
-                "name": {
-                    "type": "string"
-                },
-                "parent_id": {
-                    "type": "string"
-                }
-            }
-        },
-        "handlers.CreateHandRequest": {
-            "type": "object",
-            "properties": {
-                "markdown": {
-                    "type": "string"
-                }
-            }
-        },
-        "handlers.CreateModelRouteRequest": {
-            "type": "object",
-            "properties": {
-                "complexity_tier": {
-                    "type": "string"
-                },
-                "is_enabled": {
-                    "type": "boolean"
-                },
-                "metadata": {
-                    "type": "object",
-                    "additionalProperties": {}
-                },
-                "model_id": {
-                    "type": "string"
-                },
-                "name": {
-                    "type": "string"
-                },
-                "priority": {
-                    "type": "integer"
                 }
             }
         },
@@ -9026,6 +8689,12 @@
             "type": "object",
             "properties": {
                 "container_id": {
+                    "type": "string"
+                },
+                "display_name": {
+                    "type": "string"
+                },
+                "runtime_snapshot_name": {
                     "type": "string"
                 },
                 "snapshot_name": {
@@ -9062,23 +8731,6 @@
                 },
                 "reasoning_tokens": {
                     "type": "integer"
-                }
-            }
-        },
-        "handlers.DepartmentDTO": {
-            "type": "object",
-            "properties": {
-                "description": {
-                    "type": "string"
-                },
-                "id": {
-                    "type": "string"
-                },
-                "name": {
-                    "type": "string"
-                },
-                "parent_id": {
-                    "type": "string"
                 }
             }
         },
@@ -9205,6 +8857,9 @@
                 "created_at": {
                     "type": "string"
                 },
+                "has_preserved_data": {
+                    "type": "boolean"
+                },
                 "image": {
                     "type": "string"
                 },
@@ -9218,61 +8873,6 @@
                     "type": "boolean"
                 },
                 "updated_at": {
-                    "type": "string"
-                }
-            }
-        },
-        "handlers.HandDTO": {
-            "type": "object",
-            "properties": {
-                "content": {
-                    "type": "string"
-                },
-                "description": {
-                    "type": "string"
-                },
-                "id": {
-                    "type": "string"
-                },
-                "is_enabled": {
-                    "type": "boolean"
-                },
-                "metadata": {
-                    "type": "object",
-                    "additionalProperties": {}
-                },
-                "name": {
-                    "type": "string"
-                },
-                "schedule": {
-                    "type": "object",
-                    "additionalProperties": {}
-                },
-                "triggers": {
-                    "type": "array",
-                    "items": {}
-                },
-                "type": {
-                    "type": "string"
-                }
-            }
-        },
-        "handlers.HandExecutionResultDTO": {
-            "type": "object",
-            "properties": {
-                "completed_at": {
-                    "type": "string"
-                },
-                "error_message": {
-                    "type": "string"
-                },
-                "result_text": {
-                    "type": "string"
-                },
-                "started_at": {
-                    "type": "string"
-                },
-                "status": {
                     "type": "string"
                 }
             }
@@ -9379,33 +8979,6 @@
                 }
             }
         },
-        "handlers.ModelRouteDTO": {
-            "type": "object",
-            "properties": {
-                "complexity_tier": {
-                    "type": "string"
-                },
-                "id": {
-                    "type": "string"
-                },
-                "is_enabled": {
-                    "type": "boolean"
-                },
-                "metadata": {
-                    "type": "object",
-                    "additionalProperties": {}
-                },
-                "model_id": {
-                    "type": "string"
-                },
-                "name": {
-                    "type": "string"
-                },
-                "priority": {
-                    "type": "integer"
-                }
-            }
-        },
         "handlers.ModelTokenUsage": {
             "type": "object",
             "properties": {
@@ -9477,6 +9050,14 @@
                 }
             }
         },
+        "handlers.RollbackRequest": {
+            "type": "object",
+            "properties": {
+                "version": {
+                    "type": "integer"
+                }
+            }
+        },
         "handlers.SkillItem": {
             "type": "object",
             "properties": {
@@ -9537,6 +9118,9 @@
                 "created_at": {
                     "type": "string"
                 },
+                "display_name": {
+                    "type": "string"
+                },
                 "kind": {
                     "type": "string"
                 },
@@ -9553,6 +9137,9 @@
                     "type": "string"
                 },
                 "parent": {
+                    "type": "string"
+                },
+                "runtime_snapshot_name": {
                     "type": "string"
                 },
                 "snapshotter": {
@@ -10640,7 +10227,6 @@
             "type": "object",
             "properties": {
                 "api_key": {
-                    "description": "masked in response",
                     "type": "string"
                 },
                 "base_url": {
@@ -10967,6 +10553,9 @@
                 "allow_guest": {
                     "type": "boolean"
                 },
+                "browser_context_id": {
+                    "type": "string"
+                },
                 "chat_model_id": {
                     "type": "string"
                 },
@@ -11010,6 +10599,9 @@
             "properties": {
                 "allow_guest": {
                     "type": "boolean"
+                },
+                "browser_context_id": {
+                    "type": "string"
                 },
                 "chat_model_id": {
                     "type": "string"

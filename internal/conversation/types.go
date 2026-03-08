@@ -3,7 +3,6 @@ package conversation
 
 import (
 	"encoding/json"
-	"log/slog"
 	"strings"
 	"time"
 )
@@ -153,7 +152,6 @@ func (m ModelMessage) HasContent() bool {
 func NewTextContent(text string) json.RawMessage {
 	data, err := json.Marshal(text)
 	if err != nil {
-		slog.Warn("NewTextContent: marshal failed", slog.Any("error", err))
 		return nil
 	}
 	return data
@@ -243,7 +241,6 @@ type ChatRequest struct {
 	CurrentChannel     string           `json:"current_channel,omitempty"`
 	Messages           []ModelMessage   `json:"messages,omitempty"`
 	Skills             []string         `json:"skills,omitempty"`
-	AllowedActions     []string         `json:"allowed_actions,omitempty"`
 	Attachments        []ChatAttachment `json:"attachments,omitempty"`
 }
 

@@ -169,7 +169,7 @@ type gatewayModelConfig struct {
 	ModelID    string                  `json:"modelId"`
 	ClientType string                  `json:"clientType"`
 	Input      []string                `json:"input"`
-	APIKey     string                  `json:"apiKey"`
+	APIKey     string                  `json:"apiKey"` //nolint:gosec // intentional: forwarded to agent gateway for model authentication
 	BaseURL    string                  `json:"baseUrl"`
 	Reasoning  *gatewayReasoningConfig `json:"reasoning,omitempty"`
 }
@@ -181,7 +181,7 @@ type gatewayIdentity struct {
 	DisplayName       string `json:"displayName"`
 	CurrentPlatform   string `json:"currentPlatform,omitempty"`
 	ConversationType  string `json:"conversationType,omitempty"`
-	SessionToken      string `json:"sessionToken,omitempty"`
+	SessionToken      string `json:"sessionToken,omitempty"` //nolint:gosec // intentional: session token forwarded to agent gateway for channel reply routing
 }
 
 type gatewaySkill struct {
@@ -208,7 +208,6 @@ type gatewayRequest struct {
 	ActiveContextTime int                         `json:"activeContextTime"`
 	Channels          []string                    `json:"channels"`
 	CurrentChannel    string                      `json:"currentChannel"`
-	AllowedActions    []string                    `json:"allowedActions,omitempty"`
 	Messages          []conversation.ModelMessage `json:"messages"`
 	Skills            []string                    `json:"skills"`
 	UsableSkills      []gatewaySkill              `json:"usableSkills"`
@@ -307,13 +306,13 @@ type resolvedContext struct {
 
 func (r *Resolver) resolve(ctx context.Context, req conversation.ChatRequest) (resolvedContext, error) {
 	if strings.TrimSpace(req.Query) == "" && len(req.Attachments) == 0 {
-		return resolvedContext{}, fmt.Errorf("query or attachments is required")
+		return resolvedContext{}, errors.New("query or attachments is required")
 	}
 	if strings.TrimSpace(req.BotID) == "" {
-		return resolvedContext{}, fmt.Errorf("bot id is required")
+		return resolvedContext{}, errors.New("bot id is required")
 	}
 	if strings.TrimSpace(req.ChatID) == "" {
-		return resolvedContext{}, fmt.Errorf("chat id is required")
+		return resolvedContext{}, errors.New("chat id is required")
 	}
 
 	skipHistory := req.MaxContextLoadTime < 0
@@ -381,7 +380,8 @@ func (r *Resolver) resolve(ctx context.Context, req conversation.ChatRequest) (r
 			return resolvedContext{}, loadErr
 		}
 		loaded = pruneHistoryForGateway(loaded)
-		messages = trimMessagesByTokens(loaded, historyBudget)
+		loaded = dedupePersistedCurrentUserMessage(loaded, req)
+		messages = trimMessagesByTokens(r.logger, loaded, historyBudget)
 		r.logger.Debug("context trim result",
 			slog.Int("loaded_messages", len(loaded)),
 			slog.Int("kept_messages", len(messages)),
@@ -477,7 +477,6 @@ func (r *Resolver) resolve(ctx context.Context, req conversation.ChatRequest) (r
 		ActiveContextTime: maxCtx,
 		Channels:          nonNilStrings(req.Channels),
 		CurrentChannel:    req.CurrentChannel,
-		AllowedActions:    req.AllowedActions,
 		Messages:          nonNilModelMessages(messages),
 		Skills:            nonNilStrings(skills),
 		UsableSkills:      usableSkills,
@@ -529,10 +528,10 @@ func (r *Resolver) Chat(ctx context.Context, req conversation.ChatRequest) (conv
 // TriggerSchedule executes a scheduled command through the agent gateway trigger-schedule endpoint.
 func (r *Resolver) TriggerSchedule(ctx context.Context, botID string, payload schedule.TriggerPayload, token string) error {
 	if strings.TrimSpace(botID) == "" {
-		return fmt.Errorf("bot id is required")
+		return errors.New("bot id is required")
 	}
 	if strings.TrimSpace(payload.Command) == "" {
-		return fmt.Errorf("schedule command is required")
+		return errors.New("schedule command is required")
 	}
 
 	req := conversation.ChatRequest{
@@ -575,7 +574,7 @@ func (r *Resolver) TriggerSchedule(ctx context.Context, botID string, payload sc
 // TriggerHeartbeat executes a heartbeat check through the agent gateway trigger-heartbeat endpoint.
 func (r *Resolver) TriggerHeartbeat(ctx context.Context, botID string, payload heartbeat.TriggerPayload, token string) (heartbeat.TriggerResult, error) {
 	if strings.TrimSpace(botID) == "" {
-		return heartbeat.TriggerResult{}, fmt.Errorf("bot id is required")
+		return heartbeat.TriggerResult{}, errors.New("bot id is required")
 	}
 
 	// If a dedicated heartbeat model is configured, use it instead of the
@@ -712,11 +711,11 @@ func (r *Resolver) postChat(ctx context.Context, payload gatewayRequest, token s
 		httpReq.Header.Set("Authorization", token)
 	}
 
-	resp, err := r.httpClient.Do(httpReq)
+	resp, err := r.httpClient.Do(httpReq) //nolint:gosec // G704: URL is from operator-configured agent gateway, not user input
 	if err != nil {
 		return gatewayResponse{}, err
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	respBody, err := io.ReadAll(resp.Body)
 	if err != nil {
@@ -748,11 +747,11 @@ func (r *Resolver) postTriggerSchedule(ctx context.Context, payload triggerSched
 		httpReq.Header.Set("Authorization", token)
 	}
 
-	resp, err := r.httpClient.Do(httpReq)
+	resp, err := r.httpClient.Do(httpReq) //nolint:gosec // G704: URL is from operator-configured agent gateway, not user input
 	if err != nil {
 		return gatewayResponse{}, err
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	respBody, err := io.ReadAll(resp.Body)
 	if err != nil {
@@ -784,11 +783,11 @@ func (r *Resolver) postTriggerHeartbeat(ctx context.Context, payload triggerHear
 		httpReq.Header.Set("Authorization", token)
 	}
 
-	resp, err := r.httpClient.Do(httpReq)
+	resp, err := r.httpClient.Do(httpReq) //nolint:gosec // G704: URL is from operator-configured agent gateway, not user input
 	if err != nil {
 		return gatewayResponse{}, err
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	respBody, err := io.ReadAll(resp.Body)
 	if err != nil {
@@ -824,12 +823,12 @@ func (r *Resolver) streamChat(ctx context.Context, payload gatewayRequest, req c
 		httpReq.Header.Set("Authorization", req.Token)
 	}
 
-	resp, err := r.streamingClient.Do(httpReq)
+	resp, err := r.streamingClient.Do(httpReq) //nolint:gosec // G704: URL is from operator-configured agent gateway, not user input
 	if err != nil {
 		r.logger.Error("gateway stream connect failed", slog.String("url", url), slog.Any("error", err))
 		return err
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		errBody, _ := io.ReadAll(resp.Body)
@@ -1003,13 +1002,14 @@ func (r *Resolver) prepareGatewayAttachments(ctx context.Context, req conversati
 			transport = gatewayTransportInlineDataURL
 		} else {
 			rawURL := strings.TrimSpace(raw.URL)
-			if isDataURL(rawURL) {
+			switch {
+			case isDataURL(rawURL):
 				payload = rawURL
 				transport = gatewayTransportInlineDataURL
-			} else if isLikelyPublicURL(rawURL) {
+			case isLikelyPublicURL(rawURL):
 				payload = rawURL
 				transport = gatewayTransportPublicURL
-			} else if rawURL != "" && fallbackPath == "" {
+			case rawURL != "" && fallbackPath == "":
 				fallbackPath = rawURL
 			}
 		}
@@ -1101,7 +1101,7 @@ func (r *Resolver) inlineImageAttachmentAssetIfNeeded(ctx context.Context, botID
 
 func (r *Resolver) inlineAssetAsDataURL(ctx context.Context, botID, contentHash, attachmentType, fallbackMime string) (string, string, error) {
 	if r == nil || r.assetLoader == nil {
-		return "", "", fmt.Errorf("gateway asset loader not configured")
+		return "", "", errors.New("gateway asset loader not configured")
 	}
 	reader, assetMime, err := r.assetLoader.OpenForGateway(ctx, botID, contentHash)
 	if err != nil {
@@ -1123,15 +1123,15 @@ func (r *Resolver) inlineAssetAsDataURL(ctx context.Context, botID, contentHash,
 
 func encodeReaderAsDataURL(reader io.Reader, maxBytes int64, attachmentType, fallbackMime string) (string, string, error) {
 	if reader == nil {
-		return "", "", fmt.Errorf("reader is required")
+		return "", "", errors.New("reader is required")
 	}
 	if maxBytes <= 0 {
-		return "", "", fmt.Errorf("max bytes must be greater than 0")
+		return "", "", errors.New("max bytes must be greater than 0")
 	}
 	limited := &io.LimitedReader{R: reader, N: maxBytes + 1}
 	head := make([]byte, 512)
 	n, err := limited.Read(head)
-	if err != nil && err != io.EOF {
+	if err != nil && !errors.Is(err, io.EOF) {
 		return "", "", fmt.Errorf("read asset: %w", err)
 	}
 	head = head[:n]
@@ -1206,6 +1206,10 @@ type messageWithUsage struct {
 	Message           conversation.ModelMessage
 	UsageInputTokens  *int
 	UsageOutputTokens *int
+	RouteID           string
+	ExternalMessageID string
+	Platform          string
+	SenderChannelID   string
 }
 
 func (r *Resolver) loadMessages(ctx context.Context, chatID string, maxContextMinutes int, userID string) ([]messageWithUsage, error) {
@@ -1242,9 +1246,53 @@ func (r *Resolver) loadMessages(ctx context.Context, chatID string, maxContextMi
 				outputTokens = u.OutputTokens
 			}
 		}
-		result = append(result, messageWithUsage{Message: mm, UsageInputTokens: inputTokens, UsageOutputTokens: outputTokens})
+		result = append(result, messageWithUsage{
+			Message:           mm,
+			UsageInputTokens:  inputTokens,
+			UsageOutputTokens: outputTokens,
+			RouteID:           strings.TrimSpace(m.RouteID),
+			ExternalMessageID: strings.TrimSpace(m.ExternalMessageID),
+			Platform:          strings.TrimSpace(m.Platform),
+			SenderChannelID:   strings.TrimSpace(m.SenderChannelIdentityID),
+		})
 	}
 	return result, nil
+}
+
+func dedupePersistedCurrentUserMessage(messages []messageWithUsage, req conversation.ChatRequest) []messageWithUsage {
+	if !req.UserMessagePersisted || len(messages) == 0 {
+		return messages
+	}
+
+	targetRouteID := strings.TrimSpace(req.RouteID)
+	targetExternalID := strings.TrimSpace(req.ExternalMessageID)
+	targetPlatform := strings.TrimSpace(req.CurrentChannel)
+	targetSenderChannelID := strings.TrimSpace(req.SourceChannelIdentityID)
+	if targetExternalID == "" {
+		return messages
+	}
+
+	for i := len(messages) - 1; i >= 0; i-- {
+		item := messages[i]
+		if !strings.EqualFold(strings.TrimSpace(item.Message.Role), "user") {
+			continue
+		}
+		if strings.TrimSpace(item.ExternalMessageID) != targetExternalID {
+			continue
+		}
+		if targetRouteID != "" && item.RouteID != "" && item.RouteID != targetRouteID {
+			continue
+		}
+		if targetPlatform != "" && item.Platform != "" && !strings.EqualFold(item.Platform, targetPlatform) {
+			continue
+		}
+		if targetSenderChannelID != "" && item.SenderChannelID != "" && item.SenderChannelID != targetSenderChannelID {
+			continue
+		}
+		return append(messages[:i], messages[i+1:]...)
+	}
+
+	return messages
 }
 
 func estimateMessageTokens(msg conversation.ModelMessage) int {
@@ -1256,7 +1304,7 @@ func estimateMessageTokens(msg conversation.ModelMessage) int {
 	return len(text) / 4
 }
 
-func trimMessagesByTokens(messages []messageWithUsage, maxTokens int) []conversation.ModelMessage {
+func trimMessagesByTokens(log *slog.Logger, messages []messageWithUsage, maxTokens int) []conversation.ModelMessage {
 	if maxTokens <= 0 || len(messages) == 0 {
 		result := make([]conversation.ModelMessage, len(messages))
 		for i, m := range messages {
@@ -1290,14 +1338,16 @@ func trimMessagesByTokens(messages []messageWithUsage, maxTokens int) []conversa
 		cutoff++
 	}
 
-	slog.Debug("trimMessagesByTokens",
-		slog.Int("total_messages", len(messages)),
-		slog.Int("messages_with_usage", messagesWithUsage),
-		slog.Int("accumulated_output_tokens", totalTokens),
-		slog.Int("max_tokens", maxTokens),
-		slog.Int("cutoff_index", cutoff),
-		slog.Int("kept_messages", len(messages)-cutoff),
-	)
+	if log != nil {
+		log.Debug("trimMessagesByTokens",
+			slog.Int("total_messages", len(messages)),
+			slog.Int("messages_with_usage", messagesWithUsage),
+			slog.Int("accumulated_output_tokens", totalTokens),
+			slog.Int("max_tokens", maxTokens),
+			slog.Int("cutoff_index", cutoff),
+			slog.Int("kept_messages", len(messages)-cutoff),
+		)
+	}
 
 	result := make([]conversation.ModelMessage, 0, len(messages)-cutoff)
 	for _, m := range messages[cutoff:] {
@@ -1360,7 +1410,7 @@ func (r *Resolver) persistUserMessage(ctx context.Context, req conversation.Chat
 		return nil
 	}
 	if strings.TrimSpace(req.BotID) == "" {
-		return fmt.Errorf("bot id is required for persistence")
+		return errors.New("bot id is required for persistence")
 	}
 	text := strings.TrimSpace(req.Query)
 	if text == "" && len(req.Attachments) == 0 {
@@ -1376,6 +1426,11 @@ func (r *Resolver) persistUserMessage(ctx context.Context, req conversation.Chat
 		return err
 	}
 	senderChannelIdentityID, senderUserID := r.resolvePersistSenderIDs(ctx, req)
+	meta := buildRouteMetadata(req)
+	if meta == nil {
+		meta = map[string]any{}
+	}
+	meta["trigger_mode"] = "active_chat"
 	_, err = r.messageService.Persist(ctx, messagepkg.PersistInput{
 		BotID:                   req.BotID,
 		RouteID:                 req.RouteID,
@@ -1385,7 +1440,7 @@ func (r *Resolver) persistUserMessage(ctx context.Context, req conversation.Chat
 		ExternalMessageID:       req.ExternalMessageID,
 		Role:                    "user",
 		Content:                 content,
-		Metadata:                buildRouteMetadata(req),
+		Metadata:                meta,
 		Assets:                  chatAttachmentsToAssetRefs(req.Attachments),
 	})
 	return err
@@ -1708,7 +1763,7 @@ func toProviderMessages(messages []conversation.ModelMessage) []memprovider.Mess
 
 func (r *Resolver) selectChatModel(ctx context.Context, req conversation.ChatRequest, botSettings settings.Settings, cs conversation.Settings) (models.GetResponse, sqlc.LlmProvider, error) {
 	if r.modelsService == nil {
-		return models.GetResponse{}, sqlc.LlmProvider{}, fmt.Errorf("models service not configured")
+		return models.GetResponse{}, sqlc.LlmProvider{}, errors.New("models service not configured")
 	}
 	modelID := strings.TrimSpace(req.Model)
 	providerFilter := strings.TrimSpace(req.Provider)
@@ -1723,7 +1778,7 @@ func (r *Resolver) selectChatModel(ctx context.Context, req conversation.ChatReq
 	}
 
 	if modelID == "" {
-		return models.GetResponse{}, sqlc.LlmProvider{}, fmt.Errorf("chat model not configured: specify model in request or bot settings")
+		return models.GetResponse{}, sqlc.LlmProvider{}, errors.New("chat model not configured: specify model in request or bot settings")
 	}
 
 	// Model routing override: if no explicit model in request, check bot routes.
@@ -1760,7 +1815,7 @@ func (r *Resolver) selectChatModel(ctx context.Context, req conversation.ChatReq
 func (r *Resolver) fetchChatModel(ctx context.Context, modelID string) (models.GetResponse, sqlc.LlmProvider, error) {
 	modelRef := strings.TrimSpace(modelID)
 	if modelRef == "" {
-		return models.GetResponse{}, sqlc.LlmProvider{}, fmt.Errorf("model id is required")
+		return models.GetResponse{}, sqlc.LlmProvider{}, errors.New("model id is required")
 	}
 
 	// Support both model UUID and model_id slug. UUID-formatted slugs still
@@ -1783,7 +1838,7 @@ func (r *Resolver) fetchChatModel(ctx context.Context, modelID string) (models.G
 
 resolved:
 	if model.Type != models.ModelTypeChat {
-		return models.GetResponse{}, sqlc.LlmProvider{}, fmt.Errorf("model is not a chat model")
+		return models.GetResponse{}, sqlc.LlmProvider{}, errors.New("model is not a chat model")
 	}
 	prov, err := models.FetchProviderByID(ctx, r.queries, model.LlmProviderID)
 	if err != nil {
@@ -1851,7 +1906,7 @@ func (r *Resolver) markInboxRead(ctx context.Context, botID string, ids []string
 
 func (r *Resolver) loadBotSettings(ctx context.Context, botID string) (settings.Settings, error) {
 	if r.settingsService == nil {
-		return settings.Settings{}, fmt.Errorf("settings service not configured")
+		return settings.Settings{}, errors.New("settings service not configured")
 	}
 	return r.settingsService.GetBot(ctx, botID)
 }
@@ -1899,16 +1954,6 @@ func parseLoopDetectionEnabledFromMetadata(payload []byte) bool {
 }
 
 // --- utility ---
-
-func normalizeClientType(clientType string) (string, error) {
-	ct := strings.ToLower(strings.TrimSpace(clientType))
-	switch ct {
-	case "openai-responses", "openai-completions", "anthropic-messages", "google-generative-ai":
-		return ct, nil
-	default:
-		return "", fmt.Errorf("unsupported agent gateway client type: %s", clientType)
-	}
-}
 
 func sanitizeMessages(messages []conversation.ModelMessage) []conversation.ModelMessage {
 	cleaned := make([]conversation.ModelMessage, 0, len(messages))
@@ -1962,15 +2007,6 @@ func dedup(items []string) []string {
 	return result
 }
 
-func firstNonEmpty(values ...string) string {
-	for _, v := range values {
-		if strings.TrimSpace(v) != "" {
-			return v
-		}
-	}
-	return ""
-}
-
 func coalescePositiveInt(values ...int) int {
 	for _, v := range values {
 		if v > 0 {
@@ -2003,7 +2039,7 @@ func truncate(s string, n int) string {
 
 func parseResolverUUID(id string) (pgtype.UUID, error) {
 	if strings.TrimSpace(id) == "" {
-		return pgtype.UUID{}, fmt.Errorf("empty id")
+		return pgtype.UUID{}, errors.New("empty id")
 	}
 	return db.ParseUUID(id)
 }

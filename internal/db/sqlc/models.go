@@ -43,6 +43,7 @@ type Bot struct {
 	HeartbeatInterval  int32              `json:"heartbeat_interval"`
 	HeartbeatPrompt    string             `json:"heartbeat_prompt"`
 	HeartbeatModelID   pgtype.UUID        `json:"heartbeat_model_id"`
+	BrowserContextID   pgtype.UUID        `json:"browser_context_id"`
 	Metadata           []byte             `json:"metadata"`
 	CreatedAt          pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt          pgtype.Timestamptz `json:"updated_at"`
@@ -193,6 +194,14 @@ type BotStorageBinding struct {
 	BasePath          string             `json:"base_path"`
 	CreatedAt         pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt         pgtype.Timestamptz `json:"updated_at"`
+}
+
+type BrowserContext struct {
+	ID        pgtype.UUID        `json:"id"`
+	Name      string             `json:"name"`
+	Config    []byte             `json:"config"`
+	CreatedAt pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt pgtype.Timestamptz `json:"updated_at"`
 }
 
 type Budget struct {
@@ -506,6 +515,7 @@ type Snapshot struct {
 	ID                        pgtype.UUID        `json:"id"`
 	ContainerID               string             `json:"container_id"`
 	RuntimeSnapshotName       string             `json:"runtime_snapshot_name"`
+	DisplayName               pgtype.Text        `json:"display_name"`
 	ParentRuntimeSnapshotName pgtype.Text        `json:"parent_runtime_snapshot_name"`
 	Snapshotter               string             `json:"snapshotter"`
 	Source                    string             `json:"source"`

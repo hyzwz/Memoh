@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"math"
 	"strings"
 
 	"github.com/google/uuid"
@@ -20,9 +21,11 @@ type Service struct {
 	logger  *slog.Logger
 }
 
-var ErrPersonalBotGuestAccessUnsupported = errors.New("personal bots do not support guest access")
-var ErrModelIDAmbiguous = errors.New("model_id is ambiguous across providers")
-var ErrInvalidModelRef = errors.New("invalid model reference")
+var (
+	ErrPersonalBotGuestAccessUnsupported = errors.New("personal bots do not support guest access")
+	ErrModelIDAmbiguous                  = errors.New("model_id is ambiguous across providers")
+	ErrInvalidModelRef                   = errors.New("invalid model reference")
+)
 
 func NewService(log *slog.Logger, queries *sqlc.Queries) *Service {
 	return &Service{
@@ -45,7 +48,7 @@ func (s *Service) GetBot(ctx context.Context, botID string) (Settings, error) {
 
 func (s *Service) UpsertBot(ctx context.Context, botID string, req UpsertRequest) (Settings, error) {
 	if s.queries == nil {
-		return Settings{}, fmt.Errorf("settings queries not configured")
+		return Settings{}, errors.New("settings queries not configured")
 	}
 	pgID, err := db.ParseUUID(botID)
 	if err != nil {
@@ -122,6 +125,20 @@ func (s *Service) UpsertBot(ctx context.Context, botID string, req UpsertRequest
 		}
 		memoryProviderUUID = providerID
 	}
+	browserContextUUID := pgtype.UUID{}
+	if value := strings.TrimSpace(req.BrowserContextID); value != "" {
+		ctxID, err := db.ParseUUID(value)
+		if err != nil {
+			return Settings{}, err
+		}
+		browserContextUUID = ctxID
+	}
+	if current.MaxContextLoadTime < math.MinInt32 || current.MaxContextLoadTime > math.MaxInt32 ||
+		current.MaxContextTokens < math.MinInt32 || current.MaxContextTokens > math.MaxInt32 ||
+		current.MaxInboxItems < math.MinInt32 || current.MaxInboxItems > math.MaxInt32 ||
+		current.HeartbeatInterval < math.MinInt32 || current.HeartbeatInterval > math.MaxInt32 {
+		return Settings{}, errors.New("settings numeric value out of int32 range")
+	}
 
 	updated, err := s.queries.UpsertBotSettings(ctx, sqlc.UpsertBotSettingsParams{
 		ID:                 pgID,
@@ -132,13 +149,14 @@ func (s *Service) UpsertBot(ctx context.Context, botID string, req UpsertRequest
 		AllowGuest:         current.AllowGuest,
 		ReasoningEnabled:   current.ReasoningEnabled,
 		ReasoningEffort:    current.ReasoningEffort,
-		HeartbeatEnabled:  current.HeartbeatEnabled,
-		HeartbeatInterval: int32(current.HeartbeatInterval),
-		HeartbeatPrompt:  "",
+		HeartbeatEnabled:   current.HeartbeatEnabled,
+		HeartbeatInterval:  int32(current.HeartbeatInterval),
+		HeartbeatPrompt:    "",
 		ChatModelID:        chatModelUUID,
 		HeartbeatModelID:   heartbeatModelUUID,
 		SearchProviderID:   searchProviderUUID,
 		MemoryProviderID:   memoryProviderUUID,
+		BrowserContextID:   browserContextUUID,
 	})
 	if err != nil {
 		return Settings{}, err
@@ -148,7 +166,7 @@ func (s *Service) UpsertBot(ctx context.Context, botID string, req UpsertRequest
 
 func (s *Service) Delete(ctx context.Context, botID string) error {
 	if s.queries == nil {
-		return fmt.Errorf("settings queries not configured")
+		return errors.New("settings queries not configured")
 	}
 	pgID, err := db.ParseUUID(botID)
 	if err != nil {
@@ -214,6 +232,7 @@ func normalizeBotSettingsReadRow(row sqlc.GetSettingsByBotIDRow) Settings {
 		row.HeartbeatModelID,
 		row.SearchProviderID,
 		row.MemoryProviderID,
+		row.BrowserContextID,
 	)
 }
 
@@ -232,6 +251,7 @@ func normalizeBotSettingsWriteRow(row sqlc.UpsertBotSettingsRow) Settings {
 		row.HeartbeatModelID,
 		row.SearchProviderID,
 		row.MemoryProviderID,
+		row.BrowserContextID,
 	)
 }
 
@@ -249,6 +269,7 @@ func normalizeBotSettingsFields(
 	heartbeatModelID pgtype.UUID,
 	searchProviderID pgtype.UUID,
 	memoryProviderID pgtype.UUID,
+	browserContextID pgtype.UUID,
 ) Settings {
 	settings := normalizeBotSetting(maxContextLoadTime, maxContextTokens, maxInboxItems, language, allowGuest, reasoningEnabled, reasoningEffort, heartbeatEnabled, heartbeatInterval)
 	if chatModelID.Valid {
@@ -262,6 +283,9 @@ func normalizeBotSettingsFields(
 	}
 	if memoryProviderID.Valid {
 		settings.MemoryProviderID = uuid.UUID(memoryProviderID.Bytes).String()
+	}
+	if browserContextID.Valid {
+		settings.BrowserContextID = uuid.UUID(browserContextID.Bytes).String()
 	}
 	return settings
 }

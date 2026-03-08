@@ -23,10 +23,12 @@ import (
 	"github.com/memohai/memoh/internal/bind"
 	"github.com/memohai/memoh/internal/boot"
 	"github.com/memohai/memoh/internal/bots"
+	"github.com/memohai/memoh/internal/browsercontexts"
 	"github.com/memohai/memoh/internal/channel"
 	"github.com/memohai/memoh/internal/channel/adapters/discord"
 	"github.com/memohai/memoh/internal/channel/adapters/feishu"
 	"github.com/memohai/memoh/internal/channel/adapters/local"
+	"github.com/memohai/memoh/internal/channel/adapters/qq"
 	"github.com/memohai/memoh/internal/channel/adapters/telegram"
 	"github.com/memohai/memoh/internal/channel/adapters/wecom"
 	"github.com/memohai/memoh/internal/channel/identities"
@@ -38,22 +40,30 @@ import (
 	"github.com/memohai/memoh/internal/conversation/flow"
 	"github.com/memohai/memoh/internal/db"
 	dbsqlc "github.com/memohai/memoh/internal/db/sqlc"
+	emailpkg "github.com/memohai/memoh/internal/email"
+	emailgeneric "github.com/memohai/memoh/internal/email/adapters/generic"
+	emailmailgun "github.com/memohai/memoh/internal/email/adapters/mailgun"
 	"github.com/memohai/memoh/internal/handlers"
 	"github.com/memohai/memoh/internal/healthcheck"
 	channelchecker "github.com/memohai/memoh/internal/healthcheck/checkers/channel"
 	mcpchecker "github.com/memohai/memoh/internal/healthcheck/checkers/mcp"
 	modelchecker "github.com/memohai/memoh/internal/healthcheck/checkers/model"
+	"github.com/memohai/memoh/internal/heartbeat"
 	"github.com/memohai/memoh/internal/inbox"
 	"github.com/memohai/memoh/internal/logger"
 	"github.com/memohai/memoh/internal/mcp"
+	mcpbrowser "github.com/memohai/memoh/internal/mcp/providers/browser"
 	mcpcontacts "github.com/memohai/memoh/internal/mcp/providers/contacts"
 	mcpcontainer "github.com/memohai/memoh/internal/mcp/providers/container"
+	mcpemail "github.com/memohai/memoh/internal/mcp/providers/email"
 	mcpinbox "github.com/memohai/memoh/internal/mcp/providers/inbox"
 	mcpmemory "github.com/memohai/memoh/internal/mcp/providers/memory"
 	mcpmessage "github.com/memohai/memoh/internal/mcp/providers/message"
 	mcpschedule "github.com/memohai/memoh/internal/mcp/providers/schedule"
-	mcpemail "github.com/memohai/memoh/internal/mcp/providers/email"
+	mcpskill "github.com/memohai/memoh/internal/mcp/providers/skill"
+	mcpsubagent "github.com/memohai/memoh/internal/mcp/providers/subagent"
 	mcpweb "github.com/memohai/memoh/internal/mcp/providers/web"
+	mcpwebfetch "github.com/memohai/memoh/internal/mcp/providers/webfetch"
 	mcpfederation "github.com/memohai/memoh/internal/mcp/sources/federation"
 	"github.com/memohai/memoh/internal/media"
 	memprovider "github.com/memohai/memoh/internal/memory/provider"
@@ -63,11 +73,7 @@ import (
 	"github.com/memohai/memoh/internal/policy"
 	"github.com/memohai/memoh/internal/preauth"
 	"github.com/memohai/memoh/internal/providers"
-	"github.com/memohai/memoh/internal/heartbeat"
 	"github.com/memohai/memoh/internal/schedule"
-	emailpkg "github.com/memohai/memoh/internal/email"
-	emailgeneric "github.com/memohai/memoh/internal/email/adapters/generic"
-	emailmailgun "github.com/memohai/memoh/internal/email/adapters/mailgun"
 	"github.com/memohai/memoh/internal/searchproviders"
 	"github.com/memohai/memoh/internal/server"
 	"github.com/memohai/memoh/internal/settings"
@@ -156,6 +162,7 @@ func runServe() {
 			settings.NewService,
 			providers.NewService,
 			searchproviders.NewService,
+			browsercontexts.NewService,
 			policy.NewService,
 			preauth.NewService,
 			mcp.NewConnectionService,
@@ -228,6 +235,7 @@ func runServe() {
 			provideOAuthService,
 			provideServerHandler(handlers.NewInboxHandler),
 			provideServerHandler(handlers.NewTokenUsageHandler),
+			provideServerHandler(handlers.NewBrowserContextsHandler),
 			provideServerHandler(provideCLIHandler),
 			provideServerHandler(provideWebHandler),
 
@@ -295,7 +303,7 @@ func provideContainerService(lc fx.Lifecycle, log *slog.Logger, cfg config.Confi
 		return nil, err
 	}
 	lc.Append(fx.Hook{
-		OnStop: func(ctx context.Context) error {
+		OnStop: func(_ context.Context) error {
 			cleanup()
 			return nil
 		},
@@ -309,7 +317,7 @@ func provideDBConn(lc fx.Lifecycle, cfg config.Config) (*pgxpool.Pool, error) {
 		return nil, fmt.Errorf("db connect: %w", err)
 	}
 	lc.Append(fx.Hook{
-		OnStop: func(ctx context.Context) error {
+		OnStop: func(_ context.Context) error {
 			conn.Close()
 			return nil
 		},
@@ -341,7 +349,7 @@ func provideMemoryLLM(modelsService *models.Service, queries *dbsqlc.Queries, lo
 func provideMemoryProviderRegistry(log *slog.Logger, chatService *conversation.Service, accountService *accounts.Service, manager *mcp.Manager) *memprovider.Registry {
 	registry := memprovider.NewRegistry(log)
 	builtinRuntime := handlers.NewBuiltinMemoryRuntime(manager)
-	registry.RegisterFactory(memprovider.BuiltinType, func(id string, config map[string]any) (memprovider.Provider, error) {
+	registry.RegisterFactory(memprovider.BuiltinType, func(_ string, _ map[string]any) (memprovider.Provider, error) {
 		return memprovider.NewBuiltinProvider(log, builtinRuntime, chatService, accountService), nil
 	})
 	registry.Register("__builtin_default__", memprovider.NewBuiltinProvider(log, builtinRuntime, chatService, accountService))
@@ -399,6 +407,10 @@ func provideChannelRegistry(log *slog.Logger, hub *local.RouteHub, mediaService 
 	discordAdapter.SetAssetOpener(mediaService)
 	registry.MustRegister(discordAdapter)
 
+	qqAdapter := qq.NewQQAdapter(log)
+	qqAdapter.SetAssetOpener(mediaService)
+	registry.MustRegister(qqAdapter)
+
 	feishuAdapter := feishu.NewFeishuAdapter(log)
 	feishuAdapter.SetAssetOpener(mediaService)
 	registry.MustRegister(feishuAdapter)
@@ -425,6 +437,17 @@ func provideChannelRouter(
 	rc *boot.RuntimeConfig,
 	queries *dbsqlc.Queries,
 ) *inbound.ChannelInboundProcessor {
+	adapter, ok := registry.Get(qq.Type)
+	if !ok {
+		panic("qq adapter not registered")
+	}
+	qqAdapter, ok := adapter.(*qq.QQAdapter)
+	if !ok {
+		panic("qq adapter has unexpected type")
+	}
+	qqAdapter.SetChannelIdentityResolver(identityService)
+	qqAdapter.SetRouteResolver(routeService)
+
 	processor := inbound.NewChannelInboundProcessor(log, registry, routeService, msgService, resolver, identityService, botService, policyService, preauthService, bindService, rc.JwtSecret, 5*time.Minute)
 	processor.SetMediaService(mediaService)
 	processor.SetStreamObserver(local.NewRouteHubBroadcaster(hub))
@@ -458,6 +481,7 @@ func provideContainerdHandler(log *slog.Logger, service ctr.Service, manager *mc
 func provideFederationGateway(log *slog.Logger, containerdHandler *handlers.ContainerdHandler) *handlers.MCPFederationGateway {
 	return handlers.NewMCPFederationGateway(log, containerdHandler)
 }
+
 func provideOAuthService(log *slog.Logger, queries *dbsqlc.Queries, cfg config.Config) *mcp.OAuthService {
 	addr := strings.TrimSpace(cfg.Server.Addr)
 	if addr == "" {
@@ -470,7 +494,8 @@ func provideOAuthService(log *slog.Logger, queries *dbsqlc.Queries, cfg config.C
 	callbackURL := "http://" + host + "/api/oauth/mcp/callback"
 	return mcp.NewOAuthService(log, queries, callbackURL)
 }
-func provideToolGatewayService(log *slog.Logger, cfg config.Config, channelManager *channel.Manager, registry *channel.Registry, routeService *route.DBService, scheduleService *schedule.Service, chatService *conversation.Service, accountService *accounts.Service, settingsService *settings.Service, searchProviderService *searchproviders.Service, manager *mcp.Manager, containerdHandler *handlers.ContainerdHandler, mcpConnService *mcp.ConnectionService, mediaService *media.Service, inboxService *inbox.Service, memoryRegistry *memprovider.Registry, emailService *emailpkg.Service, emailManager *emailpkg.Manager, fedGateway *handlers.MCPFederationGateway, oauthService *mcp.OAuthService) *mcp.ToolGatewayService {
+
+func provideToolGatewayService(log *slog.Logger, cfg config.Config, channelManager *channel.Manager, registry *channel.Registry, routeService *route.DBService, scheduleService *schedule.Service, _ *conversation.Service, _ *accounts.Service, settingsService *settings.Service, searchProviderService *searchproviders.Service, manager *mcp.Manager, containerdHandler *handlers.ContainerdHandler, mcpConnService *mcp.ConnectionService, mediaService *media.Service, inboxService *inbox.Service, memoryRegistry *memprovider.Registry, emailService *emailpkg.Service, emailManager *emailpkg.Manager, fedGateway *handlers.MCPFederationGateway, oauthService *mcp.OAuthService, subagentService *subagent.Service, modelsService *models.Service, browserContextService *browsercontexts.Service, queries *dbsqlc.Queries) *mcp.ToolGatewayService {
 	fedGateway.SetOAuthService(oauthService)
 	var assetResolver mcpmessage.AssetResolver
 	if mediaService != nil {
@@ -485,10 +510,14 @@ func provideToolGatewayService(log *slog.Logger, cfg config.Config, channelManag
 	fsExec := mcpcontainer.NewExecutor(log, manager, config.DefaultDataMount)
 	fedSource := mcpfederation.NewSource(log, fedGateway, mcpConnService)
 	emailExec := mcpemail.NewExecutor(log, emailService, emailManager)
+	webFetchExec := mcpwebfetch.NewExecutor(log)
+	subagentExec := mcpsubagent.NewExecutor(log, subagentService, settingsService, modelsService, queries, cfg.AgentGateway.BaseURL())
+	skillExec := mcpskill.NewExecutor(log)
+	browserExec := mcpbrowser.NewExecutor(log, settingsService, browserContextService, manager, cfg.BrowserGateway)
 
 	svc := mcp.NewToolGatewayService(
 		log,
-		[]mcp.ToolExecutor{messageExec, contactsExec, scheduleExec, memoryExec, webExec, fsExec, inboxExec, emailExec},
+		[]mcp.ToolExecutor{messageExec, contactsExec, scheduleExec, memoryExec, webExec, fsExec, inboxExec, emailExec, webFetchExec, subagentExec, skillExec, browserExec},
 		[]mcp.ToolSource{fedSource},
 	)
 	containerdHandler.SetToolGatewayService(svc)
@@ -499,7 +528,7 @@ func provideToolGatewayService(log *slog.Logger, cfg config.Config, channelManag
 // handler providers (interface adaptation / config extraction)
 // ---------------------------------------------------------------------------
 
-func provideMemoryHandler(log *slog.Logger, botService *bots.Service, accountService *accounts.Service, cfg config.Config, manager *mcp.Manager, memoryRegistry *memprovider.Registry, settingsService *settings.Service, containerdHandler *handlers.ContainerdHandler) *handlers.MemoryHandler {
+func provideMemoryHandler(log *slog.Logger, botService *bots.Service, accountService *accounts.Service, _ config.Config, manager *mcp.Manager, memoryRegistry *memprovider.Registry, settingsService *settings.Service, _ *handlers.ContainerdHandler) *handlers.MemoryHandler {
 	h := handlers.NewMemoryHandler(log, botService, accountService)
 	h.SetMemoryRegistry(memoryRegistry)
 	h.SetSettingsService(settingsService)
@@ -548,6 +577,7 @@ func provideEmailRegistry(log *slog.Logger) *emailpkg.Registry {
 func provideEmailChatGateway(resolver *flow.Resolver, queries *dbsqlc.Queries, cfg config.Config, log *slog.Logger) emailpkg.ChatTriggerer {
 	return flow.NewEmailChatGateway(resolver, queries, cfg.Auth.JWTSecret, log)
 }
+
 func provideEmailTrigger(log *slog.Logger, service *emailpkg.Service, botInbox *inbox.Service, chatTriggerer emailpkg.ChatTriggerer) *emailpkg.Trigger {
 	return emailpkg.NewTrigger(log, service, botInbox, chatTriggerer)
 }
@@ -563,9 +593,9 @@ func startEmailManager(lc fx.Lifecycle, emailManager *emailpkg.Manager) {
 			}()
 			return nil
 		},
-		OnStop: func(_ context.Context) error {
+		OnStop: func(stopCtx context.Context) error {
 			cancel()
-			emailManager.Stop()
+			emailManager.Stop(stopCtx)
 			return nil
 		},
 	})
@@ -723,7 +753,7 @@ func startServer(lc fx.Lifecycle, logger *slog.Logger, srv *server.Server, shutd
 
 func ensureAdminUser(ctx context.Context, log *slog.Logger, queries *dbsqlc.Queries, cfg config.Config) error {
 	if queries == nil {
-		return fmt.Errorf("db queries not configured")
+		return errors.New("db queries not configured")
 	}
 	count, err := queries.CountAccounts(ctx)
 	if err != nil {
@@ -737,7 +767,7 @@ func ensureAdminUser(ctx context.Context, log *slog.Logger, queries *dbsqlc.Quer
 	password := strings.TrimSpace(cfg.Admin.Password)
 	email := strings.TrimSpace(cfg.Admin.Email)
 	if username == "" || password == "" {
-		return fmt.Errorf("admin username/password required in config.toml")
+		return errors.New("admin username/password required in config.toml")
 	}
 	if password == "change-your-password-here" {
 		log.Warn("admin password uses default placeholder; please update config.toml")
@@ -826,7 +856,7 @@ func (c *lazyLLMClient) DetectLanguage(ctx context.Context, text string) (string
 
 func (c *lazyLLMClient) resolve(ctx context.Context) (memprovider.LLM, error) {
 	if c.modelsService == nil || c.queries == nil {
-		return nil, fmt.Errorf("models service not configured")
+		return nil, errors.New("models service not configured")
 	}
 	botID := ""
 	memoryModel, memoryProvider, err := models.SelectMemoryModelForBot(ctx, c.modelsService, c.queries, botID)
@@ -841,7 +871,7 @@ func (c *lazyLLMClient) resolve(ctx context.Context) (memprovider.LLM, error) {
 	}
 	_ = memoryProvider
 	_ = memoryModel
-	return nil, fmt.Errorf("memory llm runtime is not available")
+	return nil, errors.New("memory llm runtime is not available")
 }
 
 // skillLoaderAdapter bridges handlers.ContainerdHandler to flow.SkillLoader.
@@ -873,7 +903,7 @@ type mediaAssetResolverAdapter struct {
 
 func (a *mediaAssetResolverAdapter) GetByStorageKey(ctx context.Context, botID, storageKey string) (mcpmessage.AssetMeta, error) {
 	if a == nil || a.media == nil {
-		return mcpmessage.AssetMeta{}, fmt.Errorf("media service not configured")
+		return mcpmessage.AssetMeta{}, errors.New("media service not configured")
 	}
 	asset, err := a.media.GetByStorageKey(ctx, botID, storageKey)
 	if err != nil {
@@ -889,7 +919,7 @@ func (a *mediaAssetResolverAdapter) GetByStorageKey(ctx context.Context, botID, 
 
 func (a *mediaAssetResolverAdapter) IngestContainerFile(ctx context.Context, botID, containerPath string) (mcpmessage.AssetMeta, error) {
 	if a == nil || a.media == nil {
-		return mcpmessage.AssetMeta{}, fmt.Errorf("media service not configured")
+		return mcpmessage.AssetMeta{}, errors.New("media service not configured")
 	}
 	asset, err := a.media.IngestContainerFile(ctx, botID, containerPath)
 	if err != nil {
@@ -910,7 +940,7 @@ type gatewayAssetLoaderAdapter struct {
 
 func (a *gatewayAssetLoaderAdapter) OpenForGateway(ctx context.Context, botID, contentHash string) (io.ReadCloser, string, error) {
 	if a == nil || a.media == nil {
-		return nil, "", fmt.Errorf("media service not configured")
+		return nil, "", errors.New("media service not configured")
 	}
 	reader, asset, err := a.media.Open(ctx, botID, contentHash)
 	if err != nil {

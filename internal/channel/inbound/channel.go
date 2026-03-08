@@ -3,6 +3,7 @@ package inbound
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"log/slog"
@@ -31,9 +32,7 @@ const (
 	processingStatusTimeout = 60 * time.Second
 )
 
-var (
-	whitespacePattern = regexp.MustCompile(`\s+`)
-)
+var whitespacePattern = regexp.MustCompile(`\s+`)
 
 // RouteResolver resolves and manages channel routes.
 type RouteResolver interface {
@@ -158,10 +157,10 @@ func (p *ChannelInboundProcessor) SetInboxService(service *inbox.Service) {
 // HandleInbound processes an inbound channel message through identity resolution and chat gateway.
 func (p *ChannelInboundProcessor) HandleInbound(ctx context.Context, cfg channel.ChannelConfig, msg channel.InboundMessage, sender channel.StreamReplySender) error {
 	if p.runner == nil {
-		return fmt.Errorf("channel inbound processor not configured")
+		return errors.New("channel inbound processor not configured")
 	}
 	if sender == nil {
-		return fmt.Errorf("reply sender not configured")
+		return errors.New("reply sender not configured")
 	}
 	text := buildInboundQuery(msg.Message, nil)
 	if p.logger != nil {
@@ -210,7 +209,7 @@ func (p *ChannelInboundProcessor) HandleInbound(ctx context.Context, cfg channel
 
 	// Resolve or create the route via channel_routes.
 	if p.routeResolver == nil {
-		return fmt.Errorf("route resolver not configured")
+		return errors.New("route resolver not configured")
 	}
 	routeMetadata := buildRouteMetadata(msg, identity)
 	resolved, err := p.routeResolver.ResolveConversation(ctx, route.ResolveInput{
@@ -255,11 +254,6 @@ func (p *ChannelInboundProcessor) HandleInbound(ctx context.Context, cfg channel
 				slog.String("query", strings.TrimSpace(text)),
 				slog.Int("attachments", len(attachments)),
 			)
-		}
-		// Passively persist the inbound message for cross-platform history without triggering AI.
-		// Personal bots only interact via mention/reply; skip passive persistence for unmentioned messages.
-		if !strings.EqualFold(strings.TrimSpace(identity.BotType), "personal") {
-			p.persistInboundUser(ctx, resolved.RouteID, identity, msg, text, attachments, "passive_sync")
 		}
 		return nil
 	}
@@ -332,7 +326,7 @@ func (p *ChannelInboundProcessor) HandleInbound(ctx context.Context, cfg channel
 	}
 	target := strings.TrimSpace(msg.ReplyTarget)
 	if target == "" {
-		err := fmt.Errorf("reply target missing")
+		err := errors.New("reply target missing")
 		if statusNotifier != nil {
 			if notifyErr := p.notifyProcessingFailed(ctx, statusNotifier, cfg, msg, statusInfo, statusHandle, err); notifyErr != nil {
 				p.logProcessingStatusError("processing_failed", msg, identity, notifyErr)
@@ -574,7 +568,7 @@ func (p *ChannelInboundProcessor) HandleInbound(ctx context.Context, cfg channel
 	attachmentsApplied := false
 	for _, output := range outputs {
 		outMessage := buildChannelMessage(output, desc.Capabilities)
-		if outMessage.IsEmpty() && !(len(outboundAttachments) > 0 && !attachmentsApplied) {
+		if outMessage.IsEmpty() && (len(outboundAttachments) == 0 || attachmentsApplied) {
 			continue
 		}
 		plainText := strings.TrimSpace(outMessage.PlainText())
@@ -1392,7 +1386,7 @@ func isMessagingToolDuplicate(text string, sentTexts []string) bool {
 // requireIdentity resolves identity for the current message. Always resolves from msg so each sender is identified correctly (no reuse of context state across messages).
 func (p *ChannelInboundProcessor) requireIdentity(ctx context.Context, cfg channel.ChannelConfig, msg channel.InboundMessage) (IdentityState, error) {
 	if p.identity == nil {
-		return IdentityState{}, fmt.Errorf("identity resolver not configured")
+		return IdentityState{}, errors.New("identity resolver not configured")
 	}
 	return p.identity.Resolve(ctx, cfg, msg)
 }
@@ -1408,7 +1402,7 @@ func (p *ChannelInboundProcessor) resolveProcessingStatusNotifier(channelType ch
 	return notifier
 }
 
-func (p *ChannelInboundProcessor) notifyProcessingStarted(
+func (*ChannelInboundProcessor) notifyProcessingStarted(
 	ctx context.Context,
 	notifier channel.ProcessingStatusNotifier,
 	cfg channel.ChannelConfig,
@@ -1423,7 +1417,7 @@ func (p *ChannelInboundProcessor) notifyProcessingStarted(
 	return notifier.ProcessingStarted(statusCtx, cfg, msg, info)
 }
 
-func (p *ChannelInboundProcessor) notifyProcessingCompleted(
+func (*ChannelInboundProcessor) notifyProcessingCompleted(
 	ctx context.Context,
 	notifier channel.ProcessingStatusNotifier,
 	cfg channel.ChannelConfig,
@@ -1439,7 +1433,7 @@ func (p *ChannelInboundProcessor) notifyProcessingCompleted(
 	return notifier.ProcessingCompleted(statusCtx, cfg, msg, info, handle)
 }
 
-func (p *ChannelInboundProcessor) notifyProcessingFailed(
+func (*ChannelInboundProcessor) notifyProcessingFailed(
 	ctx context.Context,
 	notifier channel.ProcessingStatusNotifier,
 	cfg channel.ChannelConfig,
@@ -1549,10 +1543,11 @@ func (p *ChannelInboundProcessor) ingestInboundAttachments(
 		item.Mime = finalMime
 		maxBytes := media.MaxAssetBytes
 		asset, err := p.mediaService.Ingest(ctx, media.IngestInput{
-			BotID:    botID,
-			Mime:     strings.TrimSpace(item.Mime),
-			Reader:   preparedReader,
-			MaxBytes: maxBytes,
+			BotID:       botID,
+			Mime:        strings.TrimSpace(item.Mime),
+			Reader:      preparedReader,
+			MaxBytes:    maxBytes,
+			OriginalExt: filepath.Ext(strings.TrimSpace(item.Name)),
 		})
 		if payload.reader != nil {
 			_ = payload.reader.Close()
@@ -1638,7 +1633,7 @@ func (p *ChannelInboundProcessor) loadInboundAttachmentPayload(
 	}
 	platformKey := strings.TrimSpace(att.PlatformKey)
 	if platformKey == "" {
-		return inboundAttachmentPayload{}, fmt.Errorf("attachment has no ingestible payload")
+		return inboundAttachmentPayload{}, errors.New("attachment has no ingestible payload")
 	}
 	resolver := p.resolveAttachmentResolver(msg.Channel)
 	if resolver == nil {
@@ -1649,7 +1644,7 @@ func (p *ChannelInboundProcessor) loadInboundAttachmentPayload(
 		return inboundAttachmentPayload{}, fmt.Errorf("resolve attachment by platform key: %w", err)
 	}
 	if resolved.Reader == nil {
-		return inboundAttachmentPayload{}, fmt.Errorf("resolved attachment reader is nil")
+		return inboundAttachmentPayload{}, errors.New("resolved attachment reader is nil")
 	}
 	mime := strings.TrimSpace(att.Mime)
 	if mime == "" {
@@ -1673,7 +1668,7 @@ func openInboundAttachmentURL(ctx context.Context, rawURL string) (inboundAttach
 		return inboundAttachmentPayload{}, fmt.Errorf("build request: %w", err)
 	}
 	client := &http.Client{Timeout: 20 * time.Second}
-	resp, err := client.Do(req)
+	resp, err := client.Do(req) //nolint:gosec // G704: URL is an attachment URL provided by the inbound channel adapter
 	if err != nil {
 		return inboundAttachmentPayload{}, fmt.Errorf("download attachment: %w", err)
 	}
@@ -1843,7 +1838,7 @@ func applyAssetToAttachment(asset media.Asset, botID string, item *channel.Attac
 
 // extractStorageKey derives the media storage key from a container-internal
 // access path. The expected path format is /data/media/<storage_key>.
-func extractStorageKey(accessPath string, botID string) string {
+func extractStorageKey(accessPath string, _ string) string {
 	marker := filepath.Join("/data", "media")
 	if !strings.HasSuffix(marker, "/") {
 		marker += "/"
@@ -2041,8 +2036,7 @@ func buildRouteMetadata(msg channel.InboundMessage, identity InboundIdentity) ma
 		if v == "" {
 			continue
 		}
-		switch k {
-		case "username":
+		if k == "username" {
 			m["sender_username"] = v
 		}
 	}

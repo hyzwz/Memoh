@@ -14,14 +14,16 @@ import (
 	tasktypes "github.com/containerd/containerd/api/types/task"
 	containerd "github.com/containerd/containerd/v2/client"
 	"github.com/containerd/containerd/v2/core/images"
+	"github.com/containerd/containerd/v2/core/remotes/docker"
 	"github.com/containerd/containerd/v2/core/snapshots"
 	"github.com/containerd/containerd/v2/pkg/cio"
 	"github.com/containerd/containerd/v2/pkg/namespaces"
 	"github.com/containerd/containerd/v2/pkg/oci"
 	"github.com/containerd/errdefs"
-	"github.com/memohai/memoh/internal/config"
 	"github.com/opencontainers/image-spec/identity"
 	"github.com/opencontainers/runtime-spec/specs-go"
+
+	"github.com/memohai/memoh/internal/config"
 )
 
 var (
@@ -79,6 +81,10 @@ type Service interface {
 	GetImage(ctx context.Context, ref string) (ImageInfo, error)
 	ListImages(ctx context.Context) ([]ImageInfo, error)
 	DeleteImage(ctx context.Context, ref string, opts *DeleteImageOptions) error
+	// ResolveRemoteDigest fetches only the manifest digest from the registry
+	// without downloading any layers. Returns ErrNotSupported on backends that
+	// have no concept of a remote registry (e.g. Apple Virtualization).
+	ResolveRemoteDigest(ctx context.Context, ref string) (string, error)
 
 	CreateContainer(ctx context.Context, req CreateContainerRequest) (ContainerInfo, error)
 	GetContainer(ctx context.Context, id string) (ContainerInfo, error)
@@ -222,7 +228,7 @@ func (s *DefaultService) CreateContainer(ctx context.Context, req CreateContaine
 	if err != nil {
 		return ContainerInfo{}, err
 	}
-	defer done(ctx)
+	defer func() { _ = done(ctx) }()
 	image, err := s.getImageWithFallback(ctx, req.ImageRef)
 	if err != nil {
 		pullOpts := &PullImageOptions{
@@ -288,13 +294,13 @@ func (s *DefaultService) CreateContainer(ctx context.Context, req CreateContaine
 	return toContainerInfo(ctx, ctrObj)
 }
 
-func (s *DefaultService) snapshotParentFromLayers(ctx context.Context, image containerd.Image) (string, error) {
+func (*DefaultService) snapshotParentFromLayers(ctx context.Context, image containerd.Image) (string, error) {
 	diffIDs, err := image.RootFS(ctx)
 	if err != nil {
 		return "", fmt.Errorf("read image rootfs: %w", err)
 	}
 	if len(diffIDs) == 0 {
-		return "", fmt.Errorf("image has no layers")
+		return "", errors.New("image has no layers")
 	}
 	chainIDs := identity.ChainIDs(diffIDs)
 	return chainIDs[len(chainIDs)-1].String(), nil
@@ -335,26 +341,12 @@ func (s *DefaultService) getImageWithFallback(ctx context.Context, ref string) (
 	if err == nil {
 		return image, nil
 	}
+	// Official Docker Hub images (e.g. "nginx:latest") may be stored under
+	// either "docker.io/library/nginx:latest" or the short form. Try both.
 	if strings.HasPrefix(ref, "docker.io/library/") {
-		alt := strings.TrimPrefix(ref, "docker.io/library/")
-		image, altErr := s.client.GetImage(ctx, alt)
-		if altErr == nil {
-			return image, nil
-		}
-	}
-	imgs, listErr := s.client.ListImages(ctx)
-	if listErr == nil {
-		for _, img := range imgs {
-			name := img.Name()
-			if name == ref || strings.HasSuffix(ref, "/"+name) || strings.HasSuffix(name, "/"+ref) {
-				return img, nil
-			}
-			if strings.HasPrefix(ref, "docker.io/library/") {
-				alt := strings.TrimPrefix(ref, "docker.io/library/")
-				if name == alt || strings.HasSuffix(name, "/"+alt) {
-					return img, nil
-				}
-			}
+		short := strings.TrimPrefix(ref, "docker.io/library/")
+		if img, altErr := s.client.GetImage(ctx, short); altErr == nil {
+			return img, nil
 		}
 	}
 	return nil, err
@@ -422,7 +414,7 @@ func (s *DefaultService) DeleteContainer(ctx context.Context, id string, opts *D
 	return container.Delete(ctx, deleteOpts...)
 }
 
-func (s *DefaultService) StartContainer(ctx context.Context, containerID string, opts *StartTaskOptions) error {
+func (s *DefaultService) StartContainer(ctx context.Context, containerID string, _ *StartTaskOptions) error {
 	if containerID == "" {
 		return ErrInvalidArgument
 	}
@@ -615,7 +607,7 @@ func (s *DefaultService) ListSnapshots(ctx context.Context, snapshotter string) 
 	}
 	ctx = s.withNamespace(ctx)
 	var infos []SnapshotInfo
-	if err := s.client.SnapshotService(snapshotter).Walk(ctx, func(ctx context.Context, info snapshots.Info) error {
+	if err := s.client.SnapshotService(snapshotter).Walk(ctx, func(_ context.Context, info snapshots.Info) error {
 		infos = append(infos, SnapshotInfo{
 			Name:    info.Name,
 			Parent:  info.Parent,
@@ -741,6 +733,21 @@ func (s *DefaultService) RemoveNetwork(ctx context.Context, req NetworkSetupRequ
 
 func (s *DefaultService) withNamespace(ctx context.Context) context.Context {
 	return namespaces.WithNamespace(ctx, s.namespace)
+}
+
+func (*DefaultService) ResolveRemoteDigest(ctx context.Context, ref string) (string, error) {
+	if ref == "" {
+		return "", ErrInvalidArgument
+	}
+	ref = config.NormalizeImageRef(ref)
+	resolver := docker.NewResolver(docker.ResolverOptions{
+		Hosts: docker.ConfigureDefaultRegistries(),
+	})
+	_, desc, err := resolver.Resolve(ctx, ref)
+	if err != nil {
+		return "", err
+	}
+	return desc.Digest.String(), nil
 }
 
 func toImageInfo(img containerd.Image) ImageInfo {

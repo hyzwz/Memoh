@@ -1,8 +1,8 @@
 package config
 
 import (
-	"fmt"
 	"os"
+	"strconv"
 	"strings"
 
 	"github.com/BurntSushi/toml"
@@ -30,15 +30,16 @@ const (
 )
 
 type Config struct {
-	Log          LogConfig          `toml:"log"`
-	Server       ServerConfig       `toml:"server"`
-	Admin        AdminConfig        `toml:"admin"`
-	Auth         AuthConfig         `toml:"auth"`
-	Containerd   ContainerdConfig   `toml:"containerd"`
-	MCP          MCPConfig          `toml:"mcp"`
-	Postgres     PostgresConfig     `toml:"postgres"`
-	Qdrant       QdrantConfig       `toml:"qdrant"`
-	AgentGateway AgentGatewayConfig `toml:"agent_gateway"`
+	Log            LogConfig            `toml:"log"`
+	Server         ServerConfig         `toml:"server"`
+	Admin          AdminConfig          `toml:"admin"`
+	Auth           AuthConfig           `toml:"auth"`
+	Containerd     ContainerdConfig     `toml:"containerd"`
+	MCP            MCPConfig            `toml:"mcp"`
+	Postgres       PostgresConfig       `toml:"postgres"`
+	Qdrant         QdrantConfig         `toml:"qdrant"`
+	AgentGateway   AgentGatewayConfig   `toml:"agent_gateway"`
+	BrowserGateway BrowserGatewayConfig `toml:"browser_gateway"`
 }
 
 type LogConfig struct {
@@ -52,12 +53,12 @@ type ServerConfig struct {
 
 type AdminConfig struct {
 	Username string `toml:"username"`
-	Password string `toml:"password"`
+	Password string `toml:"password" json:"-"`
 	Email    string `toml:"email"`
 }
 
 type AuthConfig struct {
-	JWTSecret    string `toml:"jwt_secret"`
+	JWTSecret    string `toml:"jwt_secret"    json:"-"`
 	JWTExpiresIn string `toml:"jwt_expires_in"`
 }
 
@@ -113,14 +114,14 @@ type PostgresConfig struct {
 	Host     string `toml:"host"`
 	Port     int    `toml:"port"`
 	User     string `toml:"user"`
-	Password string `toml:"password"`
+	Password string `toml:"password" json:"-"`
 	Database string `toml:"database"`
 	SSLMode  string `toml:"sslmode"`
 }
 
 type QdrantConfig struct {
 	BaseURL        string `toml:"base_url"`
-	APIKey         string `toml:"api_key"`
+	APIKey         string `toml:"api_key" json:"-"`
 	TimeoutSeconds int    `toml:"timeout_seconds"`
 }
 
@@ -138,7 +139,24 @@ func (c AgentGatewayConfig) BaseURL() string {
 	if port == 0 {
 		port = 8081
 	}
-	return "http://" + host + ":" + fmt.Sprint(port)
+	return "http://" + host + ":" + strconv.Itoa(port)
+}
+
+type BrowserGatewayConfig struct {
+	Host string `toml:"host"`
+	Port int    `toml:"port"`
+}
+
+func (c BrowserGatewayConfig) BaseURL() string {
+	host := c.Host
+	if host == "" {
+		host = "127.0.0.1"
+	}
+	port := c.Port
+	if port == 0 {
+		port = 8083
+	}
+	return "http://" + host + ":" + strconv.Itoa(port)
 }
 
 func Load(path string) (Config, error) {
@@ -178,6 +196,10 @@ func Load(path string) (Config, error) {
 		AgentGateway: AgentGatewayConfig{
 			Host: "127.0.0.1",
 			Port: 8081,
+		},
+		BrowserGateway: BrowserGatewayConfig{
+			Host: "127.0.0.1",
+			Port: 8083,
 		},
 	}
 

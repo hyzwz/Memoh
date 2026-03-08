@@ -3,6 +3,7 @@ package attachment
 import (
 	"bytes"
 	"encoding/base64"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -33,6 +34,9 @@ func NormalizeMime(raw string) string {
 	}
 	if idx := strings.Index(mime, ";"); idx >= 0 {
 		mime = strings.TrimSpace(mime[:idx])
+	}
+	if !strings.Contains(mime, "/") {
+		return ""
 	}
 	return mime
 }
@@ -91,7 +95,7 @@ func ResolveMime(mediaType media.MediaType, sourceMime, sniffedMime string) stri
 // PrepareReaderAndMime reads a small prefix for MIME sniffing and replays it.
 func PrepareReaderAndMime(reader io.Reader, mediaType media.MediaType, sourceMime string) (io.Reader, string, error) {
 	if reader == nil {
-		return nil, "", fmt.Errorf("reader is required")
+		return nil, "", errors.New("reader is required")
 	}
 	header := make([]byte, 512)
 	n, err := reader.Read(header)
@@ -128,7 +132,7 @@ func NormalizeBase64DataURL(input, mime string) string {
 func DecodeBase64(input string, maxBytes int64) (io.Reader, error) {
 	value := strings.TrimSpace(input)
 	if value == "" {
-		return nil, fmt.Errorf("base64 payload is empty")
+		return nil, errors.New("base64 payload is empty")
 	}
 	if strings.HasPrefix(strings.ToLower(value), "data:") {
 		if idx := strings.Index(value, ","); idx >= 0 {

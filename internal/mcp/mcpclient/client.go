@@ -7,16 +7,18 @@ package mcpclient
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"sync"
 	"time"
 
-	"github.com/memohai/memoh/internal/config"
-	pb "github.com/memohai/memoh/internal/mcp/mcpcontainer"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/connectivity"
 	"google.golang.org/grpc/credentials/insecure"
+
+	"github.com/memohai/memoh/internal/config"
+	pb "github.com/memohai/memoh/internal/mcp/mcpcontainer"
 )
 
 const connectingTimeout = 30 * time.Second
@@ -40,7 +42,7 @@ func NewClientFromConn(conn *grpc.ClientConn) *Client {
 }
 
 // Dial creates a new Client connected to the given container IP.
-func Dial(ctx context.Context, ip string) (*Client, error) {
+func Dial(_ context.Context, ip string) (*Client, error) {
 	target := fmt.Sprintf("%s:%d", ip, config.MCPGRPCPort)
 	conn, err := grpc.NewClient(target,
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
@@ -141,7 +143,7 @@ func (c *Client) ExecWithStdin(ctx context.Context, command, workDir string, tim
 
 	for {
 		msg, err := stream.Recv()
-		if err == io.EOF {
+		if errors.Is(err, io.EOF) {
 			break
 		}
 		if err != nil {
@@ -213,7 +215,7 @@ func (c *Client) ReadRaw(ctx context.Context, path string) (io.ReadCloser, error
 	if err != nil {
 		return nil, mapError(err)
 	}
-	return &streamReader{stream: stream}, nil
+	return newStreamReader(stream)
 }
 
 // WriteRaw writes raw bytes to a file in the container.
@@ -267,21 +269,46 @@ type streamReader struct {
 	off    int
 }
 
-func (r *streamReader) Read(p []byte) (int, error) {
+func newStreamReader(stream pb.ContainerService_ReadRawClient) (io.ReadCloser, error) {
+	first, err := stream.Recv()
+	switch {
+	case errors.Is(err, io.EOF):
+		return io.NopCloser(bytes.NewReader(nil)), nil
+	case err != nil:
+		return nil, mapError(err)
+	default:
+		return &streamReader{stream: stream, buf: first.GetData()}, nil
+	}
+}
+
+func (r *streamReader) fill() error {
 	for r.off >= len(r.buf) {
 		msg, err := r.stream.Recv()
 		if err != nil {
-			return 0, err
+			if errors.Is(err, io.EOF) {
+				return io.EOF
+			}
+			return mapError(err)
 		}
 		r.buf = msg.GetData()
 		r.off = 0
+	}
+	return nil
+}
+
+func (r *streamReader) Read(p []byte) (int, error) {
+	if len(p) == 0 {
+		return 0, nil
+	}
+	if err := r.fill(); err != nil {
+		return 0, err
 	}
 	n := copy(p, r.buf[r.off:])
 	r.off += n
 	return n, nil
 }
 
-func (r *streamReader) Close() error {
+func (*streamReader) Close() error {
 	return nil
 }
 
@@ -341,7 +368,7 @@ func (p *Pool) Get(ctx context.Context, botID string) (*Client, error) {
 	p.mu.Lock()
 	if existing, ok := p.clients[botID]; ok {
 		p.mu.Unlock()
-		c.Close()
+		_ = c.Close()
 		return existing, nil
 	}
 	p.clients[botID] = c
@@ -353,7 +380,7 @@ func (p *Pool) Get(ctx context.Context, botID string) (*Client, error) {
 func (p *Pool) Remove(botID string) {
 	p.mu.Lock()
 	if c, ok := p.clients[botID]; ok {
-		c.Close()
+		_ = c.Close()
 		delete(p.clients, botID)
 	}
 	p.mu.Unlock()
@@ -363,7 +390,7 @@ func (p *Pool) Remove(botID string) {
 func (p *Pool) CloseAll() {
 	p.mu.Lock()
 	for id, c := range p.clients {
-		c.Close()
+		_ = c.Close()
 		delete(p.clients, id)
 	}
 	p.mu.Unlock()

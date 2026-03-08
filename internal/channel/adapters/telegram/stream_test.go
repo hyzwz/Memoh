@@ -2,11 +2,13 @@ package telegram
 
 import (
 	"context"
+	"errors"
 	"strings"
 	"testing"
 	"time"
 
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
+
 	"github.com/memohai/memoh/internal/channel"
 )
 
@@ -112,7 +114,7 @@ func TestTelegramOutboundStream_CloseContextCanceled(t *testing.T) {
 	cancel()
 
 	err := s.Close(ctx)
-	if err != context.Canceled {
+	if !errors.Is(err, context.Canceled) {
 		t.Fatalf("Close with canceled context should return context.Canceled: %v", err)
 	}
 }
@@ -183,8 +185,6 @@ func TestEditStreamMessage_NoEditWhenThrottled(t *testing.T) {
 }
 
 func TestEditStreamMessage_429SetsBackoffAndReturnsNil(t *testing.T) {
-	t.Parallel()
-
 	adapter := NewTelegramAdapter(nil)
 	before := time.Now().Add(-time.Minute)
 	s := &telegramOutboundStream{
@@ -231,8 +231,6 @@ func TestEditStreamMessage_429SetsBackoffAndReturnsNil(t *testing.T) {
 }
 
 func TestEditStreamMessageFinal_Success(t *testing.T) {
-	t.Parallel()
-
 	adapter := NewTelegramAdapter(nil)
 	s := &telegramOutboundStream{
 		adapter:      adapter,
@@ -343,8 +341,6 @@ func TestSendDraft_EmptyTextSkip(t *testing.T) {
 }
 
 func TestSendDraft_Success(t *testing.T) {
-	t.Parallel()
-
 	adapter := NewTelegramAdapter(nil)
 	s := &telegramOutboundStream{
 		adapter:       adapter,
@@ -391,8 +387,6 @@ func TestSendDraft_Success(t *testing.T) {
 }
 
 func TestSendDraft_429Backoff(t *testing.T) {
-	t.Parallel()
-
 	adapter := NewTelegramAdapter(nil)
 	before := time.Now().Add(-time.Minute)
 	s := &telegramOutboundStream{
@@ -435,8 +429,6 @@ func TestSendDraft_429Backoff(t *testing.T) {
 }
 
 func TestDraftMode_DeltaUsesSendDraft(t *testing.T) {
-	t.Parallel()
-
 	adapter := NewTelegramAdapter(nil)
 	s := &telegramOutboundStream{
 		adapter:       adapter,
@@ -500,8 +492,6 @@ func TestDraftMode_PhaseEndTextIsNoOp(t *testing.T) {
 }
 
 func TestDraftMode_ToolCallStartSendsPermanentMessage(t *testing.T) {
-	t.Parallel()
-
 	adapter := NewTelegramAdapter(nil)
 	s := &telegramOutboundStream{
 		adapter:       adapter,
@@ -525,7 +515,7 @@ func TestDraftMode_ToolCallStartSendsPermanentMessage(t *testing.T) {
 		sentText = text
 		return 123, 1, nil
 	}
-	sendEditForTest = func(_ *tgbotapi.BotAPI, edit tgbotapi.EditMessageTextConfig) error {
+	sendEditForTest = func(_ *tgbotapi.BotAPI, _ tgbotapi.EditMessageTextConfig) error {
 		t.Error("editMessage should not be called in draft mode")
 		return nil
 	}
@@ -557,8 +547,6 @@ func TestDraftMode_ToolCallStartSendsPermanentMessage(t *testing.T) {
 }
 
 func TestDraftMode_FinalEmptyBufferSkipsDuplicate(t *testing.T) {
-	t.Parallel()
-
 	adapter := NewTelegramAdapter(nil)
 	s := &telegramOutboundStream{
 		adapter:       adapter,
@@ -602,8 +590,6 @@ func TestDraftMode_FinalEmptyBufferSkipsDuplicate(t *testing.T) {
 // responses), only the first one sends the buffer text as a permanent message.
 // Subsequent finals find the buffer empty and skip sending.
 func TestDraftMode_MultipleFinalEventsOnlyOneSend(t *testing.T) {
-	t.Parallel()
-
 	adapter := NewTelegramAdapter(nil)
 	s := &telegramOutboundStream{
 		adapter:       adapter,

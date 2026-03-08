@@ -130,6 +130,24 @@ export type BotsUpsertMemberRequest = {
     user_id?: string;
 };
 
+export type BrowsercontextsBrowserContext = {
+    config?: Array<number>;
+    created_at?: string;
+    id?: string;
+    name?: string;
+    updated_at?: string;
+};
+
+export type BrowsercontextsCreateRequest = {
+    config?: Array<number>;
+    name?: string;
+};
+
+export type BrowsercontextsUpdateRequest = {
+    config?: Array<number>;
+    name?: string;
+};
+
 export type ChannelAction = {
     label?: string;
     type?: string;
@@ -436,26 +454,6 @@ export type HandlersBatchDeleteRequest = {
     ids?: Array<string>;
 };
 
-export type HandlersBudgetCheckDto = {
-    action?: string;
-    alert?: boolean;
-    allowed?: boolean;
-    limit?: number;
-    percentage?: number;
-    spent?: number;
-};
-
-export type HandlersBudgetDto = {
-    action_on_exceed?: string;
-    alert_threshold?: number;
-    id?: string;
-    is_enabled?: boolean;
-    limit_amount?: number;
-    period?: string;
-    scope_id?: string;
-    scope_type?: string;
-};
-
 export type HandlersChannelMeta = {
     capabilities?: ChannelChannelCapabilities;
     config_schema?: ChannelConfigSchema;
@@ -466,54 +464,18 @@ export type HandlersChannelMeta = {
     user_config_schema?: ChannelConfigSchema;
 };
 
-export type HandlersCockpitSummaryDto = {
-    average_efficiency_multiple?: number;
-    labor_cost_cny?: number;
-    total_ai_time_minutes?: number;
-    total_innovations?: number;
-    total_reports?: number;
-    total_saved_hours?: number;
-};
-
-export type HandlersCreateBudgetRequest = {
-    action_on_exceed?: string;
-    alert_threshold?: number;
-    limit_amount?: number;
-    period?: string;
-    scope_id?: string;
-    scope_type?: string;
-};
-
 export type HandlersCreateContainerRequest = {
+    restore_data?: boolean;
     snapshotter?: string;
 };
 
 export type HandlersCreateContainerResponse = {
     container_id?: string;
+    data_restored?: boolean;
+    has_preserved_data?: boolean;
     image?: string;
     snapshotter?: string;
     started?: boolean;
-};
-
-export type HandlersCreateDepartmentRequest = {
-    description?: string;
-    name?: string;
-    parent_id?: string;
-};
-
-export type HandlersCreateHandRequest = {
-    markdown?: string;
-};
-
-export type HandlersCreateModelRouteRequest = {
-    complexity_tier?: string;
-    is_enabled?: boolean;
-    metadata?: {
-        [key: string]: unknown;
-    };
-    model_id?: string;
-    name?: string;
-    priority?: number;
 };
 
 export type HandlersCreateSnapshotRequest = {
@@ -522,6 +484,8 @@ export type HandlersCreateSnapshotRequest = {
 
 export type HandlersCreateSnapshotResponse = {
     container_id?: string;
+    display_name?: string;
+    runtime_snapshot_name?: string;
     snapshot_name?: string;
     snapshotter?: string;
     source?: string;
@@ -535,13 +499,6 @@ export type HandlersDailyTokenUsage = {
     input_tokens?: number;
     output_tokens?: number;
     reasoning_tokens?: number;
-};
-
-export type HandlersDepartmentDto = {
-    description?: string;
-    id?: string;
-    name?: string;
-    parent_id?: string;
 };
 
 export type HandlersErrorResponse = {
@@ -596,35 +553,12 @@ export type HandlersGetContainerResponse = {
     container_id?: string;
     container_path?: string;
     created_at?: string;
+    has_preserved_data?: boolean;
     image?: string;
     namespace?: string;
     status?: string;
     task_running?: boolean;
     updated_at?: string;
-};
-
-export type HandlersHandDto = {
-    content?: string;
-    description?: string;
-    id?: string;
-    is_enabled?: boolean;
-    metadata?: {
-        [key: string]: unknown;
-    };
-    name?: string;
-    schedule?: {
-        [key: string]: unknown;
-    };
-    triggers?: Array<unknown>;
-    type?: string;
-};
-
-export type HandlersHandExecutionResultDto = {
-    completed_at?: string;
-    error_message?: string;
-    result_text?: string;
-    started_at?: string;
-    status?: string;
 };
 
 export type HandlersListSnapshotsResponse = {
@@ -667,18 +601,6 @@ export type HandlersMcpStdioResponse = {
     url?: string;
 };
 
-export type HandlersModelRouteDto = {
-    complexity_tier?: string;
-    id?: string;
-    is_enabled?: boolean;
-    metadata?: {
-        [key: string]: unknown;
-    };
-    model_id?: string;
-    name?: string;
-    priority?: number;
-};
-
 export type HandlersModelTokenUsage = {
     input_tokens?: number;
     model_id?: string;
@@ -707,6 +629,10 @@ export type HandlersRefreshResponse = {
     token_type?: string;
 };
 
+export type HandlersRollbackRequest = {
+    version?: number;
+};
+
 export type HandlersSkillItem = {
     content?: string;
     description?: string;
@@ -731,6 +657,7 @@ export type HandlersSkillsUpsertRequest = {
 
 export type HandlersSnapshotInfo = {
     created_at?: string;
+    display_name?: string;
     kind?: string;
     labels?: {
         [key: string]: string;
@@ -738,6 +665,7 @@ export type HandlersSnapshotInfo = {
     managed?: boolean;
     name?: string;
     parent?: string;
+    runtime_snapshot_name?: string;
     snapshotter?: string;
     source?: string;
     updated_at?: string;
@@ -1178,9 +1106,6 @@ export type ProvidersCreateRequest = {
 };
 
 export type ProvidersGetResponse = {
-    /**
-     * masked in response
-     */
     api_key?: string;
     base_url?: string;
     created_at?: string;
@@ -1310,6 +1235,7 @@ export type SearchprovidersUpdateRequest = {
 
 export type SettingsSettings = {
     allow_guest?: boolean;
+    browser_context_id?: string;
     chat_model_id?: string;
     heartbeat_enabled?: boolean;
     heartbeat_interval?: number;
@@ -1326,6 +1252,7 @@ export type SettingsSettings = {
 
 export type SettingsUpsertRequest = {
     allow_guest?: boolean;
+    browser_context_id?: string;
     chat_model_id?: string;
     heartbeat_enabled?: boolean;
     heartbeat_interval?: number;
@@ -1554,55 +1481,6 @@ export type PostBotsResponses = {
 
 export type PostBotsResponse = PostBotsResponses[keyof PostBotsResponses];
 
-export type GetBotsByBotIdAuditLogsData = {
-    body?: never;
-    path: {
-        /**
-         * Bot ID
-         */
-        bot_id: string;
-    };
-    query?: {
-        /**
-         * Filter by user
-         */
-        user_id?: string;
-        /**
-         * Filter by action
-         */
-        action?: string;
-        /**
-         * Limit
-         */
-        limit?: number;
-        /**
-         * Offset
-         */
-        offset?: number;
-    };
-    url: '/bots/{bot_id}/audit-logs';
-};
-
-export type GetBotsByBotIdAuditLogsErrors = {
-    /**
-     * Bad Request
-     */
-    400: HandlersErrorResponse;
-};
-
-export type GetBotsByBotIdAuditLogsError = GetBotsByBotIdAuditLogsErrors[keyof GetBotsByBotIdAuditLogsErrors];
-
-export type GetBotsByBotIdAuditLogsResponses = {
-    /**
-     * OK
-     */
-    200: {
-        [key: string]: unknown;
-    };
-};
-
-export type GetBotsByBotIdAuditLogsResponse = GetBotsByBotIdAuditLogsResponses[keyof GetBotsByBotIdAuditLogsResponses];
-
 export type PostBotsByBotIdCliMessagesData = {
     /**
      * Message payload
@@ -1684,78 +1562,6 @@ export type GetBotsByBotIdCliStreamResponses = {
 
 export type GetBotsByBotIdCliStreamResponse = GetBotsByBotIdCliStreamResponses[keyof GetBotsByBotIdCliStreamResponses];
 
-export type PostBotsByBotIdCockpitGenerateReportData = {
-    body?: never;
-    path: {
-        /**
-         * Bot ID
-         */
-        bot_id: string;
-    };
-    query?: {
-        /**
-         * Report date (YYYY-MM-DD)
-         */
-        date?: string;
-    };
-    url: '/bots/{bot_id}/cockpit/generate-report';
-};
-
-export type PostBotsByBotIdCockpitGenerateReportErrors = {
-    /**
-     * Bad Request
-     */
-    400: HandlersErrorResponse;
-};
-
-export type PostBotsByBotIdCockpitGenerateReportError = PostBotsByBotIdCockpitGenerateReportErrors[keyof PostBotsByBotIdCockpitGenerateReportErrors];
-
-export type PostBotsByBotIdCockpitGenerateReportResponses = {
-    /**
-     * OK
-     */
-    200: {
-        [key: string]: string;
-    };
-};
-
-export type PostBotsByBotIdCockpitGenerateReportResponse = PostBotsByBotIdCockpitGenerateReportResponses[keyof PostBotsByBotIdCockpitGenerateReportResponses];
-
-export type GetBotsByBotIdCockpitSummaryData = {
-    body?: never;
-    path: {
-        /**
-         * Bot ID
-         */
-        bot_id: string;
-    };
-    query?: {
-        /**
-         * Number of days
-         */
-        days?: number;
-    };
-    url: '/bots/{bot_id}/cockpit/summary';
-};
-
-export type GetBotsByBotIdCockpitSummaryErrors = {
-    /**
-     * Bad Request
-     */
-    400: HandlersErrorResponse;
-};
-
-export type GetBotsByBotIdCockpitSummaryError = GetBotsByBotIdCockpitSummaryErrors[keyof GetBotsByBotIdCockpitSummaryErrors];
-
-export type GetBotsByBotIdCockpitSummaryResponses = {
-    /**
-     * OK
-     */
-    200: HandlersCockpitSummaryDto;
-};
-
-export type GetBotsByBotIdCockpitSummaryResponse = GetBotsByBotIdCockpitSummaryResponses[keyof GetBotsByBotIdCockpitSummaryResponses];
-
 export type DeleteBotsByBotIdContainerData = {
     body?: never;
     path: {
@@ -1764,7 +1570,12 @@ export type DeleteBotsByBotIdContainerData = {
          */
         bot_id: string;
     };
-    query?: never;
+    query?: {
+        /**
+         * Export /data before deletion
+         */
+        preserve_data?: boolean;
+    };
     url: '/bots/{bot_id}/container';
 };
 
@@ -1858,6 +1669,111 @@ export type PostBotsByBotIdContainerResponses = {
 };
 
 export type PostBotsByBotIdContainerResponse = PostBotsByBotIdContainerResponses[keyof PostBotsByBotIdContainerResponses];
+
+export type PostBotsByBotIdContainerDataExportData = {
+    body?: never;
+    path: {
+        /**
+         * Bot ID
+         */
+        bot_id: string;
+    };
+    query?: never;
+    url: '/bots/{bot_id}/container/data/export';
+};
+
+export type PostBotsByBotIdContainerDataExportErrors = {
+    /**
+     * Internal Server Error
+     */
+    500: HandlersErrorResponse;
+};
+
+export type PostBotsByBotIdContainerDataExportError = PostBotsByBotIdContainerDataExportErrors[keyof PostBotsByBotIdContainerDataExportErrors];
+
+export type PostBotsByBotIdContainerDataExportResponses = {
+    /**
+     * OK
+     */
+    200: unknown;
+};
+
+export type PostBotsByBotIdContainerDataImportData = {
+    body: {
+        /**
+         * tar.gz archive
+         */
+        file: Blob | File;
+    };
+    path: {
+        /**
+         * Bot ID
+         */
+        bot_id: string;
+    };
+    query?: never;
+    url: '/bots/{bot_id}/container/data/import';
+};
+
+export type PostBotsByBotIdContainerDataImportErrors = {
+    /**
+     * Bad Request
+     */
+    400: HandlersErrorResponse;
+    /**
+     * Internal Server Error
+     */
+    500: HandlersErrorResponse;
+};
+
+export type PostBotsByBotIdContainerDataImportError = PostBotsByBotIdContainerDataImportErrors[keyof PostBotsByBotIdContainerDataImportErrors];
+
+export type PostBotsByBotIdContainerDataImportResponses = {
+    /**
+     * OK
+     */
+    200: {
+        [key: string]: unknown;
+    };
+};
+
+export type PostBotsByBotIdContainerDataImportResponse = PostBotsByBotIdContainerDataImportResponses[keyof PostBotsByBotIdContainerDataImportResponses];
+
+export type PostBotsByBotIdContainerDataRestoreData = {
+    body?: never;
+    path: {
+        /**
+         * Bot ID
+         */
+        bot_id: string;
+    };
+    query?: never;
+    url: '/bots/{bot_id}/container/data/restore';
+};
+
+export type PostBotsByBotIdContainerDataRestoreErrors = {
+    /**
+     * Not Found
+     */
+    404: HandlersErrorResponse;
+    /**
+     * Internal Server Error
+     */
+    500: HandlersErrorResponse;
+};
+
+export type PostBotsByBotIdContainerDataRestoreError = PostBotsByBotIdContainerDataRestoreErrors[keyof PostBotsByBotIdContainerDataRestoreErrors];
+
+export type PostBotsByBotIdContainerDataRestoreResponses = {
+    /**
+     * OK
+     */
+    200: {
+        [key: string]: unknown;
+    };
+};
+
+export type PostBotsByBotIdContainerDataRestoreResponse = PostBotsByBotIdContainerDataRestoreResponses[keyof PostBotsByBotIdContainerDataRestoreResponses];
 
 export type GetBotsByBotIdContainerFsData = {
     body?: never;
@@ -2448,6 +2364,45 @@ export type PostBotsByBotIdContainerSnapshotsResponses = {
 
 export type PostBotsByBotIdContainerSnapshotsResponse = PostBotsByBotIdContainerSnapshotsResponses[keyof PostBotsByBotIdContainerSnapshotsResponses];
 
+export type PostBotsByBotIdContainerSnapshotsRollbackData = {
+    /**
+     * Rollback payload
+     */
+    body: HandlersRollbackRequest;
+    path: {
+        /**
+         * Bot ID
+         */
+        bot_id: string;
+    };
+    query?: never;
+    url: '/bots/{bot_id}/container/snapshots/rollback';
+};
+
+export type PostBotsByBotIdContainerSnapshotsRollbackErrors = {
+    /**
+     * Bad Request
+     */
+    400: HandlersErrorResponse;
+    /**
+     * Internal Server Error
+     */
+    500: HandlersErrorResponse;
+};
+
+export type PostBotsByBotIdContainerSnapshotsRollbackError = PostBotsByBotIdContainerSnapshotsRollbackErrors[keyof PostBotsByBotIdContainerSnapshotsRollbackErrors];
+
+export type PostBotsByBotIdContainerSnapshotsRollbackResponses = {
+    /**
+     * OK
+     */
+    200: {
+        [key: string]: unknown;
+    };
+};
+
+export type PostBotsByBotIdContainerSnapshotsRollbackResponse = PostBotsByBotIdContainerSnapshotsRollbackResponses[keyof PostBotsByBotIdContainerSnapshotsRollbackResponses];
+
 export type PostBotsByBotIdContainerStartData = {
     body?: never;
     path: {
@@ -2519,69 +2474,6 @@ export type PostBotsByBotIdContainerStopResponses = {
 };
 
 export type PostBotsByBotIdContainerStopResponse = PostBotsByBotIdContainerStopResponses[keyof PostBotsByBotIdContainerStopResponses];
-
-export type GetBotsByBotIdDepartmentsData = {
-    body?: never;
-    path: {
-        /**
-         * Bot ID
-         */
-        bot_id: string;
-    };
-    query?: never;
-    url: '/bots/{bot_id}/departments';
-};
-
-export type GetBotsByBotIdDepartmentsErrors = {
-    /**
-     * Bad Request
-     */
-    400: HandlersErrorResponse;
-};
-
-export type GetBotsByBotIdDepartmentsError = GetBotsByBotIdDepartmentsErrors[keyof GetBotsByBotIdDepartmentsErrors];
-
-export type GetBotsByBotIdDepartmentsResponses = {
-    /**
-     * OK
-     */
-    200: Array<HandlersDepartmentDto>;
-};
-
-export type GetBotsByBotIdDepartmentsResponse = GetBotsByBotIdDepartmentsResponses[keyof GetBotsByBotIdDepartmentsResponses];
-
-export type PostBotsByBotIdDepartmentsData = {
-    /**
-     * Department data
-     */
-    body: HandlersCreateDepartmentRequest;
-    path: {
-        /**
-         * Bot ID
-         */
-        bot_id: string;
-    };
-    query?: never;
-    url: '/bots/{bot_id}/departments';
-};
-
-export type PostBotsByBotIdDepartmentsErrors = {
-    /**
-     * Bad Request
-     */
-    400: HandlersErrorResponse;
-};
-
-export type PostBotsByBotIdDepartmentsError = PostBotsByBotIdDepartmentsErrors[keyof PostBotsByBotIdDepartmentsErrors];
-
-export type PostBotsByBotIdDepartmentsResponses = {
-    /**
-     * Created
-     */
-    201: HandlersDepartmentDto;
-};
-
-export type PostBotsByBotIdDepartmentsResponse = PostBotsByBotIdDepartmentsResponses[keyof PostBotsByBotIdDepartmentsResponses];
 
 export type GetBotsByBotIdEmailBindingsData = {
     body?: never;
@@ -2797,169 +2689,6 @@ export type GetBotsByBotIdEmailOutboxByIdResponses = {
 };
 
 export type GetBotsByBotIdEmailOutboxByIdResponse = GetBotsByBotIdEmailOutboxByIdResponses[keyof GetBotsByBotIdEmailOutboxByIdResponses];
-
-export type GetBotsByBotIdHandsData = {
-    body?: never;
-    path: {
-        /**
-         * Bot ID
-         */
-        bot_id: string;
-    };
-    query?: never;
-    url: '/bots/{bot_id}/hands';
-};
-
-export type GetBotsByBotIdHandsErrors = {
-    /**
-     * Bad Request
-     */
-    400: HandlersErrorResponse;
-};
-
-export type GetBotsByBotIdHandsError = GetBotsByBotIdHandsErrors[keyof GetBotsByBotIdHandsErrors];
-
-export type GetBotsByBotIdHandsResponses = {
-    /**
-     * OK
-     */
-    200: Array<HandlersHandDto>;
-};
-
-export type GetBotsByBotIdHandsResponse = GetBotsByBotIdHandsResponses[keyof GetBotsByBotIdHandsResponses];
-
-export type PostBotsByBotIdHandsData = {
-    /**
-     * Hand markdown
-     */
-    body: HandlersCreateHandRequest;
-    path: {
-        /**
-         * Bot ID
-         */
-        bot_id: string;
-    };
-    query?: never;
-    url: '/bots/{bot_id}/hands';
-};
-
-export type PostBotsByBotIdHandsErrors = {
-    /**
-     * Bad Request
-     */
-    400: HandlersErrorResponse;
-};
-
-export type PostBotsByBotIdHandsError = PostBotsByBotIdHandsErrors[keyof PostBotsByBotIdHandsErrors];
-
-export type PostBotsByBotIdHandsResponses = {
-    /**
-     * Created
-     */
-    201: HandlersHandDto;
-};
-
-export type PostBotsByBotIdHandsResponse = PostBotsByBotIdHandsResponses[keyof PostBotsByBotIdHandsResponses];
-
-export type DeleteBotsByBotIdHandsByHandIdData = {
-    body?: never;
-    path: {
-        /**
-         * Bot ID
-         */
-        bot_id: string;
-        /**
-         * Hand ID
-         */
-        hand_id: string;
-    };
-    query?: never;
-    url: '/bots/{bot_id}/hands/{hand_id}';
-};
-
-export type DeleteBotsByBotIdHandsByHandIdErrors = {
-    /**
-     * Bad Request
-     */
-    400: HandlersErrorResponse;
-};
-
-export type DeleteBotsByBotIdHandsByHandIdError = DeleteBotsByBotIdHandsByHandIdErrors[keyof DeleteBotsByBotIdHandsByHandIdErrors];
-
-export type DeleteBotsByBotIdHandsByHandIdResponses = {
-    /**
-     * No Content
-     */
-    204: unknown;
-};
-
-export type GetBotsByBotIdHandsByHandIdData = {
-    body?: never;
-    path: {
-        /**
-         * Bot ID
-         */
-        bot_id: string;
-        /**
-         * Hand ID
-         */
-        hand_id: string;
-    };
-    query?: never;
-    url: '/bots/{bot_id}/hands/{hand_id}';
-};
-
-export type GetBotsByBotIdHandsByHandIdErrors = {
-    /**
-     * Not Found
-     */
-    404: HandlersErrorResponse;
-};
-
-export type GetBotsByBotIdHandsByHandIdError = GetBotsByBotIdHandsByHandIdErrors[keyof GetBotsByBotIdHandsByHandIdErrors];
-
-export type GetBotsByBotIdHandsByHandIdResponses = {
-    /**
-     * OK
-     */
-    200: HandlersHandDto;
-};
-
-export type GetBotsByBotIdHandsByHandIdResponse = GetBotsByBotIdHandsByHandIdResponses[keyof GetBotsByBotIdHandsByHandIdResponses];
-
-export type PostBotsByBotIdHandsByHandIdExecuteData = {
-    body?: never;
-    path: {
-        /**
-         * Bot ID
-         */
-        bot_id: string;
-        /**
-         * Hand ID
-         */
-        hand_id: string;
-    };
-    query?: never;
-    url: '/bots/{bot_id}/hands/{hand_id}/execute';
-};
-
-export type PostBotsByBotIdHandsByHandIdExecuteErrors = {
-    /**
-     * Bad Request
-     */
-    400: HandlersErrorResponse;
-};
-
-export type PostBotsByBotIdHandsByHandIdExecuteError = PostBotsByBotIdHandsByHandIdExecuteErrors[keyof PostBotsByBotIdHandsByHandIdExecuteErrors];
-
-export type PostBotsByBotIdHandsByHandIdExecuteResponses = {
-    /**
-     * OK
-     */
-    200: HandlersHandExecutionResultDto;
-};
-
-export type PostBotsByBotIdHandsByHandIdExecuteResponse = PostBotsByBotIdHandsByHandIdExecuteResponses[keyof PostBotsByBotIdHandsByHandIdExecuteResponses];
 
 export type DeleteBotsByBotIdHeartbeatLogsData = {
     body?: never;
@@ -4321,101 +4050,6 @@ export type GetBotsByBotIdMessagesResponses = {
 };
 
 export type GetBotsByBotIdMessagesResponse = GetBotsByBotIdMessagesResponses[keyof GetBotsByBotIdMessagesResponses];
-
-export type GetBotsByBotIdModelRoutesData = {
-    body?: never;
-    path: {
-        /**
-         * Bot ID
-         */
-        bot_id: string;
-    };
-    query?: never;
-    url: '/bots/{bot_id}/model-routes';
-};
-
-export type GetBotsByBotIdModelRoutesErrors = {
-    /**
-     * Bad Request
-     */
-    400: HandlersErrorResponse;
-};
-
-export type GetBotsByBotIdModelRoutesError = GetBotsByBotIdModelRoutesErrors[keyof GetBotsByBotIdModelRoutesErrors];
-
-export type GetBotsByBotIdModelRoutesResponses = {
-    /**
-     * OK
-     */
-    200: Array<HandlersModelRouteDto>;
-};
-
-export type GetBotsByBotIdModelRoutesResponse = GetBotsByBotIdModelRoutesResponses[keyof GetBotsByBotIdModelRoutesResponses];
-
-export type PostBotsByBotIdModelRoutesData = {
-    /**
-     * Route data
-     */
-    body: HandlersCreateModelRouteRequest;
-    path: {
-        /**
-         * Bot ID
-         */
-        bot_id: string;
-    };
-    query?: never;
-    url: '/bots/{bot_id}/model-routes';
-};
-
-export type PostBotsByBotIdModelRoutesErrors = {
-    /**
-     * Bad Request
-     */
-    400: HandlersErrorResponse;
-};
-
-export type PostBotsByBotIdModelRoutesError = PostBotsByBotIdModelRoutesErrors[keyof PostBotsByBotIdModelRoutesErrors];
-
-export type PostBotsByBotIdModelRoutesResponses = {
-    /**
-     * Created
-     */
-    201: HandlersModelRouteDto;
-};
-
-export type PostBotsByBotIdModelRoutesResponse = PostBotsByBotIdModelRoutesResponses[keyof PostBotsByBotIdModelRoutesResponses];
-
-export type DeleteBotsByBotIdModelRoutesByRouteIdData = {
-    body?: never;
-    path: {
-        /**
-         * Bot ID
-         */
-        bot_id: string;
-        /**
-         * Route ID
-         */
-        route_id: string;
-    };
-    query?: never;
-    url: '/bots/{bot_id}/model-routes/{route_id}';
-};
-
-export type DeleteBotsByBotIdModelRoutesByRouteIdErrors = {
-    /**
-     * Bad Request
-     */
-    400: HandlersErrorResponse;
-};
-
-export type DeleteBotsByBotIdModelRoutesByRouteIdError = DeleteBotsByBotIdModelRoutesByRouteIdErrors[keyof DeleteBotsByBotIdModelRoutesByRouteIdErrors];
-
-export type DeleteBotsByBotIdModelRoutesByRouteIdResponses = {
-    /**
-     * No Content
-     */
-    204: unknown;
-};
 
 export type GetBotsByBotIdScheduleData = {
     body?: never;
@@ -5892,116 +5526,165 @@ export type PutBotsByIdOwnerResponses = {
 
 export type PutBotsByIdOwnerResponse = PutBotsByIdOwnerResponses[keyof PutBotsByIdOwnerResponses];
 
-export type GetBudgetsData = {
+export type GetBrowserContextsData = {
     body?: never;
     path?: never;
-    query?: {
-        /**
-         * Filter by scope type
-         */
-        scope_type?: string;
-    };
-    url: '/budgets';
+    query?: never;
+    url: '/browser-contexts';
 };
 
-export type GetBudgetsResponses = {
+export type GetBrowserContextsErrors = {
+    /**
+     * Internal Server Error
+     */
+    500: HandlersErrorResponse;
+};
+
+export type GetBrowserContextsError = GetBrowserContextsErrors[keyof GetBrowserContextsErrors];
+
+export type GetBrowserContextsResponses = {
     /**
      * OK
      */
-    200: Array<HandlersBudgetDto>;
+    200: Array<BrowsercontextsBrowserContext>;
 };
 
-export type GetBudgetsResponse = GetBudgetsResponses[keyof GetBudgetsResponses];
+export type GetBrowserContextsResponse = GetBrowserContextsResponses[keyof GetBrowserContextsResponses];
 
-export type PostBudgetsData = {
+export type PostBrowserContextsData = {
     /**
-     * Budget data
+     * Browser context configuration
      */
-    body: HandlersCreateBudgetRequest;
+    body: BrowsercontextsCreateRequest;
     path?: never;
     query?: never;
-    url: '/budgets';
+    url: '/browser-contexts';
 };
 
-export type PostBudgetsErrors = {
+export type PostBrowserContextsErrors = {
     /**
      * Bad Request
      */
     400: HandlersErrorResponse;
+    /**
+     * Internal Server Error
+     */
+    500: HandlersErrorResponse;
 };
 
-export type PostBudgetsError = PostBudgetsErrors[keyof PostBudgetsErrors];
+export type PostBrowserContextsError = PostBrowserContextsErrors[keyof PostBrowserContextsErrors];
 
-export type PostBudgetsResponses = {
+export type PostBrowserContextsResponses = {
     /**
      * Created
      */
-    201: HandlersBudgetDto;
+    201: BrowsercontextsBrowserContext;
 };
 
-export type PostBudgetsResponse = PostBudgetsResponses[keyof PostBudgetsResponses];
+export type PostBrowserContextsResponse = PostBrowserContextsResponses[keyof PostBrowserContextsResponses];
 
-export type GetBudgetsCheckData = {
-    body?: never;
-    path?: never;
-    query: {
-        /**
-         * Scope type
-         */
-        scope_type: string;
-        /**
-         * Scope ID
-         */
-        scope_id: string;
-    };
-    url: '/budgets/check';
-};
-
-export type GetBudgetsCheckErrors = {
-    /**
-     * Bad Request
-     */
-    400: HandlersErrorResponse;
-};
-
-export type GetBudgetsCheckError = GetBudgetsCheckErrors[keyof GetBudgetsCheckErrors];
-
-export type GetBudgetsCheckResponses = {
-    /**
-     * OK
-     */
-    200: HandlersBudgetCheckDto;
-};
-
-export type GetBudgetsCheckResponse = GetBudgetsCheckResponses[keyof GetBudgetsCheckResponses];
-
-export type DeleteBudgetsByBudgetIdData = {
+export type DeleteBrowserContextsByIdData = {
     body?: never;
     path: {
         /**
-         * Budget ID
+         * Browser Context ID
          */
-        budget_id: string;
+        id: string;
     };
     query?: never;
-    url: '/budgets/{budget_id}';
+    url: '/browser-contexts/{id}';
 };
 
-export type DeleteBudgetsByBudgetIdErrors = {
+export type DeleteBrowserContextsByIdErrors = {
     /**
      * Bad Request
      */
     400: HandlersErrorResponse;
+    /**
+     * Internal Server Error
+     */
+    500: HandlersErrorResponse;
 };
 
-export type DeleteBudgetsByBudgetIdError = DeleteBudgetsByBudgetIdErrors[keyof DeleteBudgetsByBudgetIdErrors];
+export type DeleteBrowserContextsByIdError = DeleteBrowserContextsByIdErrors[keyof DeleteBrowserContextsByIdErrors];
 
-export type DeleteBudgetsByBudgetIdResponses = {
+export type DeleteBrowserContextsByIdResponses = {
     /**
      * No Content
      */
     204: unknown;
 };
+
+export type GetBrowserContextsByIdData = {
+    body?: never;
+    path: {
+        /**
+         * Browser Context ID
+         */
+        id: string;
+    };
+    query?: never;
+    url: '/browser-contexts/{id}';
+};
+
+export type GetBrowserContextsByIdErrors = {
+    /**
+     * Bad Request
+     */
+    400: HandlersErrorResponse;
+    /**
+     * Not Found
+     */
+    404: HandlersErrorResponse;
+};
+
+export type GetBrowserContextsByIdError = GetBrowserContextsByIdErrors[keyof GetBrowserContextsByIdErrors];
+
+export type GetBrowserContextsByIdResponses = {
+    /**
+     * OK
+     */
+    200: BrowsercontextsBrowserContext;
+};
+
+export type GetBrowserContextsByIdResponse = GetBrowserContextsByIdResponses[keyof GetBrowserContextsByIdResponses];
+
+export type PutBrowserContextsByIdData = {
+    /**
+     * Updated configuration
+     */
+    body: BrowsercontextsUpdateRequest;
+    path: {
+        /**
+         * Browser Context ID
+         */
+        id: string;
+    };
+    query?: never;
+    url: '/browser-contexts/{id}';
+};
+
+export type PutBrowserContextsByIdErrors = {
+    /**
+     * Bad Request
+     */
+    400: HandlersErrorResponse;
+    /**
+     * Internal Server Error
+     */
+    500: HandlersErrorResponse;
+};
+
+export type PutBrowserContextsByIdError = PutBrowserContextsByIdErrors[keyof PutBrowserContextsByIdErrors];
+
+export type PutBrowserContextsByIdResponses = {
+    /**
+     * OK
+     */
+    200: BrowsercontextsBrowserContext;
+};
+
+export type PutBrowserContextsByIdResponse = PutBrowserContextsByIdResponses[keyof PutBrowserContextsByIdResponses];
 
 export type GetChannelsData = {
     body?: never;

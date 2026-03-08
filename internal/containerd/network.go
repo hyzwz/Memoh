@@ -6,13 +6,14 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strconv"
 	"strings"
 
 	"github.com/containerd/containerd/v2/client"
 	gocni "github.com/containerd/go-cni"
 )
 
-func setupCNINetwork(ctx context.Context, task client.Task, containerID string, CNIBinDir string, CNIConfDir string) (string, error) {
+func setupCNINetwork(ctx context.Context, task client.Task, containerID string, cniBinDir string, cniConfDir string) (string, error) {
 	if task == nil {
 		return "", ErrInvalidArgument
 	}
@@ -28,20 +29,20 @@ func setupCNINetwork(ctx context.Context, task client.Task, containerID string, 
 		return "", fmt.Errorf("task pid not available for %s", containerID)
 	}
 
-	if _, err := os.Stat(CNIConfDir); err != nil {
-		return "", fmt.Errorf("cni config dir missing: %s: %w", CNIConfDir, err)
+	if _, err := os.Stat(cniConfDir); err != nil {
+		return "", fmt.Errorf("cni config dir missing: %s: %w", cniConfDir, err)
 	}
-	if _, err := os.Stat(CNIBinDir); err != nil {
-		return "", fmt.Errorf("cni bin dir missing: %s: %w", CNIBinDir, err)
+	if _, err := os.Stat(cniBinDir); err != nil {
+		return "", fmt.Errorf("cni bin dir missing: %s: %w", cniBinDir, err)
 	}
-	netnsPath := filepath.Join("/proc", fmt.Sprint(pid), "ns", "net")
+	netnsPath := filepath.Join("/proc", strconv.FormatUint(uint64(pid), 10), "ns", "net")
 	if _, err := os.Stat(netnsPath); err != nil {
 		return "", fmt.Errorf("netns not found: %s: %w", netnsPath, err)
 	}
 
 	cni, err := gocni.New(
-		gocni.WithPluginDir([]string{CNIBinDir}),
-		gocni.WithPluginConfDir(CNIConfDir),
+		gocni.WithPluginDir([]string{cniBinDir}),
+		gocni.WithPluginConfDir(cniConfDir),
 	)
 	if err != nil {
 		return "", err
@@ -90,7 +91,7 @@ func extractIP(result *gocni.Result) string {
 	return ""
 }
 
-func removeCNINetwork(ctx context.Context, task client.Task, containerID string, CNIBinDir string, CNIConfDir string) error {
+func removeCNINetwork(ctx context.Context, task client.Task, containerID string, cniBinDir string, cniConfDir string) error {
 	if task == nil {
 		return ErrInvalidArgument
 	}
@@ -106,21 +107,21 @@ func removeCNINetwork(ctx context.Context, task client.Task, containerID string,
 		return fmt.Errorf("task pid not available for %s", containerID)
 	}
 
-	if _, err := os.Stat(CNIConfDir); err != nil {
-		return fmt.Errorf("cni config dir missing: %s: %w", CNIConfDir, err)
+	if _, err := os.Stat(cniConfDir); err != nil {
+		return fmt.Errorf("cni config dir missing: %s: %w", cniConfDir, err)
 	}
-	if _, err := os.Stat(CNIBinDir); err != nil {
-		return fmt.Errorf("cni bin dir missing: %s: %w", CNIBinDir, err)
+	if _, err := os.Stat(cniBinDir); err != nil {
+		return fmt.Errorf("cni bin dir missing: %s: %w", cniBinDir, err)
 	}
 
-	netnsPath := filepath.Join("/proc", fmt.Sprint(pid), "ns", "net")
+	netnsPath := filepath.Join("/proc", strconv.FormatUint(uint64(pid), 10), "ns", "net")
 	if _, err := os.Stat(netnsPath); err != nil {
 		return fmt.Errorf("netns not found: %s: %w", netnsPath, err)
 	}
 
 	cni, err := gocni.New(
-		gocni.WithPluginDir([]string{CNIBinDir}),
-		gocni.WithPluginConfDir(CNIConfDir),
+		gocni.WithPluginDir([]string{cniBinDir}),
+		gocni.WithPluginConfDir(cniConfDir),
 	)
 	if err != nil {
 		return err

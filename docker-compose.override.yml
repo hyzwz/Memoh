@@ -1,0 +1,53 @@
+services:
+  postgres:
+    ports:
+      - "15432:5432"
+
+  server:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.server
+    ports:
+      - "8090:8080"
+
+  agent:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.agent
+
+  web:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.web
+      args:
+        - VITE_API_URL=
+        - VITE_AGENT_URL=
+
+  containerd2:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.containerd
+    container_name: memoh-containerd2
+    privileged: true
+    pid: host
+    volumes:
+      - containerd2_sock:/run/containerd
+      - containerd2_data:/var/lib/containerd
+      - memoh2_data:/opt/memoh/data
+    restart: unless-stopped
+    networks:
+      - memoh-network
+    healthcheck:
+      test: ["CMD", "test", "-S", "/run/containerd/containerd.sock"]
+      interval: 5s
+      timeout: 3s
+      start_period: 10s
+      retries: 10
+
+volumes:
+  containerd2_sock:
+    driver: local
+  containerd2_data:
+    driver: local
+  memoh2_data:
+    driver: local
