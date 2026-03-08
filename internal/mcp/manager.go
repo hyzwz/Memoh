@@ -146,6 +146,13 @@ func (m *Manager) recoverContainerIP(botID string) (string, error) {
 			time.Sleep(time.Duration(i+1) * 500 * time.Millisecond)
 			continue
 		}
+		if netResult.IP == "" {
+			lastErr = fmt.Errorf("network setup returned no IP for bot %s", botID)
+			m.logger.Warn("IP recovery returned empty IP",
+				slog.String("bot_id", botID), slog.Int("attempt", i+1))
+			time.Sleep(time.Duration(i+1) * 500 * time.Millisecond)
+			continue
+		}
 		return netResult.IP, nil
 	}
 	return "", fmt.Errorf("network setup for IP recovery after %d attempts: %w", maxAttempts, lastErr)
