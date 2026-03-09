@@ -21,6 +21,12 @@ JOIN bot_members m ON m.bot_id = b.id
 WHERE m.user_id = $1
 ORDER BY b.created_at DESC;
 
+-- name: ListBotMembershipsByUser :many
+SELECT bot_id, user_id, role, created_at
+FROM bot_members
+WHERE user_id = $1
+ORDER BY created_at DESC;
+
 -- name: UpdateBotProfile :one
 UPDATE bots
 SET display_name = $2,

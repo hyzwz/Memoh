@@ -4,8 +4,10 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"strings"
 	"testing"
 
+	"github.com/memohai/memoh/internal/conversation"
 	"github.com/memohai/memoh/internal/models"
 )
 
@@ -81,17 +83,17 @@ func TestResolveModelRoute_ReturnsHighestPriority(t *testing.T) {
 		logger: slog.Default(),
 		modelRouter: &fakeModelRouter{
 			routes: []ModelRouteEntry{
-				{ModelID: "model-high", Priority: 100, IsEnabled: true},
-				{ModelID: "model-low", Priority: 10, IsEnabled: true},
+				{ModelID: "model-simple-high", Priority: 100, ComplexityTier: "simple", IsEnabled: true},
+				{ModelID: "model-simple-low", Priority: 10, ComplexityTier: "simple", IsEnabled: true},
 			},
 		},
 	}
-	modelID, ok := r.resolveModelRoute(context.Background(), "bot-1")
+	modelID, ok := r.resolveModelRoute(context.Background(), "bot-1", conversation.ChatRequest{Query: "ping"})
 	if !ok {
 		t.Fatal("expected route to be found")
 	}
-	if modelID != "model-high" {
-		t.Fatalf("expected model-high, got %s", modelID)
+	if modelID != "model-simple-high" {
+		t.Fatalf("expected model-simple-high, got %s", modelID)
 	}
 }
 
@@ -103,7 +105,7 @@ func TestResolveModelRoute_NoRoutes(t *testing.T) {
 			routes: []ModelRouteEntry{},
 		},
 	}
-	_, ok := r.resolveModelRoute(context.Background(), "bot-1")
+	_, ok := r.resolveModelRoute(context.Background(), "bot-1", conversation.ChatRequest{Query: "ping"})
 	if ok {
 		t.Fatal("expected no route found")
 	}
@@ -117,7 +119,7 @@ func TestResolveModelRoute_ErrorFallsThrough(t *testing.T) {
 			err: fmt.Errorf("db error"),
 		},
 	}
-	_, ok := r.resolveModelRoute(context.Background(), "bot-1")
+	_, ok := r.resolveModelRoute(context.Background(), "bot-1", conversation.ChatRequest{Query: "ping"})
 	if ok {
 		t.Fatal("expected no route on error (graceful degradation)")
 	}
@@ -129,16 +131,61 @@ func TestResolveModelRoute_SkipsDisabled(t *testing.T) {
 		logger: slog.Default(),
 		modelRouter: &fakeModelRouter{
 			routes: []ModelRouteEntry{
-				{ModelID: "model-disabled", Priority: 100, IsEnabled: false},
-				{ModelID: "model-enabled", Priority: 50, IsEnabled: true},
+				{ModelID: "model-disabled", Priority: 100, ComplexityTier: "simple", IsEnabled: false},
+				{ModelID: "model-enabled", Priority: 50, ComplexityTier: "simple", IsEnabled: true},
 			},
 		},
 	}
-	modelID, ok := r.resolveModelRoute(context.Background(), "bot-1")
+	modelID, ok := r.resolveModelRoute(context.Background(), "bot-1", conversation.ChatRequest{Query: "ping"})
 	if !ok {
 		t.Fatal("expected route to be found")
 	}
 	if modelID != "model-enabled" {
 		t.Fatalf("expected model-enabled, got %s", modelID)
+	}
+}
+
+func TestResolveModelRoute_PrefersComplexityTier(t *testing.T) {
+	t.Parallel()
+	r := &Resolver{
+		logger: slog.Default(),
+		modelRouter: &fakeModelRouter{
+			routes: []ModelRouteEntry{
+				{ModelID: "model-complex", Priority: 100, ComplexityTier: "complex", IsEnabled: true},
+				{ModelID: "model-simple", Priority: 50, ComplexityTier: "simple", IsEnabled: true},
+			},
+		},
+	}
+	modelID, ok := r.resolveModelRoute(context.Background(), "bot-1", conversation.ChatRequest{
+		Query: strings.Repeat("detailed architecture analysis\n", 12),
+	})
+	if !ok {
+		t.Fatal("expected route to be found")
+	}
+	if modelID != "model-complex" {
+		t.Fatalf("expected model-complex, got %s", modelID)
+	}
+}
+
+func TestResolveModelRoute_UsesExplicitFallbackTier(t *testing.T) {
+	t.Parallel()
+	r := &Resolver{
+		logger: slog.Default(),
+		modelRouter: &fakeModelRouter{
+			routes: []ModelRouteEntry{
+				{ModelID: "model-fallback", Priority: 100, ComplexityTier: "fallback", IsEnabled: true},
+				{ModelID: "model-complex", Priority: 50, ComplexityTier: "complex", IsEnabled: true},
+			},
+		},
+	}
+	modelID, ok := r.resolveModelRoute(context.Background(), "bot-1", conversation.ChatRequest{
+		Query:          strings.Repeat("detailed architecture analysis\n", 12),
+		ModelRouteTier: "fallback",
+	})
+	if !ok {
+		t.Fatal("expected route to be found")
+	}
+	if modelID != "model-fallback" {
+		t.Fatalf("expected model-fallback, got %s", modelID)
 	}
 }

@@ -63,18 +63,18 @@ type BudgetChecker interface {
 
 // ChannelInboundProcessor routes channel inbound messages to the chat gateway.
 type ChannelInboundProcessor struct {
-	runner         flow.Runner
-	routeResolver  RouteResolver
-	message        messagepkg.Writer
-	mediaService   mediaIngestor
-	inboxService   *inbox.Service
-	registry       *channel.Registry
-	logger         *slog.Logger
-	jwtSecret      string
-	tokenTTL       time.Duration
-	identity       *IdentityResolver
-	observer       channel.StreamObserver
-	budgetChecker  BudgetChecker
+	runner        flow.Runner
+	routeResolver RouteResolver
+	message       messagepkg.Writer
+	mediaService  mediaIngestor
+	inboxService  *inbox.Service
+	registry      *channel.Registry
+	logger        *slog.Logger
+	jwtSecret     string
+	tokenTTL      time.Duration
+	identity      *IdentityResolver
+	observer      channel.StreamObserver
+	budgetChecker BudgetChecker
 }
 
 // NewChannelInboundProcessor creates a processor with channel identity-based resolution.
@@ -383,9 +383,14 @@ func (p *ChannelInboundProcessor) HandleInbound(ctx context.Context, cfg channel
 		return err
 	}
 
+	var (
+		budgetResult *BudgetCheckResult
+		budgetErr    error
+	)
+
 	// Budget enforcement: check before sending to AI.
 	if p.budgetChecker != nil {
-		budgetResult, budgetErr := p.budgetChecker.CheckChatBudget(ctx, strings.TrimSpace(identity.BotID), strings.TrimSpace(identity.UserID))
+		budgetResult, budgetErr = p.budgetChecker.CheckChatBudget(ctx, strings.TrimSpace(identity.BotID), strings.TrimSpace(identity.UserID))
 		if budgetErr != nil {
 			p.logger.Error("budget check failed", slog.String("error", budgetErr.Error()))
 			// fail-closed: deny on error
@@ -418,6 +423,11 @@ func (p *ChannelInboundProcessor) HandleInbound(ctx context.Context, cfg channel
 		}
 	}
 
+	modelRouteTier := ""
+	if budgetResult != nil && budgetResult.Alert && budgetResult.Action == "downgrade" {
+		modelRouteTier = "fallback"
+	}
+
 	// Mutex-protected collector for outbound asset refs. The resolver's
 	// streaming goroutine calls OutboundAssetCollector at persist time.
 	var (
@@ -444,6 +454,7 @@ func (p *ChannelInboundProcessor) HandleInbound(ctx context.Context, cfg channel
 		ExternalMessageID:       sourceMessageID,
 		ConversationType:        msg.Conversation.Type,
 		ConversationName:        msg.Conversation.Name,
+		ModelRouteTier:          modelRouteTier,
 		Query:                   text,
 		CurrentChannel:          msg.Channel.String(),
 		Channels:                []string{msg.Channel.String()},

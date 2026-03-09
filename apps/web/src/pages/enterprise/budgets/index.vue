@@ -211,12 +211,21 @@
               </Select>
             </div>
           </div>
-          <div class="space-y-1.5">
+          <div
+            v-if="form.scope_type !== 'system'"
+            class="space-y-1.5"
+          >
             <Label>范围ID</Label>
             <Input
               v-model="form.scope_id"
               placeholder="bot-id, user-id, 部门名等"
             />
+          </div>
+          <div
+            v-else
+            class="rounded-md border border-dashed bg-muted/30 px-3 py-2 text-xs text-muted-foreground"
+          >
+            全局预算会自动使用系统作用域，不需要填写范围 ID。
           </div>
           <div class="grid grid-cols-2 gap-4">
             <div class="space-y-1.5">
@@ -265,7 +274,7 @@
             取消
           </Button>
           <Button
-            :disabled="!form.scope_type || !form.scope_id || !form.period || form.limit_amount <= 0 || creating"
+            :disabled="!form.scope_type || !form.period || form.limit_amount <= 0 || (!isScopeIdOptional(form.scope_type) && !form.scope_id) || creating"
             @click="handleCreate"
           >
             <Spinner
@@ -328,6 +337,9 @@ function actionLabel(a: string | undefined): string {
 function actionBadgeClass(a: string | undefined): string {
   return { warn: 'bg-amber-500/10 text-amber-700 border-amber-200', block: 'bg-rose-500/10 text-rose-700 border-rose-200', downgrade: 'bg-blue-500/10 text-blue-700 border-blue-200' }[a ?? ''] ?? ''
 }
+function isScopeIdOptional(scopeType: string | undefined): boolean {
+  return scopeType === 'system'
+}
 function shortId(id: string | undefined): string {
   if (!id) return '-'
   return id.length > 16 ? id.slice(0, 8) + '...' + id.slice(-4) : id
@@ -336,10 +348,15 @@ function shortId(id: string | undefined): string {
 async function handleCreate() {
   creating.value = true
   try {
-    const res = await client.POST('/budgets', { body: { ...form } })
+    const scopeId = isScopeIdOptional(form.scope_type) ? 'system' : form.scope_id
+    const res = await client.POST('/budgets', { body: { ...form, scope_id: scopeId } })
     if (res.error) throw res.error
     showCreate.value = false
     form.scope_id = ''
+    form.scope_type = 'bot'
+    form.period = 'monthly'
+    form.alert_threshold = 0.8
+    form.action_on_exceed = 'warn'
     form.limit_amount = 100
     refetch()
     toast.success('预算创建成功')

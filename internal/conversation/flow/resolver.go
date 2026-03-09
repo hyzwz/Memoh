@@ -1783,10 +1783,11 @@ func (r *Resolver) selectChatModel(ctx context.Context, req conversation.ChatReq
 
 	// Model routing override: if no explicit model in request, check bot routes.
 	if r.modelRouter != nil && strings.TrimSpace(req.Model) == "" {
-		if overrideID, ok := r.resolveModelRoute(ctx, req.BotID); ok {
+		if overrideID, ok := r.resolveModelRoute(ctx, req.BotID, req); ok {
 			modelID = overrideID
 			r.logger.Debug("model route override applied",
 				slog.String("bot_id", req.BotID),
+				slog.String("route_tier", resolvePreferredModelRouteTier(req)),
 				slog.String("routed_model_id", modelID),
 			)
 		}
@@ -1847,20 +1848,92 @@ resolved:
 	return model, prov, nil
 }
 
-// resolveModelRoute returns the model UUID from the highest priority enabled route for a bot.
-func (r *Resolver) resolveModelRoute(ctx context.Context, botID string) (string, bool) {
+// resolveModelRoute returns the model UUID from the best matching enabled route for a bot.
+func (r *Resolver) resolveModelRoute(ctx context.Context, botID string, req conversation.ChatRequest) (string, bool) {
 	routes, err := r.modelRouter.ListEnabledRoutes(ctx, botID)
 	if err != nil {
 		r.logger.Warn("model route lookup failed", slog.String("bot_id", botID), slog.String("error", err.Error()))
 		return "", false
 	}
-	// Routes are ordered by priority DESC. Take the first enabled one.
+	return selectModelRoute(routes, resolvePreferredModelRouteTier(req))
+}
+
+func resolvePreferredModelRouteTier(req conversation.ChatRequest) string {
+	if tier := normalizeModelRouteTier(req.ModelRouteTier); tier != "" {
+		return tier
+	}
+	return inferModelRouteTier(req)
+}
+
+func inferModelRouteTier(req conversation.ChatRequest) string {
+	query := strings.TrimSpace(req.Query)
+	switch {
+	case len(req.Attachments) > 0,
+		len(query) > 1200,
+		strings.Contains(query, "```"),
+		strings.Count(query, "\n") >= 8:
+		return "complex"
+	case len(query) > 300,
+		strings.Count(query, "\n") >= 3,
+		containsAnyFold(query, "analyze", "analysis", "architecture", "compare", "design", "investigate", "plan", "refactor"):
+		return "medium"
+	default:
+		return "simple"
+	}
+}
+
+func selectModelRoute(routes []ModelRouteEntry, preferredTier string) (string, bool) {
+	tierOrder := orderedRouteTierPreferences(preferredTier)
+	for _, tier := range tierOrder {
+		for _, route := range routes {
+			if !route.IsEnabled || route.ModelID == "" {
+				continue
+			}
+			if normalizeModelRouteTier(route.ComplexityTier) == tier {
+				return route.ModelID, true
+			}
+		}
+	}
 	for _, route := range routes {
 		if route.IsEnabled && route.ModelID != "" {
 			return route.ModelID, true
 		}
 	}
 	return "", false
+}
+
+func orderedRouteTierPreferences(preferredTier string) []string {
+	switch normalizeModelRouteTier(preferredTier) {
+	case "fallback":
+		return []string{"fallback", "simple", "medium", "complex"}
+	case "complex":
+		return []string{"complex", "fallback", "medium", "simple"}
+	case "medium":
+		return []string{"medium", "fallback", "simple", "complex"}
+	case "simple":
+		return []string{"simple", "fallback", "medium", "complex"}
+	default:
+		return []string{"fallback", "simple", "medium", "complex"}
+	}
+}
+
+func normalizeModelRouteTier(tier string) string {
+	switch strings.ToLower(strings.TrimSpace(tier)) {
+	case "simple", "medium", "complex", "fallback":
+		return strings.ToLower(strings.TrimSpace(tier))
+	default:
+		return ""
+	}
+}
+
+func containsAnyFold(text string, needles ...string) bool {
+	text = strings.ToLower(text)
+	for _, needle := range needles {
+		if strings.Contains(text, strings.ToLower(needle)) {
+			return true
+		}
+	}
+	return false
 }
 
 func matchesModelReference(model models.GetResponse, modelRef string) bool {

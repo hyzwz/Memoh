@@ -227,6 +227,7 @@ type ChatRequest struct {
 	ExternalMessageID       string `json:"-"`
 	ConversationType        string `json:"-"`
 	ConversationName        string `json:"-"`
+	ModelRouteTier          string `json:"-"`
 	UserMessagePersisted    bool   `json:"-"`
 
 	// OutboundAssetCollector returns asset refs accumulated during outbound streaming.

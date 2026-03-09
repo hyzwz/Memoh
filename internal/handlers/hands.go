@@ -63,22 +63,28 @@ func WithAuditLogger(al AuditLoggerInterface) HandsHandlerOption {
 
 // HandsHandler handles hand CRUD and execution API endpoints.
 type HandsHandler struct {
-	svc   HandsServiceInterface
-	audit AuditLoggerInterface
+	svc        HandsServiceInterface
+	audit      AuditLoggerInterface
+	middleware []echo.MiddlewareFunc
 }
 
 // NewHandsHandler creates a new hands handler.
-func NewHandsHandler(svc HandsServiceInterface, opts ...HandsHandlerOption) *HandsHandler {
+func NewHandsHandler(svc HandsServiceInterface, opts ...any) *HandsHandler {
 	h := &HandsHandler{svc: svc, audit: noopAuditLogger{}}
 	for _, opt := range opts {
-		opt(h)
+		switch v := opt.(type) {
+		case echo.MiddlewareFunc:
+			h.middleware = append(h.middleware, v)
+		case HandsHandlerOption:
+			v(h)
+		}
 	}
 	return h
 }
 
 // Register registers hand routes.
 func (h *HandsHandler) Register(e *echo.Echo) {
-	g := e.Group("/bots/:bot_id/hands")
+	g := e.Group("/bots/:bot_id/hands", h.middleware...)
 	g.GET("", h.ListHands)
 	g.POST("", h.CreateHand)
 	g.GET("/:hand_id", h.GetHand)

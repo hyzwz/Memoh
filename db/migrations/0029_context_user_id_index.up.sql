@@ -1,3 +1,4 @@
+-- 0029_context_user_id_index
 -- Expression index for user-level conversation isolation queries.
 -- Speeds up queries filtering by metadata->>'context_user_id'.
 CREATE INDEX IF NOT EXISTS idx_bot_history_messages_context_user_id

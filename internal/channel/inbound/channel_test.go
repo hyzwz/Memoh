@@ -1678,11 +1678,11 @@ func TestChannelInboundProcessorBudgetBlocked(t *testing.T) {
 
 	cfg := channel.ChannelConfig{ID: "cfg-1", BotID: "bot-1", ChannelType: channel.ChannelType("feishu")}
 	msg := channel.InboundMessage{
-		BotID:       "bot-1",
-		Channel:     channel.ChannelType("feishu"),
-		Message:     channel.Message{Text: "hello"},
-		ReplyTarget: "target-id",
-		Sender:      channel.Identity{SubjectID: "ext-1", DisplayName: "User1"},
+		BotID:        "bot-1",
+		Channel:      channel.ChannelType("feishu"),
+		Message:      channel.Message{Text: "hello"},
+		ReplyTarget:  "target-id",
+		Sender:       channel.Identity{SubjectID: "ext-1", DisplayName: "User1"},
 		Conversation: channel.Conversation{ID: "chat-1", Type: "p2p"},
 	}
 
@@ -1730,11 +1730,11 @@ func TestChannelInboundProcessorBudgetAllowed(t *testing.T) {
 
 	cfg := channel.ChannelConfig{ID: "cfg-1", BotID: "bot-1", ChannelType: channel.ChannelType("feishu")}
 	msg := channel.InboundMessage{
-		BotID:       "bot-1",
-		Channel:     channel.ChannelType("feishu"),
-		Message:     channel.Message{Text: "hello"},
-		ReplyTarget: "target-id",
-		Sender:      channel.Identity{SubjectID: "ext-1", DisplayName: "User1"},
+		BotID:        "bot-1",
+		Channel:      channel.ChannelType("feishu"),
+		Message:      channel.Message{Text: "hello"},
+		ReplyTarget:  "target-id",
+		Sender:       channel.Identity{SubjectID: "ext-1", DisplayName: "User1"},
 		Conversation: channel.Conversation{ID: "chat-1", Type: "p2p"},
 	}
 
@@ -1745,6 +1745,42 @@ func TestChannelInboundProcessorBudgetAllowed(t *testing.T) {
 	// Chat SHOULD have been called
 	if gateway.gotReq.Query != "hello" {
 		t.Fatalf("expected chat query 'hello', got: %s", gateway.gotReq.Query)
+	}
+}
+
+func TestChannelInboundProcessorBudgetDowngradeRoutesToFallback(t *testing.T) {
+	channelIdentitySvc := &fakeChannelIdentityService{channelIdentity: identities.ChannelIdentity{ID: "ci-1"}}
+	memberSvc := &fakeMemberService{isMember: true}
+	policySvc := &fakePolicyService{allow: false}
+	chatSvc := &fakeChatService{resolveResult: route.ResolveConversationResult{ChatID: "chat-1", RouteID: "route-1"}}
+	gateway := &fakeChatGateway{
+		resp: conversation.ChatResponse{
+			Messages: []conversation.ModelMessage{
+				{Role: "assistant", Content: conversation.NewTextContent("AI reply")},
+			},
+		},
+	}
+	processor := NewChannelInboundProcessor(slog.Default(), nil, chatSvc, chatSvc, gateway, channelIdentitySvc, memberSvc, policySvc, nil, nil, "", 0)
+	processor.SetBudgetChecker(&fakeBudgetChecker{
+		result: &BudgetCheckResult{Allowed: true, Alert: true, Action: "downgrade"},
+	})
+	sender := &fakeReplySender{}
+
+	cfg := channel.ChannelConfig{ID: "cfg-1", BotID: "bot-1", ChannelType: channel.ChannelType("feishu")}
+	msg := channel.InboundMessage{
+		BotID:        "bot-1",
+		Channel:      channel.ChannelType("feishu"),
+		Message:      channel.Message{Text: "hello"},
+		ReplyTarget:  "target-id",
+		Sender:       channel.Identity{SubjectID: "ext-1", DisplayName: "User1"},
+		Conversation: channel.Conversation{ID: "chat-1", Type: "p2p"},
+	}
+
+	if err := processor.HandleInbound(context.Background(), cfg, msg, sender); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if gateway.gotReq.ModelRouteTier != "fallback" {
+		t.Fatalf("expected fallback routing tier, got %q", gateway.gotReq.ModelRouteTier)
 	}
 }
 
@@ -1762,11 +1798,11 @@ func TestChannelInboundProcessorBudgetCheckErrorDenies(t *testing.T) {
 
 	cfg := channel.ChannelConfig{ID: "cfg-1", BotID: "bot-1", ChannelType: channel.ChannelType("feishu")}
 	msg := channel.InboundMessage{
-		BotID:       "bot-1",
-		Channel:     channel.ChannelType("feishu"),
-		Message:     channel.Message{Text: "hello"},
-		ReplyTarget: "target-id",
-		Sender:      channel.Identity{SubjectID: "ext-1", DisplayName: "User1"},
+		BotID:        "bot-1",
+		Channel:      channel.ChannelType("feishu"),
+		Message:      channel.Message{Text: "hello"},
+		ReplyTarget:  "target-id",
+		Sender:       channel.Identity{SubjectID: "ext-1", DisplayName: "User1"},
 		Conversation: channel.Conversation{ID: "chat-1", Type: "p2p"},
 	}
 

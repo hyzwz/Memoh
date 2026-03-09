@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log/slog"
 	"math/big"
+	"strings"
 	"time"
 
 	"github.com/jackc/pgx/v5/pgtype"
@@ -28,6 +29,7 @@ func NewCostTrackingService(log *slog.Logger, queries *sqlc.Queries) *CostTracki
 }
 
 func (s *CostTrackingService) ListBudgets(ctx context.Context, scopeType string) ([]handlers.BudgetDTO, error) {
+	scopeType = normalizeBudgetScopeType(scopeType)
 	scope := pgtype.Text{}
 	if scopeType != "" {
 		scope = pgtype.Text{String: scopeType, Valid: true}
@@ -44,6 +46,8 @@ func (s *CostTrackingService) ListBudgets(ctx context.Context, scopeType string)
 }
 
 func (s *CostTrackingService) CreateBudget(ctx context.Context, req handlers.CreateBudgetRequest) (*handlers.BudgetDTO, error) {
+	req.ScopeType = normalizeBudgetScopeType(req.ScopeType)
+	req.ScopeID = normalizeBudgetScopeID(req.ScopeType, req.ScopeID)
 	budget, err := s.queries.CreateBudget(ctx, sqlc.CreateBudgetParams{
 		ScopeType:      req.ScopeType,
 		ScopeID:        req.ScopeID,
@@ -69,6 +73,8 @@ func (s *CostTrackingService) DeleteBudget(ctx context.Context, id string) error
 }
 
 func (s *CostTrackingService) CheckBudget(ctx context.Context, scopeType, scopeID string) (*handlers.BudgetCheckDTO, error) {
+	scopeType = normalizeBudgetScopeType(scopeType)
+	scopeID = normalizeBudgetScopeID(scopeType, scopeID)
 	budgets, err := s.queries.ListBudgetsByScope(ctx, sqlc.ListBudgetsByScopeParams{
 		ScopeType: scopeType,
 		ScopeID:   scopeID,
@@ -86,8 +92,6 @@ func (s *CostTrackingService) CheckBudget(ctx context.Context, scopeType, scopeI
 
 	// Check ALL budgets and enforce the strictest one.
 	// Only action_on_exceed="block" actually denies; "warn"/"downgrade" set Alert.
-	// NOTE: Currently only scopeType="bot" computes real spending.
-	// Other scope types (user, department) will need their own spending queries.
 	result := &handlers.BudgetCheckDTO{
 		Allowed: true,
 	}
@@ -160,10 +164,10 @@ func (s *CostTrackingService) computeSpending(ctx context.Context, scopeType, sc
 		return s.computeUserSpending(ctx, scopeID, period)
 	case "department":
 		return s.computeDepartmentSpending(ctx, scopeID, period)
+	case "system":
+		return s.computeSystemSpending(ctx, period)
 	default:
-		// Unknown scope type — no spending data available; fail open (0 spent).
-		s.logger.Warn("unknown budget scope type", slog.String("scope_type", scopeType))
-		return 0, nil
+		return 0, fmt.Errorf("unknown budget scope type: %s", scopeType)
 	}
 }
 
@@ -275,6 +279,38 @@ func (s *CostTrackingService) computeDepartmentSpending(ctx context.Context, dep
 		usage.CacheReadTokens, usage.CacheWriteTokens, usage.ReasoningTokens), nil
 }
 
+func (s *CostTrackingService) computeSystemSpending(ctx context.Context, period string) (float64, error) {
+	now := time.Now()
+	start, end := periodToTimeRange(period, now)
+
+	timeStart := pgtype.Timestamptz{Time: start, Valid: true}
+	timeEnd := pgtype.Timestamptz{Time: end, Valid: true}
+
+	msgUsage, err := s.queries.GetTotalSystemTokenUsage(ctx, sqlc.GetTotalSystemTokenUsageParams{
+		FromTime: timeStart,
+		ToTime:   timeEnd,
+	})
+	if err != nil {
+		return 0, fmt.Errorf("system message token usage: %w", err)
+	}
+
+	hbUsage, err := s.queries.GetTotalSystemHeartbeatTokenUsage(ctx, sqlc.GetTotalSystemHeartbeatTokenUsageParams{
+		FromTime: timeStart,
+		ToTime:   timeEnd,
+	})
+	if err != nil {
+		return 0, fmt.Errorf("system heartbeat token usage: %w", err)
+	}
+
+	return computeTokenCostFromUsage(
+		msgUsage.InputTokens+hbUsage.InputTokens,
+		msgUsage.OutputTokens+hbUsage.OutputTokens,
+		msgUsage.CacheReadTokens+hbUsage.CacheReadTokens,
+		msgUsage.CacheWriteTokens+hbUsage.CacheWriteTokens,
+		msgUsage.ReasoningTokens+hbUsage.ReasoningTokens,
+	), nil
+}
+
 // computeTokenCostFromUsage applies default pricing to token counts.
 func computeTokenCostFromUsage(input, output, cacheRead, cacheWrite, reasoning int64) float64 {
 	const (
@@ -286,6 +322,23 @@ func computeTokenCostFromUsage(input, output, cacheRead, cacheWrite, reasoning i
 	)
 	return computeTokenCost(input, output, cacheRead, cacheWrite, reasoning,
 		defaultInputPrice, defaultOutputPrice, defaultCacheReadPrice, defaultCacheWritePrice, defaultReasoningPrice)
+}
+
+func normalizeBudgetScopeType(scopeType string) string {
+	scopeType = strings.ToLower(strings.TrimSpace(scopeType))
+	if scopeType == "global" {
+		return "system"
+	}
+	return scopeType
+}
+
+func normalizeBudgetScopeID(scopeType, scopeID string) string {
+	scopeType = normalizeBudgetScopeType(scopeType)
+	scopeID = strings.TrimSpace(scopeID)
+	if scopeType == "system" && scopeID == "" {
+		return "system"
+	}
+	return scopeID
 }
 
 func budgetToDTO(b sqlc.Budget) handlers.BudgetDTO {

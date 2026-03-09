@@ -19,6 +19,8 @@ type CockpitReportGenerator struct {
 	logger  *slog.Logger
 }
 
+const cockpitSystemReportUserID = "00000000-0000-0000-0000-000000000000"
+
 func NewCockpitReportGenerator(log *slog.Logger, queries *sqlc.Queries) *CockpitReportGenerator {
 	return &CockpitReportGenerator{
 		queries: queries,
@@ -34,9 +36,9 @@ func (g *CockpitReportGenerator) GenerateDailyReport(ctx context.Context, botID,
 	if err != nil {
 		return fmt.Errorf("invalid bot id: %w", err)
 	}
-	pgUserID, err := db.ParseUUID(ownerUserID)
+	pgUserID, err := db.ParseUUID(cockpitSystemReportUserID)
 	if err != nil {
-		return fmt.Errorf("invalid user id: %w", err)
+		return fmt.Errorf("invalid cockpit system user id: %w", err)
 	}
 
 	dayStart := time.Date(reportDate.Year(), reportDate.Month(), reportDate.Day(), 0, 0, 0, 0, time.UTC)

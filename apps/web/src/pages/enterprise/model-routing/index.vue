@@ -165,6 +165,9 @@
                 <SelectItem value="complex">
                   复杂
                 </SelectItem>
+                <SelectItem value="fallback">
+                  兜底
+                </SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -257,7 +260,7 @@ function tierColor(tier: string | undefined): string {
   return { simple: 'bg-emerald-500', medium: 'bg-blue-500', complex: 'bg-violet-500', fallback: 'bg-gray-400' }[tier ?? ''] ?? 'bg-gray-300'
 }
 function tierBadgeClass(tier: string | undefined): string {
-  return { simple: 'border-emerald-200 text-emerald-700', medium: 'border-blue-200 text-blue-700', complex: 'border-violet-200 text-violet-700' }[tier ?? ''] ?? ''
+  return { simple: 'border-emerald-200 text-emerald-700', medium: 'border-blue-200 text-blue-700', complex: 'border-violet-200 text-violet-700', fallback: 'border-gray-200 text-gray-700' }[tier ?? ''] ?? ''
 }
 function shortId(id: string | undefined): string {
   if (!id) return '-'

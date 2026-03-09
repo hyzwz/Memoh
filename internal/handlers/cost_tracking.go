@@ -114,11 +114,18 @@ func (h *CostTrackingHandler) CreateBudget(c echo.Context) error {
 	if err := c.Bind(&req); err != nil {
 		return echo.NewHTTPError(http.StatusBadRequest, "invalid request body")
 	}
+	req.ScopeType = strings.ToLower(strings.TrimSpace(req.ScopeType))
+	if req.ScopeType == "global" {
+		req.ScopeType = "system"
+	}
 	if strings.TrimSpace(req.ScopeType) == "" {
 		return echo.NewHTTPError(http.StatusBadRequest, "scope_type is required")
 	}
-	if strings.TrimSpace(req.ScopeID) == "" {
+	if strings.TrimSpace(req.ScopeID) == "" && req.ScopeType != "system" {
 		return echo.NewHTTPError(http.StatusBadRequest, "scope_id is required")
+	}
+	if req.ScopeType == "system" && strings.TrimSpace(req.ScopeID) == "" {
+		req.ScopeID = "system"
 	}
 	if strings.TrimSpace(req.Period) == "" {
 		return echo.NewHTTPError(http.StatusBadRequest, "period is required")
@@ -128,9 +135,9 @@ func (h *CostTrackingHandler) CreateBudget(c echo.Context) error {
 	}
 
 	// Validate allowed values.
-	validScopeTypes := map[string]bool{"bot": true, "user": true, "department": true, "global": true}
+	validScopeTypes := map[string]bool{"bot": true, "user": true, "department": true, "system": true}
 	if !validScopeTypes[req.ScopeType] {
-		return echo.NewHTTPError(http.StatusBadRequest, "scope_type must be one of: bot, user, department, global")
+		return echo.NewHTTPError(http.StatusBadRequest, "scope_type must be one of: bot, user, department, system")
 	}
 	validPeriods := map[string]bool{"daily": true, "weekly": true, "monthly": true}
 	if !validPeriods[req.Period] {
@@ -181,8 +188,14 @@ func (h *CostTrackingHandler) DeleteBudget(c echo.Context) error {
 // @Failure 400 {object} ErrorResponse
 // @Router /budgets/check [get]
 func (h *CostTrackingHandler) CheckBudget(c echo.Context) error {
-	scopeType := strings.TrimSpace(c.QueryParam("scope_type"))
+	scopeType := strings.ToLower(strings.TrimSpace(c.QueryParam("scope_type")))
 	scopeID := strings.TrimSpace(c.QueryParam("scope_id"))
+	if scopeType == "global" {
+		scopeType = "system"
+	}
+	if scopeType == "system" && scopeID == "" {
+		scopeID = "system"
+	}
 
 	if scopeType == "" || scopeID == "" {
 		return echo.NewHTTPError(http.StatusBadRequest, "scope_type and scope_id are required")

@@ -43,6 +43,7 @@ import (
 	emailpkg "github.com/memohai/memoh/internal/email"
 	emailgeneric "github.com/memohai/memoh/internal/email/adapters/generic"
 	emailmailgun "github.com/memohai/memoh/internal/email/adapters/mailgun"
+	"github.com/memohai/memoh/internal/enterprise"
 	"github.com/memohai/memoh/internal/handlers"
 	"github.com/memohai/memoh/internal/healthcheck"
 	channelchecker "github.com/memohai/memoh/internal/healthcheck/checkers/channel"
@@ -73,13 +74,13 @@ import (
 	"github.com/memohai/memoh/internal/policy"
 	"github.com/memohai/memoh/internal/preauth"
 	"github.com/memohai/memoh/internal/providers"
+	authz "github.com/memohai/memoh/internal/rbac"
 	"github.com/memohai/memoh/internal/schedule"
 	"github.com/memohai/memoh/internal/searchproviders"
 	"github.com/memohai/memoh/internal/server"
 	"github.com/memohai/memoh/internal/settings"
 	"github.com/memohai/memoh/internal/storage/providers/containerfs"
 	"github.com/memohai/memoh/internal/subagent"
-	"github.com/memohai/memoh/internal/enterprise"
 	"github.com/memohai/memoh/internal/version"
 )
 
@@ -241,6 +242,7 @@ func runServe() {
 
 			// Enterprise shared dependencies
 			provideAuditLogger,
+			provideEnterpriseRBACResolver,
 
 			// Enterprise feature handlers (F1-F7)
 			provideServerHandler(provideDepartmentHandler),
@@ -454,7 +456,7 @@ func provideChannelRouter(
 	processor.SetInboxService(inboxService)
 	// Budget enforcement before chat
 	costSvc := enterprise.NewCostTrackingService(log, queries)
-	processor.SetBudgetChecker(enterprise.NewBudgetCheckerAdapter(log, costSvc))
+	processor.SetBudgetChecker(enterprise.NewBudgetCheckerAdapter(log, costSvc, queries))
 	return processor
 }
 
@@ -957,34 +959,60 @@ func provideAuditLogger(log *slog.Logger, queries *dbsqlc.Queries) *enterprise.A
 	return enterprise.NewAuditLogger(log, queries)
 }
 
-func provideDepartmentHandler(log *slog.Logger, queries *dbsqlc.Queries, al *enterprise.AuditLogger) *handlers.DepartmentHandler {
+func provideEnterpriseRBACResolver(queries *dbsqlc.Queries) *authz.Resolver {
+	return authz.NewResolver(authz.NewSQLCStore(queries))
+}
+
+func provideDepartmentHandler(log *slog.Logger, queries *dbsqlc.Queries, al *enterprise.AuditLogger, resolver *authz.Resolver) *handlers.DepartmentHandler {
 	svc := enterprise.NewDepartmentService(log, queries)
-	adminMw := enterprise.RequireRole(queries, log, "admin")
-	return handlers.NewDepartmentHandler(svc, adminMw, handlers.WithDepartmentAudit(al))
+	authMw := enterprise.RequireBotPermission(
+		enterprise.NewBotAuthorizerAdapter(resolver),
+		authz.ResourceMembers,
+		enterprise.ResolveMethodAction(authz.ActionRead, authz.ActionWrite),
+	)
+	return handlers.NewDepartmentHandler(svc, authMw, handlers.WithDepartmentAudit(al))
 }
 
-func provideAuditHandler(log *slog.Logger, queries *dbsqlc.Queries) *handlers.AuditHandler {
+func provideAuditHandler(log *slog.Logger, queries *dbsqlc.Queries, resolver *authz.Resolver) *handlers.AuditHandler {
 	svc := enterprise.NewAuditQueryService(log, queries)
-	adminMw := enterprise.RequireRole(queries, log, "admin")
-	return handlers.NewAuditHandler(svc, adminMw)
+	authMw := enterprise.RequireBotPermission(
+		enterprise.NewBotAuthorizerAdapter(resolver),
+		authz.ResourceSettings,
+		enterprise.ResolveMethodAction(authz.ActionRead, authz.ActionRead),
+	)
+	return handlers.NewAuditHandler(svc, authMw)
 }
 
-func provideCockpitHandler(log *slog.Logger, queries *dbsqlc.Queries) *handlers.CockpitHandler {
+func provideCockpitHandler(log *slog.Logger, queries *dbsqlc.Queries, resolver *authz.Resolver) *handlers.CockpitHandler {
 	svc := enterprise.NewCockpitService(log, queries)
 	reportGen := enterprise.NewCockpitReportGenerator(log, queries)
-	return handlers.NewCockpitHandler(svc, reportGen)
+	authMw := enterprise.RequireBotPermission(
+		enterprise.NewBotAuthorizerAdapter(resolver),
+		authz.ResourceSettings,
+		enterprise.ResolveCockpitAction,
+	)
+	return handlers.NewCockpitHandler(svc, reportGen, authMw)
 }
 
-func provideHandsHandler(log *slog.Logger, queries *dbsqlc.Queries, resolver *flow.Resolver, cfg config.Config, al *enterprise.AuditLogger) *handlers.HandsHandler {
-	chatExec := enterprise.NewResolverChatExecutor(resolver)
+func provideHandsHandler(log *slog.Logger, queries *dbsqlc.Queries, flowResolver *flow.Resolver, cfg config.Config, al *enterprise.AuditLogger, resolver *authz.Resolver) *handlers.HandsHandler {
+	chatExec := enterprise.NewResolverChatExecutor(flowResolver)
 	svc := enterprise.NewHandsService(log, queries, chatExec, cfg.Auth.JWTSecret)
-	return handlers.NewHandsHandler(svc, handlers.WithAuditLogger(al))
+	authMw := enterprise.RequireBotPermission(
+		enterprise.NewBotAuthorizerAdapter(resolver),
+		authz.ResourceTools,
+		enterprise.ResolveHandsAction,
+	)
+	return handlers.NewHandsHandler(svc, authMw, handlers.WithAuditLogger(al))
 }
 
-func provideModelRoutingHandler(log *slog.Logger, queries *dbsqlc.Queries, al *enterprise.AuditLogger) *handlers.ModelRoutingHandler {
+func provideModelRoutingHandler(log *slog.Logger, queries *dbsqlc.Queries, al *enterprise.AuditLogger, resolver *authz.Resolver) *handlers.ModelRoutingHandler {
 	svc := enterprise.NewModelRoutingService(log, queries)
-	adminMw := enterprise.RequireRole(queries, log, "admin")
-	return handlers.NewModelRoutingHandler(svc, adminMw, handlers.WithModelRoutingAudit(al))
+	authMw := enterprise.RequireBotPermission(
+		enterprise.NewBotAuthorizerAdapter(resolver),
+		authz.ResourceSettings,
+		enterprise.ResolveMethodAction(authz.ActionRead, authz.ActionWrite),
+	)
+	return handlers.NewModelRoutingHandler(svc, authMw, handlers.WithModelRoutingAudit(al))
 }
 
 func provideCostTrackingHandler(log *slog.Logger, queries *dbsqlc.Queries, al *enterprise.AuditLogger) *handlers.CostTrackingHandler {

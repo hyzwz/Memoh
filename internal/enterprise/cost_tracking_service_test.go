@@ -101,3 +101,21 @@ func TestComputeTokenCostFromUsage(t *testing.T) {
 		t.Fatalf("cost = %v, want 18.0", cost)
 	}
 }
+
+func TestNormalizeBudgetScopeType(t *testing.T) {
+	if got := normalizeBudgetScopeType("global"); got != "system" {
+		t.Fatalf("normalizeBudgetScopeType(global) = %q", got)
+	}
+	if got := normalizeBudgetScopeType(" system "); got != "system" {
+		t.Fatalf("normalizeBudgetScopeType(system) = %q", got)
+	}
+}
+
+func TestNormalizeBudgetScopeID(t *testing.T) {
+	if got := normalizeBudgetScopeID("system", ""); got != "system" {
+		t.Fatalf("normalizeBudgetScopeID(system, empty) = %q", got)
+	}
+	if got := normalizeBudgetScopeID("bot", "bot-1"); got != "bot-1" {
+		t.Fatalf("normalizeBudgetScopeID(bot, bot-1) = %q", got)
+	}
+}

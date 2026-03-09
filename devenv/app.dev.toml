@@ -43,12 +43,12 @@ api_key = ""
 timeout_seconds = 10
 
 [agent_gateway]
-host = "agent"
+host = "0.0.0.0"
 port = 8081
 server_addr = "server:8080"
 
 [browser_gateway]
-host = "browser"
+host = "0.0.0.0"
 port = 8083
 server_addr = "server:8080"
 

@@ -1,4 +1,4 @@
--- 0026_snapshot_display_name (rollback)
+-- 0028_snapshot_display_name (rollback)
 -- Remove the user-facing display_name from snapshots.
 
 ALTER TABLE snapshots
