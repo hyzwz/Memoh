@@ -249,6 +249,9 @@ func (h *MessageHandler) StreamMessageEvents(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusInternalServerError, "streaming not supported")
 	}
 	writer := bufio.NewWriter(c.Response().Writer)
+	if err := writeSSEJSON(writer, flusher, map[string]any{"type": "ping"}); err != nil {
+		return nil
+	}
 
 	// Use the authenticated user's channelIdentityID to scope events,
 	// ensuring user-level isolation in shared bots.

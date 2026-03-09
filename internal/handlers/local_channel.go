@@ -91,14 +91,23 @@ func (h *LocalChannelHandler) StreamMessages(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusInternalServerError, "streaming not supported")
 	}
 	writer := bufio.NewWriter(c.Response().Writer)
+	if err := writeLocalSSEJSON(writer, flusher, map[string]any{"type": "ping"}); err != nil {
+		return nil
+	}
 
 	_, stream, cancel := h.routeHub.Subscribe(botID)
 	defer cancel()
+	heartbeatTicker := time.NewTicker(20 * time.Second)
+	defer heartbeatTicker.Stop()
 
 	for {
 		select {
 		case <-c.Request().Context().Done():
 			return nil
+		case <-heartbeatTicker.C:
+			if err := writeLocalSSEJSON(writer, flusher, map[string]any{"type": "ping"}); err != nil {
+				return nil
+			}
 		case msg, ok := <-stream:
 			if !ok {
 				return nil
@@ -112,15 +121,30 @@ func (h *LocalChannelHandler) StreamMessages(c echo.Context) error {
 			if err != nil {
 				continue
 			}
-			if _, err := fmt.Fprintf(writer, "data: %s\n\n", string(data)); err != nil {
+			if err := writeLocalSSEData(writer, flusher, string(data)); err != nil {
 				return nil // client disconnected
 			}
-			if err := writer.Flush(); err != nil {
-				return nil
-			}
-			flusher.Flush()
 		}
 	}
+}
+
+func writeLocalSSEData(writer *bufio.Writer, flusher http.Flusher, payload string) error {
+	if _, err := fmt.Fprintf(writer, "data: %s\n\n", payload); err != nil {
+		return err
+	}
+	if err := writer.Flush(); err != nil {
+		return err
+	}
+	flusher.Flush()
+	return nil
+}
+
+func writeLocalSSEJSON(writer *bufio.Writer, flusher http.Flusher, payload any) error {
+	data, err := json.Marshal(payload)
+	if err != nil {
+		return err
+	}
+	return writeLocalSSEData(writer, flusher, string(data))
 }
 
 func formatLocalStreamEvent(event channel.StreamEvent) ([]byte, error) {

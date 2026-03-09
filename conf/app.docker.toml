@@ -45,13 +45,13 @@ timeout_seconds = 10
 
 ## Agent Gateway
 [agent_gateway]
-host = "0.0.0.0"
+host = "agent"
 port = 8081
 server_addr = "server:8080"
 
 ## Browser Gateway
 [browser_gateway]
-host = "0.0.0.0"
+host = "browser"
 port = 8083
 server_addr = "server:8080"
 
