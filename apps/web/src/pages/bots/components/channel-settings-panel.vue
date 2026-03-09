@@ -83,6 +83,33 @@
 
     <Separator />
 
+    <div
+      v-if="isEditMode"
+      class="space-y-3"
+    >
+      <div class="flex items-center justify-between gap-3">
+        <h4 class="text-sm font-medium">
+          {{ $t('bots.channels.runtimeStatus') }}
+        </h4>
+        <Badge :variant="runtimeBadgeVariant">
+          {{ runtimeStatusLabel }}
+        </Badge>
+      </div>
+      <div class="rounded-lg border bg-card p-4 space-y-2">
+        <p class="text-sm">
+          {{ runtimeSummary }}
+        </p>
+        <p
+          v-if="runtimeDetail"
+          class="text-xs text-muted-foreground break-all"
+        >
+          {{ runtimeDetail }}
+        </p>
+      </div>
+    </div>
+
+    <Separator v-if="isEditMode" />
+
     <!-- Credentials form (dynamic from config_schema) -->
     <div class="space-y-4">
       <h4 class="text-sm font-medium">
@@ -180,6 +207,16 @@
       </div>
     </div>
 
+    <PairingApprovalCard
+      v-if="showPairingApproval"
+      v-model="pairingCode"
+      :loading="approvingPairing"
+      :title="$t('bots.channels.pairingTitle')"
+      :description="$t('bots.channels.pairingHint')"
+      :helper-text="$t('bots.channels.pairingHelper')"
+      @approve="handleApprovePairing"
+    />
+
     <Separator />
 
     <div class="flex justify-end gap-2">
@@ -235,15 +272,17 @@ import {
   SelectValue,
   SelectContent,
   SelectItem,
+  Badge,
 } from '@memoh/ui'
 import { reactive, watch, computed, ref } from 'vue'
 import { toast } from 'vue-sonner'
 import { useI18n } from 'vue-i18n'
-import { useMutation, useQueryCache } from '@pinia/colada'
-import { putBotsByIdChannelByPlatform, deleteBotsByIdChannelByPlatform, patchBotsByIdChannelByPlatformStatus } from '@memoh/sdk'
-import type { HandlersChannelMeta, ChannelChannelConfig, ChannelFieldSchema, ChannelUpsertConfigRequest } from '@memoh/sdk'
+import { useMutation, useQuery, useQueryCache } from '@pinia/colada'
+import { putBotsByIdChannelByPlatform, deleteBotsByIdChannelByPlatform, patchBotsByIdChannelByPlatformStatus, getBotsByIdChecks } from '@memoh/sdk'
+import type { HandlersChannelMeta, ChannelChannelConfig, ChannelFieldSchema, ChannelUpsertConfigRequest, BotsBotCheck } from '@memoh/sdk'
 import { client } from '@memoh/sdk/client'
 import ConfirmPopover from '@/components/confirm-popover/index.vue'
+import PairingApprovalCard from '@/components/pairing-approval-card.vue'
 
 interface BotChannelItem {
   meta: HandlersChannelMeta
@@ -263,6 +302,8 @@ const emit = defineEmits<{
 const { t } = useI18n()
 const botIdRef = computed(() => props.botId)
 const queryCache = useQueryCache()
+const pairingCode = ref('')
+const approvingPairing = ref(false)
 const { mutateAsync: upsertChannel, isLoading } = useMutation({
   mutation: async ({ platform, data }: { platform: string; data: ChannelUpsertConfigRequest }) => {
     const { data: result } = await putBotsByIdChannelByPlatform({
@@ -272,7 +313,10 @@ const { mutateAsync: upsertChannel, isLoading } = useMutation({
     })
     return result
   },
-  onSettled: () => queryCache.invalidateQueries({ key: ['bot-channels', botIdRef.value] }),
+  onSettled: () => {
+    queryCache.invalidateQueries({ key: ['bot-channels', botIdRef.value] })
+    queryCache.invalidateQueries({ key: ['bot-channel-checks', botIdRef.value] })
+  },
 })
 const { mutateAsync: updateChannelStatus, isLoading: isStatusLoading } = useMutation({
   mutation: async ({ platform, disabled }: { platform: string; disabled: boolean }) => {
@@ -283,7 +327,10 @@ const { mutateAsync: updateChannelStatus, isLoading: isStatusLoading } = useMuta
     })
     return data
   },
-  onSettled: () => queryCache.invalidateQueries({ key: ['bot-channels', botIdRef.value] }),
+  onSettled: () => {
+    queryCache.invalidateQueries({ key: ['bot-channels', botIdRef.value] })
+    queryCache.invalidateQueries({ key: ['bot-channel-checks', botIdRef.value] })
+  },
 })
 const action = ref<'save' | 'toggle' | 'delete' | ''>('')
 const isBusy = computed(() => isLoading.value || isStatusLoading.value || action.value !== '')
@@ -319,6 +366,56 @@ const currentInboundMode = computed(() => {
   if (typeof value !== 'string') return ''
   return value.trim().toLowerCase()
 })
+
+const showPairingApproval = computed(() => props.channelItem.meta.type === 'wecom_ai_bot')
+const activeConfigId = computed(() => String(props.channelItem.config?.id || lastSavedConfigId.value || '').trim())
+
+const { data: runtimeChecks, isLoading: runtimeChecksLoading } = useQuery({
+  key: () => ['bot-channel-checks', botIdRef.value],
+  query: async (): Promise<BotsBotCheck[]> => {
+    const { data } = await getBotsByIdChecks({
+      path: { id: botIdRef.value },
+      throwOnError: true,
+    })
+    return data?.items ?? []
+  },
+  enabled: () => !!botIdRef.value,
+})
+
+const runtimeCheck = computed(() => {
+  const configId = activeConfigId.value
+  if (!configId) return null
+  return (runtimeChecks.value ?? []).find((item) => {
+    if (item.type !== 'channel.connection') return false
+    const metadata = item.metadata ?? {}
+    const value = typeof metadata.config_id === 'string' ? metadata.config_id.trim() : ''
+    return value === configId
+  }) ?? null
+})
+
+const runtimeBadgeVariant = computed<'default' | 'secondary' | 'destructive'>(() => {
+  const status = runtimeCheck.value?.status?.trim().toLowerCase()
+  if (status === 'ok') return 'default'
+  if (status === 'error') return 'destructive'
+  return 'secondary'
+})
+
+const runtimeStatusLabel = computed(() => {
+  if (!activeConfigId.value) return t('bots.channels.runtimeUnknown')
+  if (runtimeChecksLoading.value && !runtimeCheck.value) return t('bots.channels.runtimeChecking')
+  const status = runtimeCheck.value?.status?.trim().toLowerCase()
+  if (status === 'ok') return t('bots.channels.runtimeConnected')
+  if (status === 'error') return t('bots.channels.runtimeDisconnected')
+  if (status === 'warn') return t('bots.channels.runtimeWarning')
+  return t('bots.channels.runtimeUnknown')
+})
+
+const runtimeSummary = computed(() => {
+  if (!activeConfigId.value) return t('bots.channels.runtimeConfigPending')
+  return runtimeCheck.value?.summary?.trim() || t('bots.channels.runtimeUnknownSummary')
+})
+
+const runtimeDetail = computed(() => runtimeCheck.value?.detail?.trim() || '')
 
 const showWebhookCallback = computed(() => {
   return props.channelItem.meta.type === 'feishu' && currentInboundMode.value === 'webhook'
@@ -446,6 +543,30 @@ async function handleDelete() {
     toast.error(detail ? `${t('bots.channels.deleteFailed')}: ${detail}` : t('bots.channels.deleteFailed'))
   } finally {
     action.value = ''
+  }
+}
+
+async function handleApprovePairing() {
+  const token = pairingCode.value.trim().toUpperCase()
+  if (!token) {
+    toast.error(t('settings.approvePairingCodeRequired'))
+    return
+  }
+  approvingPairing.value = true
+  try {
+    await client.post({
+      url: '/users/me/bind_codes/approve',
+      body: { token },
+      throwOnError: true,
+    })
+    pairingCode.value = ''
+    toast.success(t('settings.approvePairingCodeSuccess'))
+    queryCache.invalidateQueries({ key: ['bot-channel-checks', botIdRef.value] })
+  } catch (err) {
+    const detail = err instanceof Error ? err.message : ''
+    toast.error(detail ? `${t('settings.approvePairingCodeFailed')}: ${detail}` : t('settings.approvePairingCodeFailed'))
+  } finally {
+    approvingPairing.value = false
   }
 }
 

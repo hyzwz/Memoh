@@ -230,14 +230,15 @@ type ChannelIdentity struct {
 }
 
 type ChannelIdentityBindCode struct {
-	ID                      pgtype.UUID        `json:"id"`
-	Token                   string             `json:"token"`
-	IssuedByUserID          pgtype.UUID        `json:"issued_by_user_id"`
-	ChannelType             pgtype.Text        `json:"channel_type"`
-	ExpiresAt               pgtype.Timestamptz `json:"expires_at"`
-	UsedAt                  pgtype.Timestamptz `json:"used_at"`
-	UsedByChannelIdentityID pgtype.UUID        `json:"used_by_channel_identity_id"`
-	CreatedAt               pgtype.Timestamptz `json:"created_at"`
+	ID                           pgtype.UUID        `json:"id"`
+	Token                        string             `json:"token"`
+	IssuedByUserID               pgtype.UUID        `json:"issued_by_user_id"`
+	ChannelType                  pgtype.Text        `json:"channel_type"`
+	ExpiresAt                    pgtype.Timestamptz `json:"expires_at"`
+	RequestedByChannelIdentityID pgtype.UUID        `json:"requested_by_channel_identity_id"`
+	UsedAt                       pgtype.Timestamptz `json:"used_at"`
+	UsedByChannelIdentityID      pgtype.UUID        `json:"used_by_channel_identity_id"`
+	CreatedAt                    pgtype.Timestamptz `json:"created_at"`
 }
 
 type CockpitConfig struct {

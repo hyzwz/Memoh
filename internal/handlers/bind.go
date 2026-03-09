@@ -33,6 +33,7 @@ func NewBindHandler(log *slog.Logger, service *bind.Service) *BindHandler {
 // Register registers bind code routes.
 func (h *BindHandler) Register(e *echo.Echo) {
 	e.POST("/users/me/bind_codes", h.Issue)
+	e.POST("/users/me/bind_codes/approve", h.Approve)
 }
 
 type bindIssueRequest struct {
@@ -44,6 +45,18 @@ type bindIssueResponse struct {
 	Token     string    `json:"token"`
 	Platform  string    `json:"platform,omitempty"`
 	ExpiresAt time.Time `json:"expires_at"`
+}
+
+type bindApproveRequest struct {
+	Token string `json:"token"`
+}
+
+type bindApproveResponse struct {
+	Token                   string    `json:"token"`
+	Platform                string    `json:"platform,omitempty"`
+	LinkedChannelIdentityID string    `json:"linked_channel_identity_id,omitempty"`
+	ExpiresAt               time.Time `json:"expires_at,omitempty"`
+	ApprovedAt              time.Time `json:"approved_at,omitempty"`
 }
 
 // Issue creates a new bind code for the current user.
@@ -74,6 +87,45 @@ func (h *BindHandler) Issue(c echo.Context) error {
 		Token:     code.Token,
 		Platform:  code.Platform,
 		ExpiresAt: code.ExpiresAt,
+	})
+}
+
+// Approve consumes a pending pairing request and links the requested channel identity to the current user.
+func (h *BindHandler) Approve(c echo.Context) error {
+	if h.service == nil {
+		return echo.NewHTTPError(http.StatusServiceUnavailable, "bind service not available")
+	}
+	userID, err := h.requireUserID(c)
+	if err != nil {
+		return err
+	}
+
+	var req bindApproveRequest
+	if err := c.Bind(&req); err != nil && !errors.Is(err, io.EOF) {
+		return echo.NewHTTPError(http.StatusBadRequest, err.Error())
+	}
+	req.Token = strings.TrimSpace(req.Token)
+	if req.Token == "" {
+		return echo.NewHTTPError(http.StatusBadRequest, "token is required")
+	}
+
+	code, err := h.service.Approve(c.Request().Context(), req.Token, userID)
+	if err != nil {
+		switch {
+		case errors.Is(err, bind.ErrCodeNotFound):
+			return echo.NewHTTPError(http.StatusNotFound, err.Error())
+		case errors.Is(err, bind.ErrCodeUsed), errors.Is(err, bind.ErrCodeExpired), errors.Is(err, bind.ErrCodeMismatch), errors.Is(err, bind.ErrLinkConflict), errors.Is(err, bind.ErrApprovalRequired):
+			return echo.NewHTTPError(http.StatusBadRequest, err.Error())
+		default:
+			return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+		}
+	}
+	return c.JSON(http.StatusOK, bindApproveResponse{
+		Token:                   code.Token,
+		Platform:                code.Platform,
+		LinkedChannelIdentityID: code.UsedByChannelIdentityID,
+		ExpiresAt:               code.ExpiresAt,
+		ApprovedAt:              code.UsedAt,
 	})
 }
 

@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"log/slog"
+	"strings"
 	"testing"
 	"time"
 
@@ -132,11 +133,17 @@ func (f *fakePreauthServiceIdentity) MarkUsed(_ context.Context, _ string) (prea
 }
 
 type fakeBindService struct {
-	code          bind.Code
-	getErr        error
-	consumeErr    error
-	consumeCalled bool
-	onConsume     func(channelChannelIdentityID string)
+	code                         bind.Code
+	getErr                       error
+	consumeErr                   error
+	consumeCalled                bool
+	onConsume                    func(channelChannelIdentityID string)
+	pendingCode                  bind.Code
+	issuePendingErr              error
+	issuePendingCalls            int
+	lastPendingUserID            string
+	lastPendingPlatform          string
+	lastPendingChannelIdentityID string
 }
 
 func (f *fakeBindService) Get(_ context.Context, token string) (bind.Code, error) {
@@ -155,6 +162,17 @@ func (f *fakeBindService) Consume(_ context.Context, _ bind.Code, channelChannel
 		f.onConsume(channelChannelIdentityID)
 	}
 	return f.consumeErr
+}
+
+func (f *fakeBindService) IssuePending(_ context.Context, issuedByUserID, platform, requestedChannelIdentityID string, _ time.Duration) (bind.Code, error) {
+	f.issuePendingCalls++
+	f.lastPendingUserID = issuedByUserID
+	f.lastPendingPlatform = platform
+	f.lastPendingChannelIdentityID = requestedChannelIdentityID
+	if f.issuePendingErr != nil {
+		return bind.Code{}, f.issuePendingErr
+	}
+	return f.pendingCode, nil
 }
 
 type fakeDirectoryAdapter struct {
@@ -640,6 +658,59 @@ func TestIdentityResolverPersonalBotRejectsNonOwnerDirectEvenIfMember(t *testing
 	}
 	if !state.Decision.Reply.IsEmpty() {
 		t.Fatal("non-owner direct message should be silently ignored")
+	}
+}
+
+func TestIdentityResolverPersonalBotIssuesAutoPairingForUnlinkedDirectMessage(t *testing.T) {
+	channelIdentitySvc := &fakeChannelIdentityService{
+		channelIdentity: identities.ChannelIdentity{ID: "channelIdentity-wecom-1"},
+		linked:          map[string]string{},
+	}
+	policySvc := &fakePolicyService{allow: false, botType: "personal", ownerUserID: "owner-user-1"}
+	bindSvc := &fakeBindService{
+		pendingCode: bind.Code{
+			ID:                           "code-pair-1",
+			Token:                        "PAIR1234",
+			IssuedByUserID:               "owner-user-1",
+			RequestedByChannelIdentityID: "channelIdentity-wecom-1",
+			ExpiresAt:                    time.Now().UTC().Add(10 * time.Minute),
+		},
+	}
+	resolver := NewIdentityResolver(slog.Default(), nil, channelIdentitySvc, nil, policySvc, nil, bindSvc, "Access denied.", "")
+
+	msg := channel.InboundMessage{
+		BotID:       "bot-1",
+		Channel:     channel.ChannelType("wecom_ai_bot"),
+		Message:     channel.Message{Text: "hello"},
+		ReplyTarget: "chatid:direct-chat-1",
+		Sender:      channel.Identity{SubjectID: "wecom-user-1"},
+		Conversation: channel.Conversation{
+			ID:   "direct-chat-1",
+			Type: "direct",
+		},
+	}
+
+	state, err := resolver.Resolve(context.Background(), channel.ChannelConfig{BotID: "bot-1"}, msg)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if bindSvc.issuePendingCalls != 1 {
+		t.Fatalf("expected IssuePending called once, got %d", bindSvc.issuePendingCalls)
+	}
+	if bindSvc.lastPendingUserID != "owner-user-1" {
+		t.Fatalf("expected pending user owner-user-1, got %s", bindSvc.lastPendingUserID)
+	}
+	if bindSvc.lastPendingPlatform != "wecom_ai_bot" {
+		t.Fatalf("expected pending platform wecom_ai_bot, got %s", bindSvc.lastPendingPlatform)
+	}
+	if bindSvc.lastPendingChannelIdentityID != "channelIdentity-wecom-1" {
+		t.Fatalf("expected pending channel identity channelIdentity-wecom-1, got %s", bindSvc.lastPendingChannelIdentityID)
+	}
+	if state.Decision == nil || !state.Decision.Stop {
+		t.Fatal("expected auto pairing decision to stop normal processing")
+	}
+	if got := state.Decision.Reply.PlainText(); got == "" || !strings.Contains(got, "PAIR1234") {
+		t.Fatalf("expected pairing code in reply, got %q", got)
 	}
 }
 

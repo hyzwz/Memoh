@@ -18,6 +18,7 @@ For detailed step-by-step guides on how to create and configure bots for each pl
 
 - **[Telegram Configuration](/channels/telegram)**
 - **[Feishu (Lark) Configuration](/channels/feishu)**
+- **[WeCom AI Bot Configuration](/channels/wecom-ai-bot)**
 - **[Discord Configuration](/channels/discord)**
 
 ---

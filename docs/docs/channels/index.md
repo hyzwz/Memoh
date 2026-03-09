@@ -6,6 +6,7 @@ Memoh currently supports the following channels:
 
 - **[Telegram](./telegram)**: The most feature-rich integration with streaming and attachment support.
 - **[Feishu (Lark)](./feishu)**: Enterprise-ready integration for business workflows.
+- **[WeCom AI Bot](./wecom-ai-bot)**: Enterprise WeChat intelligent bot integration over long-lived WebSocket connections.
 - **[Discord](./discord)**: Community-focused integration for servers and direct messages.
 - **Email**: Connect via standard SMTP and IMAP (configured through Email Providers).
 - **Web**: Built-in chat interface for immediate access.

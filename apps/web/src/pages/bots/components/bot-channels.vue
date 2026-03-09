@@ -87,7 +87,7 @@
             </Button>
           </PopoverTrigger>
           <PopoverContent
-            class="w-56 p-1"
+            class="w-56 max-h-80 overflow-y-auto p-1"
             align="start"
           >
             <div
@@ -161,13 +161,95 @@ const props = defineProps<{
 
 const botIdRef = computed(() => props.botId)
 
+const channelMetaFallbacks: HandlersChannelMeta[] = [
+  {
+    type: 'wecom_ai_bot',
+    display_name: 'WeCom AI Bot',
+    configless: false,
+    capabilities: {
+      text: true,
+      markdown: true,
+      reply: true,
+      streaming: true,
+      block_streaming: true,
+      attachments: false,
+      media: false,
+      chat_types: ['direct', 'group'],
+    },
+    config_schema: {
+      version: 1,
+      fields: {
+        botId: {
+          type: 'string',
+          required: true,
+          title: 'Bot ID',
+          description: 'WeCom AI Bot identifier from the enterprise WeChat console.',
+        },
+        secret: {
+          type: 'secret',
+          required: true,
+          title: 'Secret',
+          description: 'WeCom AI Bot secret used for websocket authentication.',
+        },
+        websocketUrl: {
+          type: 'string',
+          required: false,
+          title: 'WebSocket URL',
+          description: 'Override only if Tencent provides a different endpoint.',
+          example: 'wss://openws.work.weixin.qq.com',
+        },
+        sendThinkingPrompt: {
+          type: 'bool',
+          required: false,
+          title: 'Send Thinking Prompt',
+          description: 'Emit the initial <think></think> placeholder when streaming starts.',
+        },
+      },
+    },
+    user_config_schema: {
+      version: 1,
+      fields: {
+        userid: {
+          type: 'string',
+          required: false,
+          title: 'User ID',
+        },
+        chatid: {
+          type: 'string',
+          required: false,
+          title: 'Chat ID',
+          description: 'Preferred for proactive delivery. Direct chats can persist this automatically from inbound messages.',
+        },
+      },
+    },
+    target_spec: {
+      format: 'userid:xxx | chatid:xxx',
+      hints: [
+        { label: 'User ID', example: 'userid:zhangsan' },
+        { label: 'Chat ID', example: 'chatid:ww-group-chat-id' },
+      ],
+    },
+  },
+]
+
+function mergeChannelMetas(metas: HandlersChannelMeta[]): HandlersChannelMeta[] {
+  const map = new Map<string, HandlersChannelMeta>()
+  for (const meta of channelMetaFallbacks) {
+    if (meta.type) map.set(meta.type, meta)
+  }
+  for (const meta of metas) {
+    if (meta.type) map.set(meta.type, meta)
+  }
+  return Array.from(map.values())
+}
+
 const { data: channels, isLoading, refetch } = useQuery({
   key: () => ['bot-channels', botIdRef.value],
   query: async (): Promise<BotChannelItem[]> => {
     const { data: metas } = await getChannels({ throwOnError: true })
-    if (!metas) return []
+    const mergedMetas = mergeChannelMetas(metas ?? [])
 
-    const configurableTypes = metas.filter((m) => !m.configless)
+    const configurableTypes = mergedMetas.filter((m) => !m.configless)
 
     const results = await Promise.all(
       configurableTypes.map(async (meta) => {
@@ -215,6 +297,7 @@ function channelIcon(type: string): string {
     qq: 'QQ',
     telegram: 'TG',
     feishu: '飞',
+    wecom_ai_bot: '企微',
   }
   return icons[type] ?? type.slice(0, 2).toUpperCase()
 }
@@ -224,6 +307,7 @@ function channelBadgeClass(type: string): string {
     qq: 'bg-sky-100 text-sky-700 dark:bg-sky-900 dark:text-sky-300',
     telegram: 'bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300',
     feishu: 'bg-indigo-100 text-indigo-700 dark:bg-indigo-900 dark:text-indigo-300',
+    wecom_ai_bot: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900 dark:text-emerald-300',
   }
   return classes[type] ?? 'bg-secondary text-secondary-foreground'
 }

@@ -1,7 +1,9 @@
 package inbound
 
 import (
+	"bytes"
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -14,6 +16,7 @@ import (
 	"sync"
 	"time"
 	"unicode"
+	"unicode/utf8"
 
 	"github.com/memohai/memoh/internal/attachment"
 	"github.com/memohai/memoh/internal/auth"
@@ -30,6 +33,8 @@ const (
 	silentReplyToken        = "NO_REPLY"
 	minDuplicateTextLength  = 10
 	processingStatusTimeout = 60 * time.Second
+	inboundTextPreviewBytes = 16 * 1024
+	inboundTextPreviewRunes = 4000
 )
 
 var whitespacePattern = regexp.MustCompile(`\s+`)
@@ -185,6 +190,11 @@ func (p *ChannelInboundProcessor) HandleInbound(ctx context.Context, cfg channel
 	}
 	if state.Decision != nil && state.Decision.Stop {
 		if !state.Decision.Reply.IsEmpty() {
+			if err := p.sendImmediateReply(ctx, sender, msg, state.Decision.Reply); err == nil {
+				return nil
+			} else if p.logger != nil {
+				p.logger.Warn("immediate reply via stream failed; falling back to send", slog.Any("error", err))
+			}
 			return sender.Send(ctx, channel.OutboundMessage{
 				Target:  strings.TrimSpace(msg.ReplyTarget),
 				Message: state.Decision.Reply,
@@ -342,6 +352,9 @@ func (p *ChannelInboundProcessor) HandleInbound(ctx context.Context, cfg channel
 	streamMeta := map[string]any{
 		"route_id":          resolved.RouteID,
 		"conversation_type": msg.Conversation.Type,
+	}
+	if sourceReqID := strings.TrimSpace(channel.ReadString(msg.Metadata, "source_req_id")); sourceReqID != "" {
+		streamMeta["source_req_id"] = sourceReqID
 	}
 	if strings.TrimSpace(identity.UserID) != "" {
 		streamMeta["context_user_id"] = strings.TrimSpace(identity.UserID)
@@ -632,6 +645,32 @@ func (p *ChannelInboundProcessor) HandleInbound(ctx context.Context, cfg channel
 		}
 	}
 	return nil
+}
+
+func (p *ChannelInboundProcessor) sendImmediateReply(ctx context.Context, sender channel.StreamReplySender, msg channel.InboundMessage, reply channel.Message) error {
+	target := strings.TrimSpace(msg.ReplyTarget)
+	sourceReqID := strings.TrimSpace(channel.ReadString(msg.Metadata, "source_req_id"))
+	if target == "" || sourceReqID == "" {
+		return errors.New("source reply stream not available")
+	}
+	stream, err := sender.OpenStream(ctx, target, channel.StreamOptions{
+		SourceMessageID: strings.TrimSpace(msg.Message.ID),
+		Metadata: map[string]any{
+			"source_req_id": sourceReqID,
+		},
+	})
+	if err != nil {
+		return err
+	}
+	defer func() {
+		_ = stream.Close(ctx)
+	}()
+	return stream.Push(ctx, channel.StreamEvent{
+		Type: channel.StreamEventFinal,
+		Final: &channel.StreamFinalizePayload{
+			Message: reply,
+		},
+	})
 }
 
 func shouldTriggerAssistantResponse(msg channel.InboundMessage) bool {
@@ -1128,27 +1167,42 @@ func mapStreamChunkToChannelEvents(chunk conversation.StreamChunk) ([]channel.St
 
 func buildInboundQuery(message channel.Message, attachments []conversation.ChatAttachment) string {
 	text := strings.TrimSpace(message.PlainText())
-	if text != "" {
-		return text
-	}
-	if len(message.Attachments) == 0 {
+	if text == "" && len(message.Attachments) == 0 {
 		return ""
 	}
-	count := len(message.Attachments)
-	fallback := fmt.Sprintf("[User sent %d attachments]", count)
-	if count == 1 {
-		fallback = "[User sent 1 attachment]"
+	if text == "" {
+		count := len(message.Attachments)
+		text = fmt.Sprintf("[User sent %d attachments]", count)
+		if count == 1 {
+			text = "[User sent 1 attachment]"
+		}
 	}
 	refs := collectContainerAttachmentRefs(attachments)
-	if len(refs) == 0 {
-		return fallback
+	previews := collectInlineAttachmentPreviews(attachments)
+	if len(refs) == 0 && len(previews) == 0 {
+		return text
 	}
 	var sb strings.Builder
-	sb.WriteString(fallback)
-	sb.WriteString("\n[Attachment refs: container paths]\n")
-	for _, ref := range refs {
-		sb.WriteString("- ")
-		sb.WriteString(ref)
+	sb.WriteString(text)
+	if len(refs) > 0 {
+		sb.WriteString("\n[Attachment refs: container paths]\n")
+		for _, ref := range refs {
+			sb.WriteString("- ")
+			sb.WriteString(ref)
+			sb.WriteByte('\n')
+		}
+	}
+	for _, preview := range previews {
+		sb.WriteString("\n[Attachment text preview")
+		if preview.Name != "" {
+			sb.WriteString(": ")
+			sb.WriteString(preview.Name)
+		}
+		sb.WriteString("]\n")
+		sb.WriteString(preview.Text)
+		if preview.Truncated {
+			sb.WriteString("\n...[truncated]")
+		}
 		sb.WriteByte('\n')
 	}
 	return strings.TrimSpace(sb.String())
@@ -1175,6 +1229,34 @@ func collectContainerAttachmentRefs(attachments []conversation.ChatAttachment) [
 		return nil
 	}
 	return refs
+}
+
+type attachmentTextPreview struct {
+	Name      string
+	Text      string
+	Truncated bool
+}
+
+func collectInlineAttachmentPreviews(attachments []conversation.ChatAttachment) []attachmentTextPreview {
+	if len(attachments) == 0 {
+		return nil
+	}
+	previews := make([]attachmentTextPreview, 0, len(attachments))
+	for _, att := range attachments {
+		text := strings.TrimSpace(channel.ReadString(att.Metadata, "inline_text_preview"))
+		if text == "" {
+			continue
+		}
+		previews = append(previews, attachmentTextPreview{
+			Name:      strings.TrimSpace(att.Name),
+			Text:      text,
+			Truncated: metadataBool(att.Metadata, "inline_text_preview_truncated"),
+		})
+	}
+	if len(previews) == 0 {
+		return nil
+	}
+	return previews
 }
 
 func normalizeContentPartType(raw string) channel.MessagePartType {
@@ -1534,8 +1616,11 @@ func (p *ChannelInboundProcessor) ingestInboundAttachments(
 			item.Size = payload.size
 		}
 		mediaType := attachment.MapMediaType(string(item.Type))
-		preparedReader, finalMime, err := attachment.PrepareReaderAndMime(payload.reader, mediaType, sourceMime)
+		previewCapture := newPrefixCaptureWriter(inboundTextPreviewBytes)
+		preparedReader, finalMime, err := attachment.PrepareReaderAndMime(io.TeeReader(payload.reader, previewCapture), mediaType, sourceMime)
 		if err != nil {
+			maybeSetInboundTextPreview(&item, previewCapture.Bytes(), sourceMime)
+			maybeSetBase64Fallback(&item, previewCapture.Bytes(), sourceMime, strings.TrimSpace(item.Name))
 			if payload.reader != nil {
 				_ = payload.reader.Close()
 			}
@@ -1564,6 +1649,8 @@ func (p *ChannelInboundProcessor) ingestInboundAttachments(
 			_ = payload.reader.Close()
 		}
 		if err != nil {
+			maybeSetInboundTextPreview(&item, previewCapture.Bytes(), item.Mime)
+			maybeSetBase64Fallback(&item, previewCapture.Bytes(), item.Mime, strings.TrimSpace(item.Name))
 			if p.logger != nil {
 				p.logger.Warn(
 					"inbound attachment ingest failed",
@@ -1989,6 +2076,146 @@ func mapChannelToChatAttachments(attachments []channel.Attachment) []conversatio
 		result = append(result, ca)
 	}
 	return result
+}
+
+type prefixCaptureWriter struct {
+	buf bytes.Buffer
+	max int
+}
+
+func newPrefixCaptureWriter(max int) *prefixCaptureWriter {
+	return &prefixCaptureWriter{max: max}
+}
+
+func (w *prefixCaptureWriter) Write(p []byte) (int, error) {
+	if w == nil || w.max <= 0 {
+		return len(p), nil
+	}
+	remaining := w.max - w.buf.Len()
+	if remaining > 0 {
+		if len(p) > remaining {
+			p = p[:remaining]
+		}
+		_, _ = w.buf.Write(p)
+	}
+	return len(p), nil
+}
+
+func (w *prefixCaptureWriter) Bytes() []byte {
+	if w == nil {
+		return nil
+	}
+	return w.buf.Bytes()
+}
+
+// maybeSetBase64Fallback encodes captured bytes as a base64 data URL when an
+// attachment has no other viable transport (no URL, no ContentHash, no Base64).
+// This prevents the attachment from being silently dropped by the gateway when
+// media ingest fails (e.g. storage provider unavailable).
+func maybeSetBase64Fallback(att *channel.Attachment, sample []byte, rawMime, name string) {
+	if att == nil || len(sample) == 0 {
+		return
+	}
+	// Only apply if the attachment has no other transport path.
+	if strings.TrimSpace(att.ContentHash) != "" || strings.TrimSpace(att.URL) != "" || strings.TrimSpace(att.Base64) != "" {
+		return
+	}
+	mimeType := attachment.NormalizeMime(rawMime)
+	if mimeType == "" {
+		mimeType = "application/octet-stream"
+	}
+	att.Base64 = attachment.NormalizeBase64DataURL(
+		base64.StdEncoding.EncodeToString(sample),
+		mimeType,
+	)
+	if strings.TrimSpace(att.Mime) == "" {
+		att.Mime = mimeType
+	}
+}
+
+func maybeSetInboundTextPreview(att *channel.Attachment, sample []byte, rawMime string) {
+	if att == nil {
+		return
+	}
+	mimeType := attachment.NormalizeMime(rawMime)
+	if !isTextLikeAttachmentSample(sample, mimeType, strings.TrimSpace(att.Name)) {
+		return
+	}
+	preview, truncated := normalizeAttachmentTextPreview(sample)
+	if preview == "" {
+		return
+	}
+	if att.Metadata == nil {
+		att.Metadata = make(map[string]any)
+	}
+	att.Metadata["inline_text_preview"] = preview
+	if truncated {
+		att.Metadata["inline_text_preview_truncated"] = true
+	}
+}
+
+func isTextLikeAttachmentSample(sample []byte, mimeType, name string) bool {
+	if len(sample) == 0 || bytes.IndexByte(sample, 0) >= 0 {
+		return false
+	}
+	if mimeType != "" {
+		if strings.HasPrefix(mimeType, "text/") {
+			return true
+		}
+		switch mimeType {
+		case "application/json", "application/xml", "application/javascript",
+			"application/x-yaml", "application/yaml", "application/toml":
+			return true
+		}
+	}
+	switch strings.ToLower(strings.TrimSpace(filepath.Ext(name))) {
+	case ".md", ".txt", ".json", ".xml", ".yaml", ".yml", ".toml", ".csv",
+		".log", ".ini", ".conf", ".sh", ".py", ".go", ".js", ".ts", ".tsx",
+		".jsx", ".java", ".rb", ".rs", ".sql", ".html", ".css":
+		return true
+	}
+	return utf8.Valid(sample) && printableTextRatio(sample) >= 0.9
+}
+
+func printableTextRatio(sample []byte) float64 {
+	if len(sample) == 0 {
+		return 0
+	}
+	total := 0
+	printable := 0
+	for len(sample) > 0 {
+		r, size := utf8.DecodeRune(sample)
+		if r == utf8.RuneError && size == 1 {
+			sample = sample[1:]
+			total++
+			continue
+		}
+		sample = sample[size:]
+		total++
+		if r == '\n' || r == '\r' || r == '\t' || unicode.IsPrint(r) {
+			printable++
+		}
+	}
+	if total == 0 {
+		return 0
+	}
+	return float64(printable) / float64(total)
+}
+
+func normalizeAttachmentTextPreview(sample []byte) (string, bool) {
+	if len(sample) == 0 || !utf8.Valid(sample) {
+		return "", false
+	}
+	text := strings.ReplaceAll(string(sample), "\r\n", "\n")
+	text = strings.TrimSpace(text)
+	if text == "" {
+		return "", false
+	}
+	runes := []rune(text)
+	if len(runes) <= inboundTextPreviewRunes {
+		return text, false
+	}
+	return strings.TrimSpace(string(runes[:inboundTextPreviewRunes])), true
 }
 
 // parseAttachmentDelta converts raw JSON attachment data to channel Attachments.

@@ -1114,7 +1114,12 @@ func (r *Resolver) inlineAssetAsDataURL(ctx context.Context, botID, contentHash,
 	if mime == "" {
 		mime = strings.TrimSpace(assetMime)
 	}
-	dataURL, resolvedMime, err := encodeReaderAsDataURL(reader, gatewayInlineAttachmentMaxBytes, attachmentType, mime)
+	// Resize large images to stay within model API limits (Anthropic recommends ≤1568px).
+	resized, resizedMime, err := readAndResizeImage(reader, gatewayInlineAttachmentMaxBytes, attachmentType, mime)
+	if err != nil {
+		return "", "", err
+	}
+	dataURL, resolvedMime, err := encodeReaderAsDataURL(resized, gatewayInlineAttachmentMaxBytes, attachmentType, resizedMime)
 	if err != nil {
 		return "", "", err
 	}

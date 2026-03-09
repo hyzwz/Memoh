@@ -68,8 +68,10 @@ func (*fakeChatGateway) TriggerSchedule(_ context.Context, _ string, _ schedule.
 }
 
 type fakeReplySender struct {
-	sent   []channel.OutboundMessage
-	events []channel.StreamEvent
+	sent           []channel.OutboundMessage
+	events         []channel.StreamEvent
+	openTargets    []string
+	openStreamOpts []channel.StreamOptions
 }
 
 func (s *fakeReplySender) Send(_ context.Context, msg channel.OutboundMessage) error {
@@ -77,7 +79,9 @@ func (s *fakeReplySender) Send(_ context.Context, msg channel.OutboundMessage) e
 	return nil
 }
 
-func (s *fakeReplySender) OpenStream(_ context.Context, target string, _ channel.StreamOptions) (channel.OutboundStream, error) {
+func (s *fakeReplySender) OpenStream(_ context.Context, target string, opts channel.StreamOptions) (channel.OutboundStream, error) {
+	s.openTargets = append(s.openTargets, strings.TrimSpace(target))
+	s.openStreamOpts = append(s.openStreamOpts, opts)
 	return &fakeOutboundStream{
 		sender: s,
 		target: strings.TrimSpace(target),
@@ -105,6 +109,32 @@ func (s *fakeOutboundStream) Push(_ context.Context, event channel.StreamEvent) 
 
 func (*fakeOutboundStream) Close(_ context.Context) error {
 	return nil
+}
+
+func TestBuildInboundQueryIncludesInlineTextPreview(t *testing.T) {
+	t.Parallel()
+
+	query := buildInboundQuery(channel.Message{
+		Attachments: []channel.Attachment{{Type: channel.AttachmentFile}},
+	}, []conversation.ChatAttachment{
+		{
+			Type: "file",
+			Name: "OpenClaw接入企业微信智能机器人.md",
+			Metadata: map[string]any{
+				"inline_text_preview": "## 前期准备\n1. 安装企业微信",
+			},
+		},
+	})
+
+	if !strings.Contains(query, "[User sent 1 attachment]") {
+		t.Fatalf("expected attachment fallback, got %q", query)
+	}
+	if !strings.Contains(query, "[Attachment text preview: OpenClaw接入企业微信智能机器人.md]") {
+		t.Fatalf("expected attachment preview header, got %q", query)
+	}
+	if !strings.Contains(query, "## 前期准备") {
+		t.Fatalf("expected attachment preview text, got %q", query)
+	}
 }
 
 type fakeProcessingStatusNotifier struct {
@@ -367,6 +397,50 @@ func TestChannelInboundProcessorWithIdentity(t *testing.T) {
 	}
 }
 
+func TestChannelInboundProcessorPropagatesSourceReqIDToOpenStream(t *testing.T) {
+	channelIdentitySvc := &fakeChannelIdentityService{channelIdentity: identities.ChannelIdentity{ID: "channelIdentity-reqid"}}
+	memberSvc := &fakeMemberService{isMember: true}
+	chatSvc := &fakeChatService{resolveResult: route.ResolveConversationResult{ChatID: "chat-reqid", RouteID: "route-reqid"}}
+	gateway := &fakeChatGateway{
+		resp: conversation.ChatResponse{
+			Messages: []conversation.ModelMessage{
+				{Role: "assistant", Content: conversation.NewTextContent("AI reply")},
+			},
+		},
+	}
+	processor := NewChannelInboundProcessor(slog.Default(), nil, chatSvc, chatSvc, gateway, channelIdentitySvc, memberSvc, nil, nil, nil, "", 0)
+	sender := &fakeReplySender{}
+
+	cfg := channel.ChannelConfig{ID: "cfg-reqid", BotID: "bot-1", ChannelType: channel.ChannelType("wecom_ai_bot")}
+	msg := channel.InboundMessage{
+		BotID:       "bot-1",
+		Channel:     channel.ChannelType("wecom_ai_bot"),
+		Message:     channel.Message{ID: "msg-reqid-1", Text: "hello"},
+		ReplyTarget: "chatid:chat-direct-1",
+		Sender:      channel.Identity{SubjectID: "user-reqid", DisplayName: "UserReq"},
+		Conversation: channel.Conversation{
+			ID:   "chat-direct-1",
+			Type: "direct",
+		},
+		Metadata: map[string]any{
+			"source_req_id": "req-123",
+		},
+	}
+
+	if err := processor.HandleInbound(context.Background(), cfg, msg, sender); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(sender.openStreamOpts) != 1 {
+		t.Fatalf("expected one open stream call, got %d", len(sender.openStreamOpts))
+	}
+	if got := sender.openTargets[0]; got != "chatid:chat-direct-1" {
+		t.Fatalf("unexpected open stream target: %s", got)
+	}
+	if got := channel.ReadString(sender.openStreamOpts[0].Metadata, "source_req_id"); got != "req-123" {
+		t.Fatalf("unexpected source_req_id metadata: %q", got)
+	}
+}
+
 func TestChannelInboundProcessorDenied(t *testing.T) {
 	channelIdentitySvc := &fakeChannelIdentityService{channelIdentity: identities.ChannelIdentity{ID: "channelIdentity-2"}}
 	memberSvc := &fakeMemberService{isMember: false}
@@ -394,6 +468,49 @@ func TestChannelInboundProcessorDenied(t *testing.T) {
 	}
 	if gateway.gotReq.Query != "" {
 		t.Error("denied user should not trigger chat call")
+	}
+}
+
+func TestChannelInboundProcessorDeniedUsesOpenStreamWhenSourceReqIDExists(t *testing.T) {
+	channelIdentitySvc := &fakeChannelIdentityService{
+		channelIdentity: identities.ChannelIdentity{ID: "channelIdentity-denied-stream"},
+		linked:          map[string]string{},
+	}
+	memberSvc := &fakeMemberService{isMember: false}
+	policySvc := &fakePolicyService{allow: false}
+	chatSvc := &fakeChatService{}
+	gateway := &fakeChatGateway{}
+	processor := NewChannelInboundProcessor(slog.Default(), nil, chatSvc, chatSvc, gateway, channelIdentitySvc, memberSvc, policySvc, nil, nil, "", 0)
+	sender := &fakeReplySender{}
+
+	cfg := channel.ChannelConfig{ID: "cfg-denied-stream", BotID: "bot-1", ChannelType: channel.ChannelType("wecom_ai_bot")}
+	msg := channel.InboundMessage{
+		BotID:       "bot-1",
+		Channel:     channel.ChannelType("wecom_ai_bot"),
+		Message:     channel.Message{ID: "msg-denied-stream", Text: "hello"},
+		ReplyTarget: "chatid:chat-direct-1",
+		Sender:      channel.Identity{SubjectID: "user-denied-stream", DisplayName: "DeniedUser"},
+		Conversation: channel.Conversation{
+			ID:   "chat-direct-1",
+			Type: "direct",
+		},
+		Metadata: map[string]any{
+			"source_req_id": "req-denied-1",
+		},
+	}
+
+	err := processor.HandleInbound(context.Background(), cfg, msg, sender)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(sender.openStreamOpts) != 1 {
+		t.Fatalf("expected one open stream call, got %d", len(sender.openStreamOpts))
+	}
+	if got := channel.ReadString(sender.openStreamOpts[0].Metadata, "source_req_id"); got != "req-denied-1" {
+		t.Fatalf("unexpected source_req_id metadata: %q", got)
+	}
+	if len(sender.sent) != 1 || !strings.Contains(sender.sent[0].Message.PlainText(), "denied") {
+		t.Fatalf("expected streamed access denied reply, got: %+v", sender.sent)
 	}
 }
 

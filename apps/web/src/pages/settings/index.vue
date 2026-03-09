@@ -26,33 +26,29 @@
       <!-- Display Settings -->
       <section>
         <h2 class="mb-2 flex items-center text-base font-semibold">
-          <FontAwesomeIcon
-            :icon="['fas', 'gear']"
-            class="mr-2"
-          />
-          {{ $t('settings.display') }}
+          <FontAwesomeIcon :icon="['fas', 'gear']" class="mr-2" />
+          {{ $t("settings.display") }}
         </h2>
         <Separator />
         <div class="mt-4 space-y-4">
           <div class="flex items-center justify-between">
-            <Label>{{ $t('settings.language') }}</Label>
+            <Label>{{ $t("settings.language") }}</Label>
             <Select
               :model-value="language"
               @update:model-value="(v) => v && setLanguage(v as Locale)"
             >
-              <SelectTrigger
-                class="w-40"
-                :aria-label="$t('settings.language')"
-              >
-                <SelectValue :placeholder="$t('settings.languagePlaceholder')" />
+              <SelectTrigger class="w-40" :aria-label="$t('settings.language')">
+                <SelectValue
+                  :placeholder="$t('settings.languagePlaceholder')"
+                />
               </SelectTrigger>
               <SelectContent>
                 <SelectGroup>
                   <SelectItem value="zh">
-                    {{ $t('settings.langZh') }}
+                    {{ $t("settings.langZh") }}
                   </SelectItem>
                   <SelectItem value="en">
-                    {{ $t('settings.langEn') }}
+                    {{ $t("settings.langEn") }}
                   </SelectItem>
                 </SelectGroup>
               </SelectContent>
@@ -60,24 +56,21 @@
           </div>
           <Separator />
           <div class="flex items-center justify-between">
-            <Label>{{ $t('settings.theme') }}</Label>
+            <Label>{{ $t("settings.theme") }}</Label>
             <Select
               :model-value="theme"
               @update:model-value="(v) => v && setTheme(v as 'light' | 'dark')"
             >
-              <SelectTrigger
-                class="w-40"
-                :aria-label="$t('settings.theme')"
-              >
+              <SelectTrigger class="w-40" :aria-label="$t('settings.theme')">
                 <SelectValue :placeholder="$t('settings.themePlaceholder')" />
               </SelectTrigger>
               <SelectContent>
                 <SelectGroup>
                   <SelectItem value="light">
-                    {{ $t('settings.themeLight') }}
+                    {{ $t("settings.themeLight") }}
                   </SelectItem>
                   <SelectItem value="dark">
-                    {{ $t('settings.themeDark') }}
+                    {{ $t("settings.themeDark") }}
                   </SelectItem>
                 </SelectGroup>
               </SelectContent>
@@ -89,13 +82,10 @@
       <!-- Logout -->
       <section>
         <Separator class="mb-4" />
-        <ConfirmPopover
-          :message="$t('auth.logoutConfirm')"
-          @confirm="onLogout"
-        >
+        <ConfirmPopover :message="$t('auth.logoutConfirm')" @confirm="onLogout">
           <template #trigger>
             <Button>
-              {{ $t('auth.logout') }}
+              {{ $t("auth.logout") }}
             </Button>
           </template>
         </ConfirmPopover>
@@ -128,25 +118,19 @@
       <!-- Linked Channels -->
       <section>
         <h2 class="mb-2 flex items-center text-base font-semibold">
-          <FontAwesomeIcon
-            :icon="['fas', 'network-wired']"
-            class="mr-2"
-          />
-          {{ $t('settings.linkedChannels') }}
+          <FontAwesomeIcon :icon="['fas', 'network-wired']" class="mr-2" />
+          {{ $t("settings.linkedChannels") }}
         </h2>
         <Separator />
         <div class="mt-4 space-y-3">
-          <p
-            v-if="loadingIdentities"
-            class="text-sm text-muted-foreground"
-          >
-            {{ $t('common.loading') }}
+          <p v-if="loadingIdentities" class="text-sm text-muted-foreground">
+            {{ $t("common.loading") }}
           </p>
           <p
             v-else-if="identities.length === 0"
             class="text-sm text-muted-foreground"
           >
-            {{ $t('settings.noLinkedChannels') }}
+            {{ $t("settings.noLinkedChannels") }}
           </p>
           <template v-else>
             <div
@@ -172,6 +156,13 @@
           </template>
         </div>
       </section>
+
+      <PairingApprovalCard
+        v-model="bindForm.approveToken"
+        :loading="approvingBindCode"
+        :helper-text="$t('settings.approvePairingCodeSettingsHelper')"
+        @approve="onApprovePairingCode"
+      />
 
       <BindCodeSection
         :any-platform-value="anyPlatformValue"
@@ -217,6 +208,7 @@ import ConfirmPopover from '@/components/confirm-popover/index.vue'
 import ProfileSection from './components/profile-section.vue'
 import PasswordSection from './components/password-section.vue'
 import BindCodeSection from './components/bind-code-section.vue'
+import PairingApprovalCard from '@/components/pairing-approval-card.vue'
 import { getUsersMe, putUsersMe, putUsersMePassword, getUsersMeIdentities } from '@memoh/sdk'
 import { client } from '@memoh/sdk/client'
 import type { AccountsAccount, AccountsUpdateProfileRequest, AccountsUpdatePasswordRequest } from '@memoh/sdk'
@@ -245,6 +237,14 @@ interface IssueBindCodeResponse {
   expires_at: string
 }
 
+interface ApproveBindCodeResponse {
+  token: string
+  platform?: string
+  linked_channel_identity_id?: string
+  expires_at?: string
+  approved_at?: string
+}
+
 type UserAccount = AccountsAccount
 
 const anyPlatformValue = '__all__'
@@ -270,6 +270,7 @@ const loadingIdentities = ref(false)
 const savingProfile = ref(false)
 const savingPassword = ref(false)
 const generatingBindCode = ref(false)
+const approvingBindCode = ref(false)
 
 const profileForm = reactive({
   display_name: '',
@@ -285,6 +286,7 @@ const passwordForm = reactive({
 const bindForm = reactive({
   platform: '',
   ttlSeconds: 3600,
+  approveToken: '',
 })
 
 const displayUserID = computed(() => account.value?.id || userInfo.id || '')
@@ -303,7 +305,7 @@ function platformLabel(platformKey: string): string {
 }
 
 const platformOptions = computed(() => {
-  const options = new Set<string>(['telegram', 'feishu', 'discord', 'qq'])
+  const options = new Set<string>(['telegram', 'feishu', 'discord', 'qq', 'wecom_ai_bot'])
   for (const identity of identities.value) {
     const platform = identity.channel.trim()
     if (platform) {
@@ -446,6 +448,29 @@ async function copyBindCode() {
   }
 }
 
+async function onApprovePairingCode() {
+  const token = bindForm.approveToken.trim()
+  if (!token) {
+    toast.error(t('settings.approvePairingCodeRequired'))
+    return
+  }
+  approvingBindCode.value = true
+  try {
+    await client.post<ApproveBindCodeResponse>({
+      url: '/users/me/bind_codes/approve',
+      body: { token },
+      throwOnError: true,
+    })
+    bindForm.approveToken = ''
+    await loadMyIdentities()
+    toast.success(t('settings.approvePairingCodeSuccess'))
+  } catch (error) {
+    toast.error(resolveApiErrorMessage(error, t('settings.approvePairingCodeFailed'), { prefixFallback: true }))
+  } finally {
+    approvingBindCode.value = false
+  }
+}
+
 function formatDate(value: string) {
   return formatDateTime(value, { fallback: value })
 }
@@ -454,5 +479,4 @@ function onLogout() {
   exitLogin()
   void router.replace({ name: 'Login' })
 }
-
 </script>

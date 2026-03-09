@@ -13,6 +13,7 @@ const CHANNEL_ICONS: Record<string, [string, string]> = {
   qq: ['fab', 'qq'],
   telegram: ['fab', 'telegram'],
   feishu: ['fas', 'comment-dots'],
+  wecom_ai_bot: ['fas', 'comments'],
   web: ['fas', 'globe'],
   slack: ['fab', 'slack'],
   discord: ['fab', 'discord'],

@@ -129,3 +129,38 @@ func TestBindConsumeConflictDoesNotMarkUsed(t *testing.T) {
 		t.Fatal("expected code to remain unused after conflict")
 	}
 }
+
+func TestBindApproveLinksPendingChannelIdentityToOwner(t *testing.T) {
+	queries, channelIdentitySvc, bindSvc, cleanup := setupBindConsumeIntegrationTest(t)
+	defer cleanup()
+
+	ctx := context.Background()
+	ownerUserID, err := createUserForBind(ctx, queries)
+	if err != nil {
+		t.Fatalf("create owner user failed: %v", err)
+	}
+	requestedIdentity, err := channelIdentitySvc.ResolveByChannelIdentity(ctx, "wecom_ai_bot", fmt.Sprintf("pairing-%d", time.Now().UnixNano()), "pairing", nil)
+	if err != nil {
+		t.Fatalf("create requested channelIdentity failed: %v", err)
+	}
+
+	code, err := bindSvc.IssuePending(ctx, ownerUserID, "wecom_ai_bot", requestedIdentity.ID, 10*time.Minute)
+	if err != nil {
+		t.Fatalf("issue pending bind code failed: %v", err)
+	}
+	approved, err := bindSvc.Approve(ctx, code.Token, ownerUserID)
+	if err != nil {
+		t.Fatalf("approve pending bind code failed: %v", err)
+	}
+	if approved.UsedByChannelIdentityID != requestedIdentity.ID {
+		t.Fatalf("expected used_by_channel_identity_id=%s, got %s", requestedIdentity.ID, approved.UsedByChannelIdentityID)
+	}
+
+	linkedUserID, err := channelIdentitySvc.GetLinkedUserID(ctx, requestedIdentity.ID)
+	if err != nil {
+		t.Fatalf("get linked user failed: %v", err)
+	}
+	if linkedUserID != ownerUserID {
+		t.Fatalf("expected linked user=%s, got %s", ownerUserID, linkedUserID)
+	}
+}

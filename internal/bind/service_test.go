@@ -83,15 +83,18 @@ func TestToCode(t *testing.T) {
 	now := time.Now().UTC()
 	var usedBy pgtype.UUID
 	_ = usedBy.Scan("660e8400-e29b-41d4-a716-446655440001")
+	var requestedBy pgtype.UUID
+	_ = requestedBy.Scan("770e8400-e29b-41d4-a716-446655440002")
 	row := sqlc.ChannelIdentityBindCode{
-		ID:                      pgID,
-		Token:                   "ABC12345",
-		IssuedByUserID:          pgID,
-		ChannelType:             pgtype.Text{String: " Feishu ", Valid: true},
-		ExpiresAt:               pgtype.Timestamptz{Time: now, Valid: true},
-		UsedAt:                  pgtype.Timestamptz{Time: now, Valid: true},
-		UsedByChannelIdentityID: usedBy,
-		CreatedAt:               pgtype.Timestamptz{Time: now, Valid: true},
+		ID:                           pgID,
+		Token:                        "ABC12345",
+		IssuedByUserID:               pgID,
+		ChannelType:                  pgtype.Text{String: " Feishu ", Valid: true},
+		ExpiresAt:                    pgtype.Timestamptz{Time: now, Valid: true},
+		RequestedByChannelIdentityID: requestedBy,
+		UsedAt:                       pgtype.Timestamptz{Time: now, Valid: true},
+		UsedByChannelIdentityID:      usedBy,
+		CreatedAt:                    pgtype.Timestamptz{Time: now, Valid: true},
 	}
 
 	c := toCode(row)
@@ -103,6 +106,9 @@ func TestToCode(t *testing.T) {
 	}
 	if c.IssuedByUserID != "550e8400-e29b-41d4-a716-446655440000" {
 		t.Errorf("IssuedByUserID = %q", c.IssuedByUserID)
+	}
+	if c.RequestedByChannelIdentityID != "770e8400-e29b-41d4-a716-446655440002" {
+		t.Errorf("RequestedByChannelIdentityID = %q", c.RequestedByChannelIdentityID)
 	}
 	if c.ExpiresAt.IsZero() {
 		t.Error("ExpiresAt should be set")

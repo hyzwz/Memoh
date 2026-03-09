@@ -262,6 +262,7 @@ CREATE TABLE IF NOT EXISTS channel_identity_bind_codes (
   issued_by_user_id UUID NOT NULL REFERENCES users(id),
   channel_type TEXT,
   expires_at TIMESTAMPTZ,
+  requested_by_channel_identity_id UUID REFERENCES channel_identities(id),
   used_at TIMESTAMPTZ,
   used_by_channel_identity_id UUID REFERENCES channel_identities(id),
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
@@ -269,6 +270,7 @@ CREATE TABLE IF NOT EXISTS channel_identity_bind_codes (
 );
 
 CREATE INDEX IF NOT EXISTS idx_channel_identity_bind_codes_channel_type ON channel_identity_bind_codes(channel_type);
+CREATE INDEX IF NOT EXISTS idx_channel_identity_bind_codes_requested_by ON channel_identity_bind_codes(requested_by_channel_identity_id);
 
 -- bot_channel_routes: route mapping for inbound channel threads to bot history.
 CREATE TABLE IF NOT EXISTS bot_channel_routes (

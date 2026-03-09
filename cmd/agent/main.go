@@ -31,6 +31,7 @@ import (
 	"github.com/memohai/memoh/internal/channel/adapters/qq"
 	"github.com/memohai/memoh/internal/channel/adapters/telegram"
 	"github.com/memohai/memoh/internal/channel/adapters/wecom"
+	"github.com/memohai/memoh/internal/channel/adapters/wecombot"
 	"github.com/memohai/memoh/internal/channel/identities"
 	"github.com/memohai/memoh/internal/channel/inbound"
 	"github.com/memohai/memoh/internal/channel/route"
@@ -417,6 +418,7 @@ func provideChannelRegistry(log *slog.Logger, hub *local.RouteHub, mediaService 
 	feishuAdapter.SetAssetOpener(mediaService)
 	registry.MustRegister(feishuAdapter)
 	registry.MustRegister(wecom.NewWeComAdapter(log))
+	registry.MustRegister(wecombot.NewWeComBotAdapter(log))
 	registry.MustRegister(local.NewCLIAdapter(hub))
 	registry.MustRegister(local.NewWebAdapter(hub))
 	return registry

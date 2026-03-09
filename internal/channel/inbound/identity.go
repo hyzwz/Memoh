@@ -90,6 +90,7 @@ type PreauthService interface {
 type BindService interface {
 	Get(ctx context.Context, token string) (bind.Code, error)
 	Consume(ctx context.Context, code bind.Code, channelIdentityID string) error
+	IssuePending(ctx context.Context, issuedByUserID, platform, requestedChannelIdentityID string, ttl time.Duration) (bind.Code, error)
 }
 
 // IdentityResolver implements identity resolution with bind code, preauth, and guest fallback.
@@ -105,6 +106,8 @@ type IdentityResolver struct {
 	preauthReply      string
 	bindReply         string
 }
+
+const autoPairingTTL = 10 * time.Minute
 
 // NewIdentityResolver creates an IdentityResolver.
 func NewIdentityResolver(
@@ -222,6 +225,14 @@ func (r *IdentityResolver) Resolve(ctx context.Context, cfg channel.ChannelConfi
 			isOwner := strings.TrimSpace(state.Identity.UserID) != "" &&
 				strings.TrimSpace(ownerUserID) == strings.TrimSpace(state.Identity.UserID)
 			if !isOwner {
+				if strings.TrimSpace(state.Identity.UserID) == "" {
+					if decision, ok, err := r.tryIssueAutoPairing(ctx, msg, ownerUserID, channelIdentityID); err != nil {
+						return state, err
+					} else if ok {
+						state.Decision = &decision
+						return state, nil
+					}
+				}
 				// Ignore all non-owner messages for personal bots.
 				state.Decision = &IdentityDecision{Stop: true}
 				return state, nil
@@ -406,6 +417,8 @@ func (r *IdentityResolver) tryHandleBindCode(ctx context.Context, msg channel.In
 			return true, reply("Bind code already used."), "", nil
 		case errors.Is(err, bind.ErrCodeExpired):
 			return true, reply("Bind code expired."), "", nil
+		case errors.Is(err, bind.ErrApprovalRequired):
+			return true, reply("This pairing code must be approved in the Memoh Web settings first."), "", nil
 		case errors.Is(err, bind.ErrCodeMismatch):
 			return true, reply("Bind code mismatch."), "", nil
 		case errors.Is(err, bind.ErrLinkConflict):
@@ -428,6 +441,32 @@ func (r *IdentityResolver) tryHandleBindCode(ctx context.Context, msg channel.In
 	}
 
 	return true, reply(r.bindReply), newUserID, nil
+}
+
+func (r *IdentityResolver) tryIssueAutoPairing(ctx context.Context, msg channel.InboundMessage, ownerUserID, channelIdentityID string) (IdentityDecision, bool, error) {
+	if r.bind == nil || strings.TrimSpace(ownerUserID) == "" || strings.TrimSpace(channelIdentityID) == "" {
+		return IdentityDecision{}, false, nil
+	}
+	if isGroupConversationType(msg.Conversation.Type) {
+		return IdentityDecision{}, false, nil
+	}
+	code, err := r.bind.IssuePending(ctx, ownerUserID, msg.Channel.String(), channelIdentityID, autoPairingTTL)
+	if err != nil {
+		return IdentityDecision{}, false, fmt.Errorf("issue pairing code: %w", err)
+	}
+	reply := channel.Message{
+		Text: buildAutoPairingReply(code),
+	}
+	return IdentityDecision{Stop: true, Reply: reply}, true, nil
+}
+
+func buildAutoPairingReply(code bind.Code) string {
+	lines := []string{
+		"Pairing required for this personal bot.",
+		"Open Memoh Web -> Settings -> Bind Code -> Approve Pairing Code, then paste the code below:",
+		strings.TrimSpace(code.Token),
+	}
+	return strings.Join(lines, "\n")
 }
 
 func extractSubjectIdentity(msg channel.InboundMessage) string {

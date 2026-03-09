@@ -1,31 +1,25 @@
 <template>
   <section>
     <h2 class="mb-2 flex items-center text-base font-semibold">
-      <FontAwesomeIcon
-        :icon="['fas', 'plug']"
-        class="mr-2"
-      />
-      {{ $t('settings.bindCode') }}
+      <FontAwesomeIcon :icon="['fas', 'plug']" class="mr-2" />
+      {{ $t("settings.bindCode") }}
     </h2>
     <Separator />
     <div class="mt-4 space-y-4">
       <div class="flex flex-wrap gap-3 items-end">
         <div class="space-y-2">
-          <Label>{{ $t('settings.platform') }}</Label>
+          <Label>{{ $t("settings.platform") }}</Label>
           <Select
             :model-value="platform || anyPlatformValue"
             @update:model-value="onPlatformChange"
           >
-            <SelectTrigger
-              class="w-56"
-              :aria-label="$t('settings.platform')"
-            >
+            <SelectTrigger class="w-56" :aria-label="$t('settings.platform')">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
               <SelectGroup>
                 <SelectItem :value="anyPlatformValue">
-                  {{ $t('settings.platformAny') }}
+                  {{ $t("settings.platformAny") }}
                 </SelectItem>
                 <SelectItem
                   v-for="platformOption in platformOptions"
@@ -39,7 +33,9 @@
           </Select>
         </div>
         <div class="space-y-2">
-          <Label for="settings-bind-ttl">{{ $t('settings.bindCodeTTL') }}</Label>
+          <Label for="settings-bind-ttl">{{
+            $t("settings.bindCodeTTL")
+          }}</Label>
           <Input
             id="settings-bind-ttl"
             :model-value="ttlSeconds"
@@ -50,19 +46,15 @@
             @update:model-value="onTtlChange"
           />
         </div>
-        <Button
-          :disabled="generating || loading"
-          @click="emit('generate')"
-        >
+        <Button :disabled="generating || loading" @click="emit('generate')">
           <Spinner v-if="generating" />
-          {{ $t('settings.generateBindCode') }}
+          {{ $t("settings.generateBindCode") }}
         </Button>
       </div>
-      <div
-        v-if="bindCode"
-        class="space-y-2"
-      >
-        <Label for="settings-bind-code-value">{{ $t('settings.bindCodeValue') }}</Label>
+      <div v-if="bindCode" class="space-y-2">
+        <Label for="settings-bind-code-value">{{
+          $t("settings.bindCodeValue")
+        }}</Label>
         <div class="flex gap-2">
           <Input
             id="settings-bind-code-value"
@@ -70,15 +62,13 @@
             :aria-label="$t('settings.bindCodeValue')"
             readonly
           />
-          <Button
-            variant="outline"
-            @click="emit('copy')"
-          >
-            {{ $t('settings.copyBindCode') }}
+          <Button variant="outline" @click="emit('copy')">
+            {{ $t("settings.copyBindCode") }}
           </Button>
         </div>
         <p class="text-xs text-muted-foreground">
-          {{ $t('settings.bindCodeExpiresAt') }}: {{ formatDate(bindCode.expires_at) }}
+          {{ $t("settings.bindCodeExpiresAt") }}:
+          {{ formatDate(bindCode.expires_at) }}
         </p>
       </div>
     </div>
