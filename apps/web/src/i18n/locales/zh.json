@@ -62,7 +62,19 @@
     "platform": "接入平台",
     "usage": "用量统计",
     "browserContexts": "浏览器",
-    "skillTemplates": "技能商店"
+    "skillTemplates": "技能商店",
+    "cockpit": "驾驶舱",
+    "audit": "审计日志",
+    "modelRouting": "模型路由",
+    "budgets": "预算管理",
+    "hands": "人工审批",
+    "departments": "部门管理",
+    "groupMain": "主要",
+    "groupBotsAi": "Bots & AI",
+    "groupProviders": "服务提供方",
+    "groupAnalytics": "数据分析",
+    "groupEnterprise": "企业管理",
+    "virtualOffice": "虚拟办公室"
   },
   "breadcrumb": {
     "main": "主页"
@@ -116,6 +128,7 @@
     "themePlaceholder": "选择主题",
     "themeLight": "浅色",
     "themeDark": "深色",
+    "themeDeepSpace": "深空",
     "langZh": "中文",
     "langEn": "English"
   },
@@ -900,5 +913,53 @@
     "browseStore": "浏览商店",
     "allCategories": "全部",
     "searchPlaceholder": "搜索模板..."
+  },
+  "cockpit": {
+    "title": "AI效能驾驶舱",
+    "subtitle": "实时监控AI助手的效能指标与投资回报",
+    "selectBot": "选择Bot",
+    "selectBotPrompt": "请先选择一个Bot查看效能数据",
+    "last7d": "近7天",
+    "last30d": "近30天",
+    "savedHours": "节省工时",
+    "savedHoursDesc": "等效人工工时",
+    "savedHoursUnit": "节省工时(h)",
+    "multiplier": "效率倍数",
+    "multiplierDesc": "人工/AI时间比",
+    "multiplierUnit": "效率倍数(x)",
+    "totalTasks": "任务完成",
+    "totalTasksDesc": "已完成任务数",
+    "costSaved": "节省成本",
+    "costSavedDesc": "等效人力成本",
+    "innovations": "创新应用",
+    "innovationsDesc": "创新场景发现",
+    "efficiencyTrend": "效率趋势",
+    "categoryDistribution": "任务分类分布",
+    "tasks": "任务数",
+    "userRanking": "用户效能排行",
+    "innovationHighlights": "创新亮点",
+    "innovation": "创新",
+    "saved": "节省",
+    "reportPeriod": "报告周期",
+    "lastNDays": "近{n}天",
+    "activeUsers": "活跃用户",
+    "updatedAt": "更新时间",
+    "noData": "暂无效能数据",
+    "noDataHint": "Bot使用后将自动生成报告",
+    "totalTasksLabel": "总任务"
+  },
+  "virtualOffice": {
+    "title": "虚拟办公室",
+    "agentsOnline": "位Agent在线",
+    "selectBot": "选择Bot",
+    "status": {
+      "idle": "空闲",
+      "thinking": "思考中",
+      "tool_calling": "工具调用",
+      "speaking": "回复中",
+      "spawning": "创建中",
+      "error": "错误",
+      "offline": "离线"
+    }
   }
 }

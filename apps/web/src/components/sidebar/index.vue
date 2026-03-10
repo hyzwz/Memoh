@@ -18,22 +18,126 @@
         </div>
       </SidebarHeader>
 
-      <SidebarContent>
+      <SidebarContent class="scrollbar-thin">
+        <!-- Main -->
         <SidebarGroup>
+          <SidebarGroupLabel class="text-[10px] uppercase tracking-wider text-text-secondary">
+            {{ $t('sidebar.groupMain') }}
+          </SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
               <SidebarMenuItem
-                v-for="sidebarItem in sidebarInfo"
-                :key="sidebarItem.title"
+                v-for="item in mainItems"
+                :key="item.name"
               >
                 <SidebarMenuButton
-                  :tooltip="sidebarItem.title"
-                  :is-active="isItemActive(sidebarItem.name)"
-                  :aria-current="isItemActive(sidebarItem.name) ? 'page' : undefined"
-                  @click="router.push({ name: sidebarItem.name })"
+                  :tooltip="item.title"
+                  :is-active="isItemActive(item.name)"
+                  :aria-current="isItemActive(item.name) ? 'page' : undefined"
+                  @click="router.push({ name: item.name })"
                 >
-                  <FontAwesomeIcon :icon="sidebarItem.icon" />
-                  <span>{{ sidebarItem.title }}</span>
+                  <FontAwesomeIcon :icon="item.icon" />
+                  <span>{{ item.title }}</span>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+            </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
+
+        <!-- Bots & AI -->
+        <SidebarGroup>
+          <SidebarGroupLabel class="text-[10px] uppercase tracking-wider text-text-secondary">
+            {{ $t('sidebar.groupBotsAi') }}
+          </SidebarGroupLabel>
+          <SidebarGroupContent>
+            <SidebarMenu>
+              <SidebarMenuItem
+                v-for="item in botsAiItems"
+                :key="item.name"
+              >
+                <SidebarMenuButton
+                  :tooltip="item.title"
+                  :is-active="isItemActive(item.name)"
+                  :aria-current="isItemActive(item.name) ? 'page' : undefined"
+                  @click="router.push({ name: item.name })"
+                >
+                  <FontAwesomeIcon :icon="item.icon" />
+                  <span>{{ item.title }}</span>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+            </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
+
+        <!-- Providers -->
+        <SidebarGroup>
+          <SidebarGroupLabel class="text-[10px] uppercase tracking-wider text-text-secondary">
+            {{ $t('sidebar.groupProviders') }}
+          </SidebarGroupLabel>
+          <SidebarGroupContent>
+            <SidebarMenu>
+              <SidebarMenuItem
+                v-for="item in providerItems"
+                :key="item.name"
+              >
+                <SidebarMenuButton
+                  :tooltip="item.title"
+                  :is-active="isItemActive(item.name)"
+                  :aria-current="isItemActive(item.name) ? 'page' : undefined"
+                  @click="router.push({ name: item.name })"
+                >
+                  <FontAwesomeIcon :icon="item.icon" />
+                  <span>{{ item.title }}</span>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+            </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
+
+        <!-- Analytics -->
+        <SidebarGroup>
+          <SidebarGroupLabel class="text-[10px] uppercase tracking-wider text-text-secondary">
+            {{ $t('sidebar.groupAnalytics') }}
+          </SidebarGroupLabel>
+          <SidebarGroupContent>
+            <SidebarMenu>
+              <SidebarMenuItem
+                v-for="item in analyticsItems"
+                :key="item.name"
+              >
+                <SidebarMenuButton
+                  :tooltip="item.title"
+                  :is-active="isItemActive(item.name)"
+                  :aria-current="isItemActive(item.name) ? 'page' : undefined"
+                  @click="router.push({ name: item.name })"
+                >
+                  <FontAwesomeIcon :icon="item.icon" />
+                  <span>{{ item.title }}</span>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+            </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
+
+        <!-- Enterprise -->
+        <SidebarGroup>
+          <SidebarGroupLabel class="text-[10px] uppercase tracking-wider text-text-secondary">
+            {{ $t('sidebar.groupEnterprise') }}
+          </SidebarGroupLabel>
+          <SidebarGroupContent>
+            <SidebarMenu>
+              <SidebarMenuItem
+                v-for="item in enterpriseItems"
+                :key="item.name"
+              >
+                <SidebarMenuButton
+                  :tooltip="item.title"
+                  :is-active="isItemActive(item.name)"
+                  :aria-current="isItemActive(item.name) ? 'page' : undefined"
+                  @click="router.push({ name: item.name })"
+                >
+                  <FontAwesomeIcon :icon="item.icon" />
+                  <span>{{ item.title }}</span>
                 </SidebarMenuButton>
               </SidebarMenuItem>
             </SidebarMenu>
@@ -41,8 +145,30 @@
         </SidebarGroup>
       </SidebarContent>
 
-      <SidebarFooter class="border-t p-2">
+      <SidebarFooter class="border-t border-glass-border p-2">
         <SidebarMenu>
+          <!-- Theme toggle -->
+          <SidebarMenuItem>
+            <SidebarMenuButton
+              :tooltip="$t('settings.theme')"
+              @click="cycleTheme"
+            >
+              <FontAwesomeIcon :icon="themeIcon" />
+              <span class="truncate text-sm">{{ themeLabel }}</span>
+            </SidebarMenuButton>
+          </SidebarMenuItem>
+          <!-- Settings -->
+          <SidebarMenuItem>
+            <SidebarMenuButton
+              :tooltip="$t('sidebar.settings')"
+              :is-active="isItemActive('settings')"
+              @click="router.push({ name: 'settings' })"
+            >
+              <FontAwesomeIcon :icon="['fas', 'gear']" />
+              <span class="truncate text-sm">{{ $t('sidebar.settings') }}</span>
+            </SidebarMenuButton>
+          </SidebarMenuItem>
+          <!-- User -->
           <SidebarMenuItem>
             <SidebarMenuButton
               :tooltip="displayTitle"
@@ -77,6 +203,7 @@ import {
   SidebarFooter,
   SidebarGroup,
   SidebarGroupContent,
+  SidebarGroupLabel,
   SidebarHeader,
   SidebarMenu,
   SidebarMenuButton,
@@ -85,13 +212,18 @@ import {
 import { computed } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useI18n } from 'vue-i18n'
+import { storeToRefs } from 'pinia'
 import { useUserStore } from '@/store/user'
+import { useSettingsStore } from '@/store/settings'
+import type { Theme } from '@/store/settings'
 import { useAvatarInitials } from '@/composables/useAvatarInitials'
 
 const router = useRouter()
 const route = useRoute()
 const { t } = useI18n()
 const { userInfo } = useUserStore()
+const settingsStore = useSettingsStore()
+const { theme } = storeToRefs(settingsStore)
 
 const displayNameLabel = computed(() =>
   userInfo.displayName || userInfo.username || userInfo.id || '-',
@@ -105,12 +237,49 @@ function isItemActive(name: string): boolean {
   return new RegExp(`^/${name}(\\b|/)`).test(route.path)
 }
 
-const sidebarInfo = computed(() => [
+// Theme cycling: light → dark → deep-space → light
+const themeOrder: Theme[] = ['light', 'dark', 'deep-space']
+
+const themeIcon = computed(() => {
+  switch (theme.value) {
+    case 'light': return ['fas', 'sun']
+    case 'dark': return ['fas', 'moon']
+    case 'deep-space': return ['fas', 'star']
+    default: return ['fas', 'sun']
+  }
+})
+
+const themeLabel = computed(() => {
+  switch (theme.value) {
+    case 'light': return t('settings.themeLight')
+    case 'dark': return t('settings.themeDark')
+    case 'deep-space': return t('settings.themeDeepSpace')
+    default: return t('settings.themeLight')
+  }
+})
+
+function cycleTheme() {
+  const currentIndex = themeOrder.indexOf(theme.value)
+  const nextIndex = (currentIndex + 1) % themeOrder.length
+  settingsStore.setTheme(themeOrder[nextIndex])
+}
+
+// --- Navigation Groups ---
+
+const mainItems = computed(() => [
   {
     title: t('sidebar.chat'),
     name: 'chat',
     icon: ['fas', 'comment-dots'],
   },
+  {
+    title: t('sidebar.virtualOffice'),
+    name: 'virtual-office',
+    icon: ['fas', 'building-user'],
+  },
+])
+
+const botsAiItems = computed(() => [
   {
     title: t('sidebar.bots'),
     name: 'bots',
@@ -121,6 +290,14 @@ const sidebarInfo = computed(() => [
     name: 'models',
     icon: ['fas', 'cubes'],
   },
+  {
+    title: t('sidebar.skillTemplates'),
+    name: 'skill-templates',
+    icon: ['fas', 'wand-magic-sparkles'],
+  },
+])
+
+const providerItems = computed(() => [
   {
     title: t('sidebar.searchProvider'),
     name: 'search-providers',
@@ -141,6 +318,9 @@ const sidebarInfo = computed(() => [
     name: 'browser-contexts',
     icon: ['fas', 'window-maximize'],
   },
+])
+
+const analyticsItems = computed(() => [
   {
     title: t('sidebar.usage'),
     name: 'usage',
@@ -151,6 +331,9 @@ const sidebarInfo = computed(() => [
     name: 'cockpit',
     icon: ['fas', 'gauge-high'],
   },
+])
+
+const enterpriseItems = computed(() => [
   {
     title: t('sidebar.audit'),
     name: 'audit',
@@ -175,16 +358,6 @@ const sidebarInfo = computed(() => [
     title: t('sidebar.departments'),
     name: 'departments',
     icon: ['fas', 'building'],
-  },
-  {
-    title: t('sidebar.skillTemplates'),
-    name: 'skill-templates',
-    icon: ['fas', 'wand-magic-sparkles'],
-  },
-  {
-    title: t('sidebar.settings'),
-    name: 'settings',
-    icon: ['fas', 'gear'],
   },
 ])
 </script>

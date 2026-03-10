@@ -156,6 +156,14 @@ const routes = [
         },
       },
       {
+        name: 'virtual-office',
+        path: '/virtual-office',
+        component: () => import('@/pages/virtual-office/index.vue'),
+        meta: {
+          breadcrumb: i18nRef('sidebar.virtualOffice'),
+        },
+      },
+      {
         name: 'settings',
         path: '/settings',
         component: () => import('@/pages/settings/index.vue'),

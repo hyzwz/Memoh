@@ -1,9 +1,9 @@
 <template>
-  <SidebarInset class="grid grid-rows-[auto_auto_1fr]">
+  <SidebarInset class="grid grid-rows-[auto_1fr]">
     <header
-      class="flex h-12 shrink-0 items-center gap-2"
+      class="flex h-12 shrink-0 items-center gap-2 border-b border-glass-border bg-surface-card/50 backdrop-blur-sm"
     >
-      <div class="flex items-center gap-2 px-4">     
+      <div class="flex flex-1 items-center gap-2 px-4">
         <SidebarTrigger class="-ml-1" />
         <Separator
           orientation="vertical"
@@ -25,7 +25,7 @@
               </template>
 
               <BreadcrumbItem v-else>
-                <BreadcrumbPage>
+                <BreadcrumbPage class="font-medium text-text-primary">
                   {{ breadcrumbItem.breadcrumb }}
                 </BreadcrumbPage>
               </BreadcrumbItem>
@@ -34,7 +34,6 @@
         </Breadcrumb>
       </div>
     </header>
-    <Separator />
     <section class="w-full relative">
       <h1 class="sr-only">
         {{ currentPageTitle }}
@@ -83,5 +82,4 @@ const currentPageTitle = computed(() => {
   const title = String(unref(last?.breadcrumb) ?? '').trim()
   return title || 'Memoh'
 })
-
 </script>

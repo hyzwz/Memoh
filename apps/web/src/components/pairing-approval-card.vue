@@ -22,12 +22,18 @@
         :disabled="loading || !modelValue.trim()"
         @click="emit('approve')"
       >
-        <Spinner v-if="loading" class="mr-1.5" />
+        <Spinner
+          v-if="loading"
+          class="mr-1.5"
+        />
         {{ actionLabel || $t('settings.approvePairingCodeAction') }}
       </Button>
     </div>
 
-    <p v-if="helperText" class="text-xs text-muted-foreground">
+    <p
+      v-if="helperText"
+      class="text-xs text-muted-foreground"
+    >
       {{ helperText }}
     </p>
   </section>

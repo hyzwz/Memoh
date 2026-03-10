@@ -62,7 +62,19 @@
     "platform": "Platform",
     "usage": "Usage",
     "browserContexts": "Browser",
-    "skillTemplates": "Skill Store"
+    "skillTemplates": "Skill Store",
+    "cockpit": "Cockpit",
+    "audit": "Audit",
+    "modelRouting": "Model Routing",
+    "budgets": "Budgets",
+    "hands": "Hands",
+    "departments": "Departments",
+    "groupMain": "Main",
+    "groupBotsAi": "Bots & AI",
+    "groupProviders": "Providers",
+    "groupAnalytics": "Analytics",
+    "groupEnterprise": "Enterprise",
+    "virtualOffice": "Virtual Office"
   },
   "breadcrumb": {
     "main": "Home"
@@ -120,6 +132,7 @@
     "themePlaceholder": "Select theme",
     "themeLight": "Light",
     "themeDark": "Dark",
+    "themeDeepSpace": "Deep Space",
     "langZh": "中文",
     "langEn": "English"
   },
@@ -904,5 +917,53 @@
     "browseStore": "Browse Store",
     "allCategories": "All",
     "searchPlaceholder": "Search templates..."
+  },
+  "cockpit": {
+    "title": "AI Efficiency Cockpit",
+    "subtitle": "Real-time monitoring of AI assistant efficiency and ROI",
+    "selectBot": "Select Bot",
+    "selectBotPrompt": "Please select a bot to view efficiency data",
+    "last7d": "7 Days",
+    "last30d": "30 Days",
+    "savedHours": "Hours Saved",
+    "savedHoursDesc": "Equivalent manual hours",
+    "savedHoursUnit": "Hours Saved (h)",
+    "multiplier": "Efficiency",
+    "multiplierDesc": "Manual / AI time ratio",
+    "multiplierUnit": "Multiplier (x)",
+    "totalTasks": "Tasks Done",
+    "totalTasksDesc": "Completed tasks",
+    "costSaved": "Cost Saved",
+    "costSavedDesc": "Equivalent labor cost",
+    "innovations": "Innovations",
+    "innovationsDesc": "Innovation scenarios found",
+    "efficiencyTrend": "Efficiency Trend",
+    "categoryDistribution": "Task Category Distribution",
+    "tasks": "Tasks",
+    "userRanking": "User Efficiency Ranking",
+    "innovationHighlights": "Innovation Highlights",
+    "innovation": "Innovation",
+    "saved": "saved",
+    "reportPeriod": "Report Period",
+    "lastNDays": "Last {n} days",
+    "activeUsers": "Active Users",
+    "updatedAt": "Updated",
+    "noData": "No efficiency data yet",
+    "noDataHint": "Reports will be generated automatically after bot usage",
+    "totalTasksLabel": "Total Tasks"
+  },
+  "virtualOffice": {
+    "title": "Virtual Office",
+    "agentsOnline": "agents online",
+    "selectBot": "Select Bot",
+    "status": {
+      "idle": "Idle",
+      "thinking": "Thinking",
+      "tool_calling": "Tool Call",
+      "speaking": "Speaking",
+      "spawning": "Spawning",
+      "error": "Error",
+      "offline": "Offline"
+    }
   }
 }

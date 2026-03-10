@@ -26,7 +26,10 @@
       <!-- Display Settings -->
       <section>
         <h2 class="mb-2 flex items-center text-base font-semibold">
-          <FontAwesomeIcon :icon="['fas', 'gear']" class="mr-2" />
+          <FontAwesomeIcon
+            :icon="['fas', 'gear']"
+            class="mr-2"
+          />
           {{ $t("settings.display") }}
         </h2>
         <Separator />
@@ -37,7 +40,10 @@
               :model-value="language"
               @update:model-value="(v) => v && setLanguage(v as Locale)"
             >
-              <SelectTrigger class="w-40" :aria-label="$t('settings.language')">
+              <SelectTrigger
+                class="w-40"
+                :aria-label="$t('settings.language')"
+              >
                 <SelectValue
                   :placeholder="$t('settings.languagePlaceholder')"
                 />
@@ -59,9 +65,12 @@
             <Label>{{ $t("settings.theme") }}</Label>
             <Select
               :model-value="theme"
-              @update:model-value="(v) => v && setTheme(v as 'light' | 'dark')"
+              @update:model-value="(v) => v && setTheme(v as Theme)"
             >
-              <SelectTrigger class="w-40" :aria-label="$t('settings.theme')">
+              <SelectTrigger
+                class="w-40"
+                :aria-label="$t('settings.theme')"
+              >
                 <SelectValue :placeholder="$t('settings.themePlaceholder')" />
               </SelectTrigger>
               <SelectContent>
@@ -71,6 +80,9 @@
                   </SelectItem>
                   <SelectItem value="dark">
                     {{ $t("settings.themeDark") }}
+                  </SelectItem>
+                  <SelectItem value="deep-space">
+                    {{ $t("settings.themeDeepSpace") }}
                   </SelectItem>
                 </SelectGroup>
               </SelectContent>
@@ -82,7 +94,10 @@
       <!-- Logout -->
       <section>
         <Separator class="mb-4" />
-        <ConfirmPopover :message="$t('auth.logoutConfirm')" @confirm="onLogout">
+        <ConfirmPopover
+          :message="$t('auth.logoutConfirm')"
+          @confirm="onLogout"
+        >
           <template #trigger>
             <Button>
               {{ $t("auth.logout") }}
@@ -118,12 +133,18 @@
       <!-- Linked Channels -->
       <section>
         <h2 class="mb-2 flex items-center text-base font-semibold">
-          <FontAwesomeIcon :icon="['fas', 'network-wired']" class="mr-2" />
+          <FontAwesomeIcon
+            :icon="['fas', 'network-wired']"
+            class="mr-2"
+          />
           {{ $t("settings.linkedChannels") }}
         </h2>
         <Separator />
         <div class="mt-4 space-y-3">
-          <p v-if="loadingIdentities" class="text-sm text-muted-foreground">
+          <p
+            v-if="loadingIdentities"
+            class="text-sm text-muted-foreground"
+          >
             {{ $t("common.loading") }}
           </p>
           <p
@@ -214,6 +235,7 @@ import { client } from '@memoh/sdk/client'
 import type { AccountsAccount, AccountsUpdateProfileRequest, AccountsUpdatePasswordRequest } from '@memoh/sdk'
 import { useUserStore } from '@/store/user'
 import { useSettingsStore } from '@/store/settings'
+import type { Theme } from '@/store/settings'
 import type { Locale } from '@/i18n'
 import { resolveApiErrorMessage } from '@/utils/api-error'
 import { formatDateTime } from '@/utils/date-time'

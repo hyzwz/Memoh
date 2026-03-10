@@ -3,18 +3,20 @@ import { defineStore } from 'pinia'
 import { useColorMode, useStorage } from '@vueuse/core'
 import { useI18n } from 'vue-i18n'
 
+export type Theme = 'light' | 'dark' | 'deep-space'
+
 export interface Settings {
   language: Locale;
-  theme: 'light' | 'dark';
+  theme: Theme;
 }
 
 export const useSettingsStore = defineStore('settings', () => {
   const colorMode = useColorMode()
   const i18n = useI18n()
   const language = useStorage<Locale>('language', 'en')
-  const theme = useStorage<'light' | 'dark'>('theme', 'light')
+  const theme = useStorage<Theme>('theme', 'light')
 
-  colorMode.value = theme.value
+  applyTheme(theme.value)
   i18n.locale.value = language.value
 
   const setLanguage = (value: Locale) => {
@@ -22,9 +24,19 @@ export const useSettingsStore = defineStore('settings', () => {
     i18n.locale.value = value
   }
 
-  const setTheme = (value: 'light' | 'dark') => {
+  const setTheme = (value: Theme) => {
     theme.value = value
-    colorMode.value = value
+    applyTheme(value)
+  }
+
+  function applyTheme(value: Theme) {
+    if (value === 'deep-space') {
+      colorMode.value = 'dark'
+      document.documentElement.setAttribute('data-theme', 'deep-space')
+    } else {
+      colorMode.value = value
+      document.documentElement.removeAttribute('data-theme')
+    }
   }
 
   return {

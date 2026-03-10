@@ -1,7 +1,10 @@
 <template>
   <section>
     <h2 class="mb-2 flex items-center text-base font-semibold">
-      <FontAwesomeIcon :icon="['fas', 'plug']" class="mr-2" />
+      <FontAwesomeIcon
+        :icon="['fas', 'plug']"
+        class="mr-2"
+      />
       {{ $t("settings.bindCode") }}
     </h2>
     <Separator />
@@ -13,7 +16,10 @@
             :model-value="platform || anyPlatformValue"
             @update:model-value="onPlatformChange"
           >
-            <SelectTrigger class="w-56" :aria-label="$t('settings.platform')">
+            <SelectTrigger
+              class="w-56"
+              :aria-label="$t('settings.platform')"
+            >
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -46,12 +52,18 @@
             @update:model-value="onTtlChange"
           />
         </div>
-        <Button :disabled="generating || loading" @click="emit('generate')">
+        <Button
+          :disabled="generating || loading"
+          @click="emit('generate')"
+        >
           <Spinner v-if="generating" />
           {{ $t("settings.generateBindCode") }}
         </Button>
       </div>
-      <div v-if="bindCode" class="space-y-2">
+      <div
+        v-if="bindCode"
+        class="space-y-2"
+      >
         <Label for="settings-bind-code-value">{{
           $t("settings.bindCodeValue")
         }}</Label>
@@ -62,7 +74,10 @@
             :aria-label="$t('settings.bindCodeValue')"
             readonly
           />
-          <Button variant="outline" @click="emit('copy')">
+          <Button
+            variant="outline"
+            @click="emit('copy')"
+          >
             {{ $t("settings.copyBindCode") }}
           </Button>
         </div>
