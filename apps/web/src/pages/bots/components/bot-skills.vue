@@ -2,12 +2,29 @@
   <div class="space-y-4">
     <!-- Header -->
     <div class="flex items-center justify-between">
-      <div>
+      <div class="flex items-center gap-2">
         <h3 class="text-lg font-medium">
           {{ $t('bots.skills.title') }}
         </h3>
+        <div class="flex items-center gap-1 ml-4">
+          <Button
+            size="sm"
+            :variant="activeView === 'my-skills' ? 'default' : 'outline'"
+            @click="activeView = 'my-skills'"
+          >
+            {{ $t('skillTemplates.mySkills') }}
+          </Button>
+          <Button
+            size="sm"
+            :variant="activeView === 'store' ? 'default' : 'outline'"
+            @click="activeView = 'store'"
+          >
+            {{ $t('skillTemplates.store') }}
+          </Button>
+        </div>
       </div>
       <Button
+        v-if="activeView === 'my-skills'"
         size="sm"
         @click="handleCreate"
       >
@@ -19,96 +36,115 @@
       </Button>
     </div>
 
-    <!-- Loading State -->
-    <div
-      v-if="isLoading"
-      class="flex items-center justify-center py-8 text-sm text-muted-foreground"
-    >
-      <Spinner class="mr-2" />
-      {{ $t('common.loading') }}
-    </div>
-
-    <!-- Empty State -->
-    <div
-      v-else-if="!skills.length"
-      class="flex flex-col items-center justify-center py-12 text-center"
-    >
-      <div class="rounded-full bg-muted p-3 mb-4">
-        <FontAwesomeIcon
-          :icon="['fas', 'bolt']"
-          class="size-6 text-muted-foreground"
-        />
-      </div>
-      <h3 class="text-lg font-medium">
-        {{ $t('bots.skills.emptyTitle') }}
-      </h3>
-      <p class="text-sm text-muted-foreground mt-1">
-        {{ $t('bots.skills.emptyDescription') }}
-      </p>
-    </div>
-
-    <!-- Skills Grid -->
-    <div
-      v-else
-      class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"
-    >
-      <Card
-        v-for="skill in skills"
-        :key="skill.name"
-        class="flex flex-col"
+    <!-- My Skills View -->
+    <template v-if="activeView === 'my-skills'">
+      <!-- Loading State -->
+      <div
+        v-if="isLoading"
+        class="flex items-center justify-center py-8 text-sm text-muted-foreground"
       >
-        <CardHeader class="pb-3">
-          <div class="flex items-start justify-between gap-2">
-            <CardTitle
-              class="text-base truncate"
-              :title="skill.name"
-            >
-              {{ skill.name }}
-            </CardTitle>
-            <div class="flex items-center gap-1 shrink-0">
-              <Button
-                variant="ghost"
-                size="sm"
-                class="size-8 p-0"
-                :title="$t('common.edit')"
-                @click="handleEdit(skill)"
+        <Spinner class="mr-2" />
+        {{ $t('common.loading') }}
+      </div>
+
+      <!-- Empty State -->
+      <div
+        v-else-if="!skills.length"
+        class="flex flex-col items-center justify-center py-12 text-center"
+      >
+        <div class="rounded-full bg-muted p-3 mb-4">
+          <FontAwesomeIcon
+            :icon="['fas', 'bolt']"
+            class="size-6 text-muted-foreground"
+          />
+        </div>
+        <h3 class="text-lg font-medium">
+          {{ $t('bots.skills.emptyTitle') }}
+        </h3>
+        <p class="text-sm text-muted-foreground mt-1">
+          {{ $t('bots.skills.emptyDescription') }}
+        </p>
+        <Button
+          variant="outline"
+          size="sm"
+          class="mt-4"
+          @click="activeView = 'store'"
+        >
+          {{ $t('skillTemplates.browseStore') }}
+        </Button>
+      </div>
+
+      <!-- Skills Grid -->
+      <div
+        v-else
+        class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"
+      >
+        <Card
+          v-for="skill in skills"
+          :key="skill.name"
+          class="flex flex-col"
+        >
+          <CardHeader class="pb-3">
+            <div class="flex items-start justify-between gap-2">
+              <CardTitle
+                class="text-base truncate"
+                :title="skill.name"
               >
-                <FontAwesomeIcon
-                  :icon="['fas', 'pen-to-square']"
-                  class="size-3.5"
-                />
-              </Button>
-              <ConfirmPopover
-                :message="$t('bots.skills.deleteConfirm')"
-                :loading="isDeleting && deletingName === skill.name"
-                @confirm="handleDelete(skill.name)"
-              >
-                <template #trigger>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    class="size-8 p-0 text-destructive hover:text-destructive"
-                    :disabled="isDeleting"
-                    :title="$t('common.delete')"
-                  >
-                    <FontAwesomeIcon
-                      :icon="['far', 'trash-can']"
-                      class="size-3.5"
-                    />
-                  </Button>
-                </template>
-              </ConfirmPopover>
+                {{ skill.name }}
+              </CardTitle>
+              <div class="flex items-center gap-1 shrink-0">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  class="size-8 p-0"
+                  :title="$t('common.edit')"
+                  @click="handleEdit(skill)"
+                >
+                  <FontAwesomeIcon
+                    :icon="['fas', 'pen-to-square']"
+                    class="size-3.5"
+                  />
+                </Button>
+                <ConfirmPopover
+                  :message="$t('bots.skills.deleteConfirm')"
+                  :loading="isDeleting && deletingName === skill.name"
+                  @confirm="handleDelete(skill.name)"
+                >
+                  <template #trigger>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      class="size-8 p-0 text-destructive hover:text-destructive"
+                      :disabled="isDeleting"
+                      :title="$t('common.delete')"
+                    >
+                      <FontAwesomeIcon
+                        :icon="['far', 'trash-can']"
+                        class="size-3.5"
+                      />
+                    </Button>
+                  </template>
+                </ConfirmPopover>
+              </div>
             </div>
-          </div>
-          <CardDescription
-            class="line-clamp-2"
-            :title="skill.description"
-          >
-            {{ skill.description || '-' }}
-          </CardDescription>
-        </CardHeader>
-      </Card>
-    </div>
+            <CardDescription
+              class="line-clamp-2"
+              :title="skill.description"
+            >
+              {{ skill.description || '-' }}
+            </CardDescription>
+          </CardHeader>
+        </Card>
+      </div>
+    </template>
+
+    <!-- Store View -->
+    <SkillStoreBrowser
+      v-if="activeView === 'store'"
+      ref="storeBrowser"
+      :bot-id="botId"
+      @skills-changed="fetchSkills"
+    />
 
     <!-- Edit Dialog -->
     <Dialog v-model:open="isDialogOpen">
@@ -159,6 +195,7 @@ import {
 } from '@memoh/ui'
 import ConfirmPopover from '@/components/confirm-popover/index.vue'
 import MonacoEditor from '@/components/monaco-editor/index.vue'
+import SkillStoreBrowser from './skill-store-browser.vue'
 import {
   getBotsByBotIdContainerSkills,
   postBotsByBotIdContainerSkills,
@@ -173,6 +210,7 @@ const props = defineProps<{
 
 const { t } = useI18n()
 
+const activeView = ref<'my-skills' | 'store'>('my-skills')
 const isLoading = ref(false)
 const isSaving = ref(false)
 const isDeleting = ref(false)

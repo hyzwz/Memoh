@@ -7,10 +7,12 @@ import (
 	"path"
 	"strings"
 
+	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/labstack/echo/v4"
 	"gopkg.in/yaml.v3"
 
 	"github.com/memohai/memoh/internal/config"
+	dbsqlc "github.com/memohai/memoh/internal/db/sqlc"
 	"github.com/memohai/memoh/internal/mcp/mcpclient"
 )
 
@@ -105,6 +107,17 @@ func (h *ContainerdHandler) UpsertSkills(c echo.Context) error {
 		filePath := path.Join(dirPath, "SKILL.md")
 		if err := client.WriteFile(ctx, filePath, []byte(raw)); err != nil {
 			return echo.NewHTTPError(http.StatusInternalServerError, fmt.Sprintf("write failed: %v", err))
+		}
+
+		// Mark template install as customized if this skill was installed from a template
+		if h.queries != nil {
+			botUUID, parseErr := uuidFromString(botID)
+			if parseErr == nil {
+				_ = h.queries.MarkBotSkillCustomized(ctx, dbsqlc.MarkBotSkillCustomizedParams{
+					BotID:     botUUID,
+					SkillName: parsed.Name,
+				})
+			}
 		}
 	}
 
@@ -298,4 +311,12 @@ func isValidSkillName(name string) bool {
 		return false
 	}
 	return true
+}
+
+func uuidFromString(s string) (pgtype.UUID, error) {
+	var u pgtype.UUID
+	if err := u.Scan(s); err != nil {
+		return u, err
+	}
+	return u, nil
 }

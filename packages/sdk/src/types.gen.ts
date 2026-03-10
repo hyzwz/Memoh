@@ -651,6 +651,10 @@ export type HandlersHandExecutionResultDto = {
     status?: string;
 };
 
+export type HandlersInstallRequest = {
+    template_id?: string;
+};
+
 export type HandlersListSnapshotsResponse = {
     snapshots?: Array<HandlersSnapshotInfo>;
     snapshotter?: string;
@@ -745,6 +749,35 @@ export type HandlersSkillItem = {
     raw?: string;
 };
 
+export type HandlersSkillTemplateRequest = {
+    author?: string;
+    category?: string;
+    content?: string;
+    description?: string;
+    icon?: string;
+    is_published?: boolean;
+    name?: string;
+    slug?: string;
+    tags?: Array<string>;
+};
+
+export type HandlersSkillTemplateResponse = {
+    author?: string;
+    category?: string;
+    content?: string;
+    created_at?: string;
+    description?: string;
+    icon?: string;
+    id?: string;
+    install_count?: number;
+    is_published?: boolean;
+    name?: string;
+    slug?: string;
+    tags?: Array<string>;
+    updated_at?: string;
+    version?: number;
+};
+
 export type HandlersSkillsDeleteRequest = {
     names?: Array<string>;
 };
@@ -774,10 +807,39 @@ export type HandlersSnapshotInfo = {
     version?: number;
 };
 
+export type HandlersStoreTemplateResponse = {
+    author?: string;
+    category?: string;
+    content?: string;
+    created_at?: string;
+    customized?: boolean;
+    description?: string;
+    icon?: string;
+    id?: string;
+    install_count?: number;
+    installed?: boolean;
+    installed_version?: number;
+    is_published?: boolean;
+    name?: string;
+    slug?: string;
+    tags?: Array<string>;
+    update_available?: boolean;
+    updated_at?: string;
+    version?: number;
+};
+
 export type HandlersTokenUsageResponse = {
     by_model?: Array<HandlersModelTokenUsage>;
     chat?: Array<HandlersDailyTokenUsage>;
     heartbeat?: Array<HandlersDailyTokenUsage>;
+};
+
+export type HandlersUninstallRequest = {
+    template_id?: string;
+};
+
+export type HandlersUpdateInstallRequest = {
+    template_id?: string;
 };
 
 export type HandlersFsOpResponse = {
@@ -4883,6 +4945,172 @@ export type PutBotsByBotIdSettingsResponses = {
 
 export type PutBotsByBotIdSettingsResponse = PutBotsByBotIdSettingsResponses[keyof PutBotsByBotIdSettingsResponses];
 
+export type GetBotsByBotIdSkillStoreData = {
+    body?: never;
+    path: {
+        /**
+         * Bot ID
+         */
+        bot_id: string;
+    };
+    query?: {
+        /**
+         * Filter by category
+         */
+        category?: string;
+    };
+    url: '/bots/{bot_id}/skill-store';
+};
+
+export type GetBotsByBotIdSkillStoreErrors = {
+    /**
+     * Bad Request
+     */
+    400: HandlersErrorResponse;
+    /**
+     * Internal Server Error
+     */
+    500: HandlersErrorResponse;
+};
+
+export type GetBotsByBotIdSkillStoreError = GetBotsByBotIdSkillStoreErrors[keyof GetBotsByBotIdSkillStoreErrors];
+
+export type GetBotsByBotIdSkillStoreResponses = {
+    /**
+     * OK
+     */
+    200: Array<HandlersStoreTemplateResponse>;
+};
+
+export type GetBotsByBotIdSkillStoreResponse = GetBotsByBotIdSkillStoreResponses[keyof GetBotsByBotIdSkillStoreResponses];
+
+export type PostBotsByBotIdSkillStoreInstallData = {
+    /**
+     * Install request
+     */
+    body: HandlersInstallRequest;
+    path: {
+        /**
+         * Bot ID
+         */
+        bot_id: string;
+    };
+    query?: never;
+    url: '/bots/{bot_id}/skill-store/install';
+};
+
+export type PostBotsByBotIdSkillStoreInstallErrors = {
+    /**
+     * Bad Request
+     */
+    400: HandlersErrorResponse;
+    /**
+     * Not Found
+     */
+    404: HandlersErrorResponse;
+    /**
+     * Conflict
+     */
+    409: HandlersErrorResponse;
+    /**
+     * Internal Server Error
+     */
+    500: HandlersErrorResponse;
+};
+
+export type PostBotsByBotIdSkillStoreInstallError = PostBotsByBotIdSkillStoreInstallErrors[keyof PostBotsByBotIdSkillStoreInstallErrors];
+
+export type PostBotsByBotIdSkillStoreInstallResponses = {
+    /**
+     * OK
+     */
+    200: HandlersSkillsOpResponse;
+};
+
+export type PostBotsByBotIdSkillStoreInstallResponse = PostBotsByBotIdSkillStoreInstallResponses[keyof PostBotsByBotIdSkillStoreInstallResponses];
+
+export type PostBotsByBotIdSkillStoreUninstallData = {
+    /**
+     * Uninstall request
+     */
+    body: HandlersUninstallRequest;
+    path: {
+        /**
+         * Bot ID
+         */
+        bot_id: string;
+    };
+    query?: never;
+    url: '/bots/{bot_id}/skill-store/uninstall';
+};
+
+export type PostBotsByBotIdSkillStoreUninstallErrors = {
+    /**
+     * Bad Request
+     */
+    400: HandlersErrorResponse;
+    /**
+     * Not Found
+     */
+    404: HandlersErrorResponse;
+    /**
+     * Internal Server Error
+     */
+    500: HandlersErrorResponse;
+};
+
+export type PostBotsByBotIdSkillStoreUninstallError = PostBotsByBotIdSkillStoreUninstallErrors[keyof PostBotsByBotIdSkillStoreUninstallErrors];
+
+export type PostBotsByBotIdSkillStoreUninstallResponses = {
+    /**
+     * OK
+     */
+    200: HandlersSkillsOpResponse;
+};
+
+export type PostBotsByBotIdSkillStoreUninstallResponse = PostBotsByBotIdSkillStoreUninstallResponses[keyof PostBotsByBotIdSkillStoreUninstallResponses];
+
+export type PostBotsByBotIdSkillStoreUpdateData = {
+    /**
+     * Update request
+     */
+    body: HandlersUpdateInstallRequest;
+    path: {
+        /**
+         * Bot ID
+         */
+        bot_id: string;
+    };
+    query?: never;
+    url: '/bots/{bot_id}/skill-store/update';
+};
+
+export type PostBotsByBotIdSkillStoreUpdateErrors = {
+    /**
+     * Bad Request
+     */
+    400: HandlersErrorResponse;
+    /**
+     * Not Found
+     */
+    404: HandlersErrorResponse;
+    /**
+     * Internal Server Error
+     */
+    500: HandlersErrorResponse;
+};
+
+export type PostBotsByBotIdSkillStoreUpdateError = PostBotsByBotIdSkillStoreUpdateErrors[keyof PostBotsByBotIdSkillStoreUpdateErrors];
+
+export type PostBotsByBotIdSkillStoreUpdateResponses = {
+    /**
+     * OK
+     */
+    200: HandlersSkillsOpResponse;
+};
+
+export type PostBotsByBotIdSkillStoreUpdateResponse = PostBotsByBotIdSkillStoreUpdateResponses[keyof PostBotsByBotIdSkillStoreUpdateResponses];
+
 export type GetBotsByBotIdSubagentsData = {
     body?: never;
     path?: never;
@@ -7714,6 +7942,175 @@ export type PutSearchProvidersByIdResponses = {
 };
 
 export type PutSearchProvidersByIdResponse = PutSearchProvidersByIdResponses[keyof PutSearchProvidersByIdResponses];
+
+export type GetSkillTemplatesData = {
+    body?: never;
+    path?: never;
+    query?: {
+        /**
+         * Filter by category
+         */
+        category?: string;
+    };
+    url: '/skill-templates';
+};
+
+export type GetSkillTemplatesErrors = {
+    /**
+     * Internal Server Error
+     */
+    500: HandlersErrorResponse;
+};
+
+export type GetSkillTemplatesError = GetSkillTemplatesErrors[keyof GetSkillTemplatesErrors];
+
+export type GetSkillTemplatesResponses = {
+    /**
+     * OK
+     */
+    200: Array<HandlersSkillTemplateResponse>;
+};
+
+export type GetSkillTemplatesResponse = GetSkillTemplatesResponses[keyof GetSkillTemplatesResponses];
+
+export type PostSkillTemplatesData = {
+    /**
+     * Template data
+     */
+    body: HandlersSkillTemplateRequest;
+    path?: never;
+    query?: never;
+    url: '/skill-templates';
+};
+
+export type PostSkillTemplatesErrors = {
+    /**
+     * Bad Request
+     */
+    400: HandlersErrorResponse;
+    /**
+     * Conflict
+     */
+    409: HandlersErrorResponse;
+    /**
+     * Internal Server Error
+     */
+    500: HandlersErrorResponse;
+};
+
+export type PostSkillTemplatesError = PostSkillTemplatesErrors[keyof PostSkillTemplatesErrors];
+
+export type PostSkillTemplatesResponses = {
+    /**
+     * Created
+     */
+    201: HandlersSkillTemplateResponse;
+};
+
+export type PostSkillTemplatesResponse = PostSkillTemplatesResponses[keyof PostSkillTemplatesResponses];
+
+export type DeleteSkillTemplatesByIdData = {
+    body?: never;
+    path: {
+        /**
+         * Template ID
+         */
+        id: string;
+    };
+    query?: never;
+    url: '/skill-templates/{id}';
+};
+
+export type DeleteSkillTemplatesByIdErrors = {
+    /**
+     * Internal Server Error
+     */
+    500: HandlersErrorResponse;
+};
+
+export type DeleteSkillTemplatesByIdError = DeleteSkillTemplatesByIdErrors[keyof DeleteSkillTemplatesByIdErrors];
+
+export type DeleteSkillTemplatesByIdResponses = {
+    /**
+     * No Content
+     */
+    204: unknown;
+};
+
+export type GetSkillTemplatesByIdData = {
+    body?: never;
+    path: {
+        /**
+         * Template ID
+         */
+        id: string;
+    };
+    query?: never;
+    url: '/skill-templates/{id}';
+};
+
+export type GetSkillTemplatesByIdErrors = {
+    /**
+     * Not Found
+     */
+    404: HandlersErrorResponse;
+    /**
+     * Internal Server Error
+     */
+    500: HandlersErrorResponse;
+};
+
+export type GetSkillTemplatesByIdError = GetSkillTemplatesByIdErrors[keyof GetSkillTemplatesByIdErrors];
+
+export type GetSkillTemplatesByIdResponses = {
+    /**
+     * OK
+     */
+    200: HandlersSkillTemplateResponse;
+};
+
+export type GetSkillTemplatesByIdResponse = GetSkillTemplatesByIdResponses[keyof GetSkillTemplatesByIdResponses];
+
+export type PutSkillTemplatesByIdData = {
+    /**
+     * Template data
+     */
+    body: HandlersSkillTemplateRequest;
+    path: {
+        /**
+         * Template ID
+         */
+        id: string;
+    };
+    query?: never;
+    url: '/skill-templates/{id}';
+};
+
+export type PutSkillTemplatesByIdErrors = {
+    /**
+     * Bad Request
+     */
+    400: HandlersErrorResponse;
+    /**
+     * Not Found
+     */
+    404: HandlersErrorResponse;
+    /**
+     * Internal Server Error
+     */
+    500: HandlersErrorResponse;
+};
+
+export type PutSkillTemplatesByIdError = PutSkillTemplatesByIdErrors[keyof PutSkillTemplatesByIdErrors];
+
+export type PutSkillTemplatesByIdResponses = {
+    /**
+     * OK
+     */
+    200: HandlersSkillTemplateResponse;
+};
+
+export type PutSkillTemplatesByIdResponse = PutSkillTemplatesByIdResponses[keyof PutSkillTemplatesByIdResponses];
 
 export type GetUsersData = {
     body?: never;

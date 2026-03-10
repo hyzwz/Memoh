@@ -148,6 +148,14 @@ const routes = [
         },
       },
       {
+        name: 'skill-templates',
+        path: '/skill-templates',
+        component: () => import('@/pages/skill-templates/index.vue'),
+        meta: {
+          breadcrumb: i18nRef('sidebar.skillTemplates'),
+        },
+      },
+      {
         name: 'settings',
         path: '/settings',
         component: () => import('@/pages/settings/index.vue'),

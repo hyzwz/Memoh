@@ -77,6 +77,7 @@ import (
 	"github.com/memohai/memoh/internal/providers"
 	authz "github.com/memohai/memoh/internal/rbac"
 	"github.com/memohai/memoh/internal/schedule"
+	"github.com/memohai/memoh/internal/seeds"
 	"github.com/memohai/memoh/internal/searchproviders"
 	"github.com/memohai/memoh/internal/server"
 	"github.com/memohai/memoh/internal/settings"
@@ -238,6 +239,7 @@ func runServe() {
 			provideServerHandler(handlers.NewInboxHandler),
 			provideServerHandler(handlers.NewTokenUsageHandler),
 			provideServerHandler(handlers.NewBrowserContextsHandler),
+			provideServerHandler(handlers.NewSkillTemplateHandler),
 			provideServerHandler(provideCLIHandler),
 			provideServerHandler(provideWebHandler),
 
@@ -702,10 +704,19 @@ func startChannelManager(lc fx.Lifecycle, channelManager *channel.Manager) {
 	})
 }
 
-func startContainerReconciliation(lc fx.Lifecycle, containerdHandler *handlers.ContainerdHandler, _ *mcp.ToolGatewayService) {
+func startContainerReconciliation(lc fx.Lifecycle, containerdHandler *handlers.ContainerdHandler, _ *mcp.ToolGatewayService, manager *mcp.Manager, cfg config.Config, queries *dbsqlc.Queries, logger *slog.Logger) {
+	ctx, cancel := context.WithCancel(context.Background())
 	lc.Append(fx.Hook{
-		OnStart: func(ctx context.Context) error {
+		OnStart: func(_ context.Context) error {
 			go containerdHandler.ReconcileContainers(ctx)
+
+			// Start idle reaper after reconciliation.
+			reaper := mcp.NewIdleReaper(logger, manager, queries, cfg.MCP)
+			go reaper.Run(ctx)
+			return nil
+		},
+		OnStop: func(_ context.Context) error {
+			cancel()
 			return nil
 		},
 	})
@@ -718,6 +729,9 @@ func startServer(lc fx.Lifecycle, logger *slog.Logger, srv *server.Server, shutd
 		OnStart: func(ctx context.Context) error {
 			if err := ensureAdminUser(ctx, logger, queries, cfg); err != nil {
 				return err
+			}
+			if err := seeds.SeedSkillTemplates(ctx, logger, queries); err != nil {
+				logger.Warn("seed skill templates failed", slog.Any("error", err))
 			}
 			botService.SetContainerLifecycle(containerdHandler)
 			botService.SetContainerReachability(func(ctx context.Context, botID string) error {

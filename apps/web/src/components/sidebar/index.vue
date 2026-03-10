@@ -177,6 +177,11 @@ const sidebarInfo = computed(() => [
     icon: ['fas', 'building'],
   },
   {
+    title: t('sidebar.skillTemplates'),
+    name: 'skill-templates',
+    icon: ['fas', 'wand-magic-sparkles'],
+  },
+  {
     title: t('sidebar.settings'),
     name: 'settings',
     icon: ['fas', 'gear'],

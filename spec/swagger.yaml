@@ -1072,6 +1072,11 @@ definitions:
       status:
         type: string
     type: object
+  handlers.InstallRequest:
+    properties:
+      template_id:
+        type: string
+    type: object
   handlers.ListSnapshotsResponse:
     properties:
       snapshots:
@@ -1221,6 +1226,62 @@ definitions:
       raw:
         type: string
     type: object
+  handlers.SkillTemplateRequest:
+    properties:
+      author:
+        type: string
+      category:
+        type: string
+      content:
+        type: string
+      description:
+        type: string
+      icon:
+        type: string
+      is_published:
+        type: boolean
+      name:
+        type: string
+      slug:
+        type: string
+      tags:
+        items:
+          type: string
+        type: array
+    type: object
+  handlers.SkillTemplateResponse:
+    properties:
+      author:
+        type: string
+      category:
+        type: string
+      content:
+        type: string
+      created_at:
+        type: string
+      description:
+        type: string
+      icon:
+        type: string
+      id:
+        type: string
+      install_count:
+        type: integer
+      is_published:
+        type: boolean
+      name:
+        type: string
+      slug:
+        type: string
+      tags:
+        items:
+          type: string
+        type: array
+      updated_at:
+        type: string
+      version:
+        type: integer
+    type: object
   handlers.SkillsDeleteRequest:
     properties:
       names:
@@ -1271,6 +1332,47 @@ definitions:
       version:
         type: integer
     type: object
+  handlers.StoreTemplateResponse:
+    properties:
+      author:
+        type: string
+      category:
+        type: string
+      content:
+        type: string
+      created_at:
+        type: string
+      customized:
+        type: boolean
+      description:
+        type: string
+      icon:
+        type: string
+      id:
+        type: string
+      install_count:
+        type: integer
+      installed:
+        type: boolean
+      installed_version:
+        type: integer
+      is_published:
+        type: boolean
+      name:
+        type: string
+      slug:
+        type: string
+      tags:
+        items:
+          type: string
+        type: array
+      update_available:
+        type: boolean
+      updated_at:
+        type: string
+      version:
+        type: integer
+    type: object
   handlers.TokenUsageResponse:
     properties:
       by_model:
@@ -1285,6 +1387,16 @@ definitions:
         items:
           $ref: '#/definitions/handlers.DailyTokenUsage'
         type: array
+    type: object
+  handlers.UninstallRequest:
+    properties:
+      template_id:
+        type: string
+    type: object
+  handlers.UpdateInstallRequest:
+    properties:
+      template_id:
+        type: string
     type: object
   handlers.fsOpResponse:
     properties:
@@ -5122,6 +5234,142 @@ paths:
       summary: Update user settings
       tags:
       - settings
+  /bots/{bot_id}/skill-store:
+    get:
+      parameters:
+      - description: Bot ID
+        in: path
+        name: bot_id
+        required: true
+        type: string
+      - description: Filter by category
+        in: query
+        name: category
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/handlers.StoreTemplateResponse'
+            type: array
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+      summary: Browse skill template store for a bot
+      tags:
+      - skill-store
+  /bots/{bot_id}/skill-store/install:
+    post:
+      parameters:
+      - description: Bot ID
+        in: path
+        name: bot_id
+        required: true
+        type: string
+      - description: Install request
+        in: body
+        name: payload
+        required: true
+        schema:
+          $ref: '#/definitions/handlers.InstallRequest'
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/handlers.skillsOpResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+      summary: Install a skill template to a bot
+      tags:
+      - skill-store
+  /bots/{bot_id}/skill-store/uninstall:
+    post:
+      parameters:
+      - description: Bot ID
+        in: path
+        name: bot_id
+        required: true
+        type: string
+      - description: Uninstall request
+        in: body
+        name: payload
+        required: true
+        schema:
+          $ref: '#/definitions/handlers.UninstallRequest'
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/handlers.skillsOpResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+      summary: Uninstall a skill template from a bot
+      tags:
+      - skill-store
+  /bots/{bot_id}/skill-store/update:
+    post:
+      parameters:
+      - description: Bot ID
+        in: path
+        name: bot_id
+        required: true
+        type: string
+      - description: Update request
+        in: body
+        name: payload
+        required: true
+        schema:
+          $ref: '#/definitions/handlers.UpdateInstallRequest'
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/handlers.skillsOpResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+      summary: Update an installed skill to the latest template version
+      tags:
+      - skill-store
   /bots/{bot_id}/subagents:
     get:
       description: List subagents for current user
@@ -7435,6 +7683,129 @@ paths:
       summary: List search provider metadata
       tags:
       - search-providers
+  /skill-templates:
+    get:
+      parameters:
+      - description: Filter by category
+        in: query
+        name: category
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/handlers.SkillTemplateResponse'
+            type: array
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+      summary: List skill templates
+      tags:
+      - skill-templates
+    post:
+      parameters:
+      - description: Template data
+        in: body
+        name: payload
+        required: true
+        schema:
+          $ref: '#/definitions/handlers.SkillTemplateRequest'
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/handlers.SkillTemplateResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+      summary: Create a skill template
+      tags:
+      - skill-templates
+  /skill-templates/{id}:
+    delete:
+      parameters:
+      - description: Template ID
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "204":
+          description: No Content
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+      summary: Delete a skill template
+      tags:
+      - skill-templates
+    get:
+      parameters:
+      - description: Template ID
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/handlers.SkillTemplateResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+      summary: Get a skill template by ID
+      tags:
+      - skill-templates
+    put:
+      parameters:
+      - description: Template ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Template data
+        in: body
+        name: payload
+        required: true
+        schema:
+          $ref: '#/definitions/handlers.SkillTemplateRequest'
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/handlers.SkillTemplateResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+      summary: Update a skill template
+      tags:
+      - skill-templates
   /users:
     get:
       description: List users
