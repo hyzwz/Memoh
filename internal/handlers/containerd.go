@@ -928,6 +928,10 @@ func (h *ContainerdHandler) isTaskRunning(ctx context.Context, containerID strin
 // state on startup. For each auto_start container in DB it verifies the container
 // and task exist; if missing they are rebuilt via SetupBotContainer. Containers that
 // the DB claims are running but are not present in containerd get corrected.
+//
+// When idle timeout is enabled (idle_timeout_minutes > 0), stopped containers are
+// left stopped — they will be lazy-started on the next tool call. Only containers
+// with auto_start=true AND idle_timeout=0 (always-on mode) are force-started.
 func (h *ContainerdHandler) ReconcileContainers(ctx context.Context) {
 	if h.queries == nil {
 		return
@@ -942,7 +946,10 @@ func (h *ContainerdHandler) ReconcileContainers(ctx context.Context) {
 		return
 	}
 
-	h.logger.Info("reconcile: checking containers", slog.Int("count", len(rows)))
+	lazyMode := h.cfg.IdleTimeoutMinutes > 0
+
+	h.logger.Info("reconcile: checking containers",
+		slog.Int("count", len(rows)), slog.Bool("lazy_mode", lazyMode))
 	for _, row := range rows {
 		containerID := row.ContainerID
 		botID := uuid.UUID(row.BotID.Bytes).String()
@@ -992,7 +999,22 @@ func (h *ContainerdHandler) ReconcileContainers(ctx context.Context) {
 			continue
 		}
 
-		// Task not running — try to start it.
+		// Task not running.
+		if lazyMode {
+			// In lazy mode, don't force-start stopped containers on boot.
+			// They will be started on-demand when a tool call needs them.
+			h.logger.Info("reconcile: container stopped, will lazy-start on demand",
+				slog.String("bot_id", botID), slog.String("container_id", containerID))
+			if row.Status != "stopped" {
+				if dbErr := h.queries.UpdateContainerStopped(ctx, row.BotID); dbErr != nil {
+					h.logger.Error("reconcile: failed to mark container as stopped",
+						slog.String("bot_id", botID), slog.Any("error", dbErr))
+				}
+			}
+			continue
+		}
+
+		// Always-on mode — try to start it.
 		h.logger.Warn("reconcile: task not running, starting",
 			slog.String("bot_id", botID), slog.String("container_id", containerID))
 		if err := h.ensureContainerAndTask(ctx, containerID, botID); err != nil {
@@ -1024,6 +1046,9 @@ func (h *ContainerdHandler) upsertContainerRecord(ctx context.Context, botID, co
 	if ns == "" {
 		ns = "default"
 	}
+	// When idle timeout is enabled, new containers default to auto_start=false
+	// so reconciliation won't undo the reaper's work.
+	autoStart := h.cfg.IdleTimeoutMinutes <= 0
 	if dbErr := h.queries.UpsertContainer(ctx, dbsqlc.UpsertContainerParams{
 		BotID:         pgBotID,
 		ContainerID:   containerID,
@@ -1031,7 +1056,7 @@ func (h *ContainerdHandler) upsertContainerRecord(ctx context.Context, botID, co
 		Image:         h.mcpImageRef(),
 		Status:        status,
 		Namespace:     ns,
-		AutoStart:     true,
+		AutoStart:     autoStart,
 	}); dbErr != nil {
 		h.logger.Error("failed to upsert container record",
 			slog.String("bot_id", botID), slog.Any("error", dbErr))

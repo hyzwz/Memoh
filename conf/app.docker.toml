@@ -27,6 +27,7 @@ namespace = "default"
 image = "memohai/mcp:latest"
 snapshotter = "overlayfs"
 data_root = "/opt/memoh/data"
+# idle_timeout_minutes = 30  # Auto-stop containers after N minutes idle. 0 = disabled (always-on).
 
 ## Postgres configuration
 [postgres]

@@ -48,5 +48,20 @@ UPDATE containers
 SET status = 'stopped', last_stopped_at = now(), updated_at = now()
 WHERE bot_id = sqlc.arg(bot_id);
 
+-- name: UpdateContainerAccessed :exec
+UPDATE containers
+SET last_accessed_at = now(), updated_at = now()
+WHERE bot_id = sqlc.arg(bot_id);
+
+-- name: ListIdleRunningContainers :many
+SELECT * FROM containers
+WHERE status = 'running'
+  AND (
+    (last_accessed_at IS NOT NULL AND last_accessed_at < sqlc.arg(threshold))
+    OR (last_accessed_at IS NULL AND last_started_at IS NOT NULL AND last_started_at < sqlc.arg(threshold))
+    OR (last_accessed_at IS NULL AND last_started_at IS NULL AND created_at < sqlc.arg(threshold))
+  )
+ORDER BY updated_at DESC;
+
 -- name: ListAutoStartContainers :many
 SELECT * FROM containers WHERE auto_start = true ORDER BY updated_at DESC;

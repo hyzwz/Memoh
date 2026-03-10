@@ -29,6 +29,7 @@ jwt_expires_in = "168h"
 [mcp]
 image = "memohai/mcp:latest"
 data_root = "data"
+# idle_timeout_minutes = 30  # Auto-stop containers after N minutes idle. 0 = disabled (always-on).
 
 [postgres]
 host = "127.0.0.1"

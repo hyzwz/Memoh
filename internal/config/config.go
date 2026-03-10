@@ -74,12 +74,13 @@ type SocktainerConfig struct {
 }
 
 type MCPConfig struct {
-	Registry     string `toml:"registry"`
-	Image        string `toml:"image"`
-	Snapshotter  string `toml:"snapshotter"`
-	DataRoot     string `toml:"data_root"`
-	CNIBinaryDir string `toml:"cni_bin_dir"`
-	CNIConfigDir string `toml:"cni_conf_dir"`
+	Registry           string `toml:"registry"`
+	Image              string `toml:"image"`
+	Snapshotter        string `toml:"snapshotter"`
+	DataRoot           string `toml:"data_root"`
+	CNIBinaryDir       string `toml:"cni_bin_dir"`
+	CNIConfigDir       string `toml:"cni_conf_dir"`
+	IdleTimeoutMinutes int    `toml:"idle_timeout_minutes"` // 0 = disabled (always-on)
 }
 
 // ImageRef returns the fully qualified image reference, prepending the

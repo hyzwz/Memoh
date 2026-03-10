@@ -14,6 +14,7 @@ import (
 
 	"github.com/memohai/memoh/internal/config"
 	ctr "github.com/memohai/memoh/internal/containerd"
+	"github.com/memohai/memoh/internal/db"
 	dbsqlc "github.com/memohai/memoh/internal/db/sqlc"
 	"github.com/memohai/memoh/internal/identity"
 	"github.com/memohai/memoh/internal/mcp/mcpclient"
@@ -159,9 +160,143 @@ func (m *Manager) recoverContainerIP(botID string) (string, error) {
 }
 
 // MCPClient returns a gRPC client for the given bot's container.
+// If the container is not running and idle timeout is enabled (lazy-start mode),
+// it automatically starts the container before returning the client.
 // Implements mcpclient.Provider.
 func (m *Manager) MCPClient(ctx context.Context, botID string) (*mcpclient.Client, error) {
-	return m.grpcPool.Get(ctx, botID)
+	if m.cfg.IdleTimeoutMinutes > 0 {
+		if err := m.EnsureRunning(ctx, botID); err != nil {
+			return nil, fmt.Errorf("ensure container running: %w", err)
+		}
+	}
+	client, err := m.grpcPool.Get(ctx, botID)
+	if err != nil {
+		return nil, err
+	}
+	if m.cfg.IdleTimeoutMinutes > 0 {
+		m.TouchAccessed(botID)
+	}
+	return client, nil
+}
+
+// EnsureRunning checks if the container task is running and starts it if not.
+// This is idempotent — if the container is already running, it returns immediately.
+func (m *Manager) EnsureRunning(ctx context.Context, botID string) error {
+	if err := validateBotID(botID); err != nil {
+		return err
+	}
+	containerID := m.containerID(botID)
+
+	// Fast path: check if task is already running.
+	tasks, err := m.service.ListTasks(ctx, &ctr.ListTasksOptions{
+		Filter: "container.id==" + containerID,
+	})
+	if err == nil && len(tasks) > 0 && tasks[0].Status == ctr.TaskStatusRunning {
+		// Already running — check if we have a cached IP.
+		if ip := m.ContainerIP(botID); ip != "" {
+			return nil
+		}
+	}
+
+	// Container not running or no cached IP — use per-container lock to avoid races.
+	unlock := m.lockContainer(containerID)
+	defer unlock()
+
+	// Re-check after acquiring lock (another goroutine may have started it).
+	tasks, err = m.service.ListTasks(ctx, &ctr.ListTasksOptions{
+		Filter: "container.id==" + containerID,
+	})
+	if err == nil && len(tasks) > 0 && tasks[0].Status == ctr.TaskStatusRunning {
+		if ip := m.ContainerIP(botID); ip != "" {
+			return nil
+		}
+		// Running but no IP — recover via network setup.
+		netResult, netErr := m.service.SetupNetwork(ctx, ctr.NetworkSetupRequest{
+			ContainerID: containerID,
+			CNIBinDir:   m.cfg.CNIBinaryDir,
+			CNIConfDir:  m.cfg.CNIConfigDir,
+		})
+		if netErr != nil {
+			return netErr
+		}
+		if netResult.IP != "" {
+			m.SetContainerIP(botID, netResult.IP)
+		}
+		return nil
+	}
+
+	// Not running — start it. Manager.Start() handles EnsureBot + StartContainer + SetupNetwork.
+	m.logger.Info("lazy-start: starting idle container", slog.String("bot_id", botID))
+	if err := m.Start(ctx, botID); err != nil {
+		return err
+	}
+
+	// Update DB status.
+	if m.queries != nil {
+		if pgBotID, parseErr := db.ParseUUID(botID); parseErr == nil {
+			_ = m.queries.UpdateContainerStarted(ctx, pgBotID)
+		}
+	}
+	return nil
+}
+
+// TouchAccessed asynchronously updates last_accessed_at in the DB for the given bot.
+func (m *Manager) TouchAccessed(botID string) {
+	if m.queries == nil {
+		return
+	}
+	go func() {
+		pgBotID, err := db.ParseUUID(botID)
+		if err != nil {
+			return
+		}
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		_ = m.queries.UpdateContainerAccessed(ctx, pgBotID)
+	}()
+}
+
+// StopIdle stops an idle container, removes its network, and evicts the gRPC pool entry.
+// The container and snapshot are preserved — only the task is stopped.
+func (m *Manager) StopIdle(ctx context.Context, botID string) error {
+	if err := validateBotID(botID); err != nil {
+		return err
+	}
+	containerID := m.containerID(botID)
+
+	unlock := m.lockContainer(containerID)
+	defer unlock()
+
+	m.grpcPool.Remove(botID)
+
+	if err := m.service.RemoveNetwork(ctx, ctr.NetworkSetupRequest{
+		ContainerID: containerID,
+		CNIBinDir:   m.cfg.CNIBinaryDir,
+		CNIConfDir:  m.cfg.CNIConfigDir,
+	}); err != nil {
+		m.logger.Warn("idle-stop: remove network failed",
+			slog.String("bot_id", botID), slog.Any("error", err))
+	}
+
+	m.mu.Lock()
+	delete(m.containerIPs, botID)
+	m.mu.Unlock()
+
+	if err := m.service.StopContainer(ctx, containerID, &ctr.StopTaskOptions{
+		Timeout: 10 * time.Second,
+		Force:   true,
+	}); err != nil {
+		return err
+	}
+
+	if m.queries != nil {
+		if pgBotID, parseErr := db.ParseUUID(botID); parseErr == nil {
+			_ = m.queries.UpdateContainerStopped(ctx, pgBotID)
+		}
+	}
+
+	m.logger.Info("idle-stop: container stopped", slog.String("bot_id", botID))
+	return nil
 }
 
 func (m *Manager) Init(ctx context.Context) error {

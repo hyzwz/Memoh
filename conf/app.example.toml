@@ -29,6 +29,7 @@ snapshotter = "overlayfs"
 data_root = "data"
 cni_bin_dir = "/opt/cni/bin"
 cni_conf_dir = "/etc/cni/net.d"
+# idle_timeout_minutes = 30  # Auto-stop containers after N minutes idle. 0 = disabled (always-on).
 
 [postgres]
 host = "127.0.0.1"
