@@ -178,13 +178,6 @@
         </div>
       </section>
 
-      <PairingApprovalCard
-        v-model="bindForm.approveToken"
-        :loading="approvingBindCode"
-        :helper-text="$t('settings.approvePairingCodeSettingsHelper')"
-        @approve="onApprovePairingCode"
-      />
-
       <BindCodeSection
         :any-platform-value="anyPlatformValue"
         :platform="bindForm.platform"
@@ -229,7 +222,6 @@ import ConfirmPopover from '@/components/confirm-popover/index.vue'
 import ProfileSection from './components/profile-section.vue'
 import PasswordSection from './components/password-section.vue'
 import BindCodeSection from './components/bind-code-section.vue'
-import PairingApprovalCard from '@/components/pairing-approval-card.vue'
 import { getUsersMe, putUsersMe, putUsersMePassword, getUsersMeIdentities } from '@memoh/sdk'
 import { client } from '@memoh/sdk/client'
 import type { AccountsAccount, AccountsUpdateProfileRequest, AccountsUpdatePasswordRequest } from '@memoh/sdk'
@@ -259,14 +251,6 @@ interface IssueBindCodeResponse {
   expires_at: string
 }
 
-interface ApproveBindCodeResponse {
-  token: string
-  platform?: string
-  linked_channel_identity_id?: string
-  expires_at?: string
-  approved_at?: string
-}
-
 type UserAccount = AccountsAccount
 
 const anyPlatformValue = '__all__'
@@ -292,7 +276,6 @@ const loadingIdentities = ref(false)
 const savingProfile = ref(false)
 const savingPassword = ref(false)
 const generatingBindCode = ref(false)
-const approvingBindCode = ref(false)
 
 const profileForm = reactive({
   display_name: '',
@@ -308,7 +291,6 @@ const passwordForm = reactive({
 const bindForm = reactive({
   platform: '',
   ttlSeconds: 3600,
-  approveToken: '',
 })
 
 const displayUserID = computed(() => account.value?.id || userInfo.id || '')
@@ -467,29 +449,6 @@ async function copyBindCode() {
     toast.error(t('settings.bindCodeCopyFailed'))
   } catch {
     toast.error(t('settings.bindCodeCopyFailed'))
-  }
-}
-
-async function onApprovePairingCode() {
-  const token = bindForm.approveToken.trim()
-  if (!token) {
-    toast.error(t('settings.approvePairingCodeRequired'))
-    return
-  }
-  approvingBindCode.value = true
-  try {
-    await client.post<ApproveBindCodeResponse>({
-      url: '/users/me/bind_codes/approve',
-      body: { token },
-      throwOnError: true,
-    })
-    bindForm.approveToken = ''
-    await loadMyIdentities()
-    toast.success(t('settings.approvePairingCodeSuccess'))
-  } catch (error) {
-    toast.error(resolveApiErrorMessage(error, t('settings.approvePairingCodeFailed'), { prefixFallback: true }))
-  } finally {
-    approvingBindCode.value = false
   }
 }
 
