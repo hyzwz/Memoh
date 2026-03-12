@@ -979,8 +979,17 @@ func provideEnterpriseRBACResolver(queries *dbsqlc.Queries) *authz.Resolver {
 	return authz.NewResolver(authz.NewSQLCStore(queries))
 }
 
-func provideDepartmentHandler(log *slog.Logger, queries *dbsqlc.Queries, al *enterprise.AuditLogger, resolver *authz.Resolver) *handlers.DepartmentHandler {
-	svc := enterprise.NewDepartmentService(log, queries)
+// mcpManagerAdapter wraps *mcp.Manager to satisfy enterprise.ContainerClientProvider.
+type mcpManagerAdapter struct {
+	m *mcp.Manager
+}
+
+func (a *mcpManagerAdapter) MCPClient(ctx context.Context, botID string) (enterprise.ContainerClient, error) {
+	return a.m.MCPClient(ctx, botID)
+}
+
+func provideDepartmentHandler(log *slog.Logger, queries *dbsqlc.Queries, al *enterprise.AuditLogger, resolver *authz.Resolver, mgr *mcp.Manager) *handlers.DepartmentHandler {
+	svc := enterprise.NewDepartmentService(log, queries, &mcpManagerAdapter{m: mgr})
 	authMw := enterprise.RequireBotPermission(
 		enterprise.NewBotAuthorizerAdapter(resolver),
 		authz.ResourceMembers,

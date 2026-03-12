@@ -755,12 +755,24 @@ definitions:
       updated_at:
         type: string
     type: object
+  handlers.AddSkillTemplateRequest:
+    properties:
+      template_id:
+        type: string
+    type: object
   handlers.BatchDeleteRequest:
     properties:
       ids:
         items:
           type: string
         type: array
+    type: object
+  handlers.BotSyncError:
+    properties:
+      bot_id:
+        type: string
+      message:
+        type: string
     type: object
   handlers.BudgetCheckDTO:
     properties:
@@ -942,6 +954,13 @@ definitions:
         type: string
       parent_id:
         type: string
+    type: object
+  handlers.DirectoryTemplatesRequest:
+    properties:
+      paths:
+        items:
+          type: string
+        type: array
     type: object
   handlers.ErrorResponse:
     properties:
@@ -1226,6 +1245,17 @@ definitions:
       raw:
         type: string
     type: object
+  handlers.SkillTemplateBriefDTO:
+    properties:
+      description:
+        type: string
+      id:
+        type: string
+      name:
+        type: string
+      version:
+        type: integer
+    type: object
   handlers.SkillTemplateRequest:
     properties:
       author:
@@ -1371,6 +1401,19 @@ definitions:
       updated_at:
         type: string
       version:
+        type: integer
+    type: object
+  handlers.SyncResultDTO:
+    properties:
+      errors:
+        items:
+          $ref: '#/definitions/handlers.BotSyncError'
+        type: array
+      installed:
+        type: integer
+      skipped:
+        type: integer
+      total_bots:
         type: integer
     type: object
   handlers.TokenUsageResponse:
@@ -3528,6 +3571,192 @@ paths:
           schema:
             $ref: '#/definitions/handlers.ErrorResponse'
       summary: Create a department
+      tags:
+      - departments
+  /bots/{bot_id}/departments/{department_id}/directory-templates:
+    get:
+      parameters:
+      - description: Bot ID
+        in: path
+        name: bot_id
+        required: true
+        type: string
+      - description: Department ID
+        in: path
+        name: department_id
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/handlers.DirectoryTemplatesRequest'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+      summary: Get directory templates for a department
+      tags:
+      - departments
+    put:
+      parameters:
+      - description: Bot ID
+        in: path
+        name: bot_id
+        required: true
+        type: string
+      - description: Department ID
+        in: path
+        name: department_id
+        required: true
+        type: string
+      - description: Directory templates
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/handlers.DirectoryTemplatesRequest'
+      responses:
+        "204":
+          description: No Content
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+      summary: Update directory templates for a department
+      tags:
+      - departments
+  /bots/{bot_id}/departments/{department_id}/skill-templates:
+    get:
+      parameters:
+      - description: Bot ID
+        in: path
+        name: bot_id
+        required: true
+        type: string
+      - description: Department ID
+        in: path
+        name: department_id
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/handlers.SkillTemplateBriefDTO'
+            type: array
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+      summary: List skill templates assigned to a department
+      tags:
+      - departments
+    post:
+      parameters:
+      - description: Bot ID
+        in: path
+        name: bot_id
+        required: true
+        type: string
+      - description: Department ID
+        in: path
+        name: department_id
+        required: true
+        type: string
+      - description: Skill template to add
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/handlers.AddSkillTemplateRequest'
+      responses:
+        "204":
+          description: No Content
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+      summary: Add a skill template to a department
+      tags:
+      - departments
+  /bots/{bot_id}/departments/{department_id}/skill-templates/{template_id}:
+    delete:
+      parameters:
+      - description: Bot ID
+        in: path
+        name: bot_id
+        required: true
+        type: string
+      - description: Department ID
+        in: path
+        name: department_id
+        required: true
+        type: string
+      - description: Template ID
+        in: path
+        name: template_id
+        required: true
+        type: string
+      responses:
+        "204":
+          description: No Content
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+      summary: Remove a skill template from a department
+      tags:
+      - departments
+  /bots/{bot_id}/departments/{department_id}/sync-directories:
+    post:
+      parameters:
+      - description: Bot ID
+        in: path
+        name: bot_id
+        required: true
+        type: string
+      - description: Department ID
+        in: path
+        name: department_id
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/handlers.SyncResultDTO'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+      summary: Sync directory templates to all bots in a department
+      tags:
+      - departments
+  /bots/{bot_id}/departments/{department_id}/sync-skills:
+    post:
+      parameters:
+      - description: Bot ID
+        in: path
+        name: bot_id
+        required: true
+        type: string
+      - description: Department ID
+        in: path
+        name: department_id
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/handlers.SyncResultDTO'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+      summary: Sync skill templates to all bots in a department
       tags:
       - departments
   /bots/{bot_id}/email-bindings:

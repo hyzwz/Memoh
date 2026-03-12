@@ -79,3 +79,27 @@ SELECT EXISTS(
     SELECT 1 FROM department_members
     WHERE department_id = $1 AND user_id = $2
 ) AS is_member;
+
+-- name: AddDepartmentSkillTemplate :exec
+INSERT INTO department_skill_templates (department_id, template_id)
+VALUES ($1, $2)
+ON CONFLICT (department_id, template_id) DO NOTHING;
+
+-- name: RemoveDepartmentSkillTemplate :exec
+DELETE FROM department_skill_templates
+WHERE department_id = $1 AND template_id = $2;
+
+-- name: ListDepartmentSkillTemplates :many
+SELECT st.*
+FROM skill_templates st
+JOIN department_skill_templates dst ON dst.template_id = st.id
+WHERE dst.department_id = $1
+ORDER BY st.name;
+
+-- name: GetDepartmentDirectoryTemplates :one
+SELECT directory_templates FROM departments WHERE id = $1;
+
+-- name: UpdateDepartmentDirectoryTemplates :exec
+UPDATE departments
+SET directory_templates = $2, updated_at = now()
+WHERE id = $1;

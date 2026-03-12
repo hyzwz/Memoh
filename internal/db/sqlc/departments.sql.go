@@ -28,6 +28,22 @@ func (q *Queries) AddDepartmentMember(ctx context.Context, arg AddDepartmentMemb
 	return err
 }
 
+const addDepartmentSkillTemplate = `-- name: AddDepartmentSkillTemplate :exec
+INSERT INTO department_skill_templates (department_id, template_id)
+VALUES ($1, $2)
+ON CONFLICT (department_id, template_id) DO NOTHING
+`
+
+type AddDepartmentSkillTemplateParams struct {
+	DepartmentID pgtype.UUID `json:"department_id"`
+	TemplateID   pgtype.UUID `json:"template_id"`
+}
+
+func (q *Queries) AddDepartmentSkillTemplate(ctx context.Context, arg AddDepartmentSkillTemplateParams) error {
+	_, err := q.db.Exec(ctx, addDepartmentSkillTemplate, arg.DepartmentID, arg.TemplateID)
+	return err
+}
+
 const checkBotDepartmentAccess = `-- name: CheckBotDepartmentAccess :one
 SELECT EXISTS(
     SELECT 1 FROM bot_department_access
@@ -69,7 +85,7 @@ func (q *Queries) CheckUserDepartmentMembership(ctx context.Context, arg CheckUs
 const createDepartment = `-- name: CreateDepartment :one
 INSERT INTO departments (name, description, parent_id, metadata)
 VALUES ($1, $2, $3, $4)
-RETURNING id, name, description, parent_id, metadata, created_at, updated_at
+RETURNING id, name, description, parent_id, metadata, created_at, updated_at, directory_templates
 `
 
 type CreateDepartmentParams struct {
@@ -95,6 +111,7 @@ func (q *Queries) CreateDepartment(ctx context.Context, arg CreateDepartmentPara
 		&i.Metadata,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.DirectoryTemplates,
 	)
 	return i, err
 }
@@ -109,7 +126,7 @@ func (q *Queries) DeleteDepartment(ctx context.Context, id pgtype.UUID) error {
 }
 
 const getDepartmentByID = `-- name: GetDepartmentByID :one
-SELECT id, name, description, parent_id, metadata, created_at, updated_at FROM departments WHERE id = $1
+SELECT id, name, description, parent_id, metadata, created_at, updated_at, directory_templates FROM departments WHERE id = $1
 `
 
 func (q *Queries) GetDepartmentByID(ctx context.Context, id pgtype.UUID) (Department, error) {
@@ -123,12 +140,13 @@ func (q *Queries) GetDepartmentByID(ctx context.Context, id pgtype.UUID) (Depart
 		&i.Metadata,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.DirectoryTemplates,
 	)
 	return i, err
 }
 
 const getDepartmentByName = `-- name: GetDepartmentByName :one
-SELECT id, name, description, parent_id, metadata, created_at, updated_at FROM departments WHERE name = $1
+SELECT id, name, description, parent_id, metadata, created_at, updated_at, directory_templates FROM departments WHERE name = $1
 `
 
 func (q *Queries) GetDepartmentByName(ctx context.Context, name string) (Department, error) {
@@ -142,12 +160,24 @@ func (q *Queries) GetDepartmentByName(ctx context.Context, name string) (Departm
 		&i.Metadata,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.DirectoryTemplates,
 	)
 	return i, err
 }
 
+const getDepartmentDirectoryTemplates = `-- name: GetDepartmentDirectoryTemplates :one
+SELECT directory_templates FROM departments WHERE id = $1
+`
+
+func (q *Queries) GetDepartmentDirectoryTemplates(ctx context.Context, id pgtype.UUID) ([]byte, error) {
+	row := q.db.QueryRow(ctx, getDepartmentDirectoryTemplates, id)
+	var directory_templates []byte
+	err := row.Scan(&directory_templates)
+	return directory_templates, err
+}
+
 const listBotDepartments = `-- name: ListBotDepartments :many
-SELECT d.id, d.name, d.description, d.parent_id, d.metadata, d.created_at, d.updated_at
+SELECT d.id, d.name, d.description, d.parent_id, d.metadata, d.created_at, d.updated_at, d.directory_templates
 FROM departments d
 JOIN bot_department_access bda ON bda.department_id = d.id
 WHERE bda.bot_id = $1
@@ -171,6 +201,7 @@ func (q *Queries) ListBotDepartments(ctx context.Context, botID pgtype.UUID) ([]
 			&i.Metadata,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.DirectoryTemplates,
 		); err != nil {
 			return nil, err
 		}
@@ -183,7 +214,7 @@ func (q *Queries) ListBotDepartments(ctx context.Context, botID pgtype.UUID) ([]
 }
 
 const listChildDepartments = `-- name: ListChildDepartments :many
-SELECT id, name, description, parent_id, metadata, created_at, updated_at FROM departments WHERE parent_id = $1 ORDER BY name
+SELECT id, name, description, parent_id, metadata, created_at, updated_at, directory_templates FROM departments WHERE parent_id = $1 ORDER BY name
 `
 
 func (q *Queries) ListChildDepartments(ctx context.Context, parentID pgtype.UUID) ([]Department, error) {
@@ -203,6 +234,7 @@ func (q *Queries) ListChildDepartments(ctx context.Context, parentID pgtype.UUID
 			&i.Metadata,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.DirectoryTemplates,
 		); err != nil {
 			return nil, err
 		}
@@ -312,8 +344,51 @@ func (q *Queries) ListDepartmentMembers(ctx context.Context, departmentID pgtype
 	return items, nil
 }
 
+const listDepartmentSkillTemplates = `-- name: ListDepartmentSkillTemplates :many
+SELECT st.id, st.name, st.slug, st.description, st.category, st.content, st.version, st.author, st.icon, st.tags, st.is_published, st.install_count, st.created_at, st.updated_at
+FROM skill_templates st
+JOIN department_skill_templates dst ON dst.template_id = st.id
+WHERE dst.department_id = $1
+ORDER BY st.name
+`
+
+func (q *Queries) ListDepartmentSkillTemplates(ctx context.Context, departmentID pgtype.UUID) ([]SkillTemplate, error) {
+	rows, err := q.db.Query(ctx, listDepartmentSkillTemplates, departmentID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []SkillTemplate
+	for rows.Next() {
+		var i SkillTemplate
+		if err := rows.Scan(
+			&i.ID,
+			&i.Name,
+			&i.Slug,
+			&i.Description,
+			&i.Category,
+			&i.Content,
+			&i.Version,
+			&i.Author,
+			&i.Icon,
+			&i.Tags,
+			&i.IsPublished,
+			&i.InstallCount,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listDepartments = `-- name: ListDepartments :many
-SELECT id, name, description, parent_id, metadata, created_at, updated_at FROM departments ORDER BY name
+SELECT id, name, description, parent_id, metadata, created_at, updated_at, directory_templates FROM departments ORDER BY name
 `
 
 func (q *Queries) ListDepartments(ctx context.Context) ([]Department, error) {
@@ -333,6 +408,7 @@ func (q *Queries) ListDepartments(ctx context.Context) ([]Department, error) {
 			&i.Metadata,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.DirectoryTemplates,
 		); err != nil {
 			return nil, err
 		}
@@ -345,7 +421,7 @@ func (q *Queries) ListDepartments(ctx context.Context) ([]Department, error) {
 }
 
 const listUserDepartments = `-- name: ListUserDepartments :many
-SELECT d.id, d.name, d.description, d.parent_id, d.metadata, d.created_at, d.updated_at, dm.role AS member_role
+SELECT d.id, d.name, d.description, d.parent_id, d.metadata, d.created_at, d.updated_at, d.directory_templates, dm.role AS member_role
 FROM departments d
 JOIN department_members dm ON dm.department_id = d.id
 WHERE dm.user_id = $1
@@ -353,14 +429,15 @@ ORDER BY d.name
 `
 
 type ListUserDepartmentsRow struct {
-	ID          pgtype.UUID        `json:"id"`
-	Name        string             `json:"name"`
-	Description string             `json:"description"`
-	ParentID    pgtype.UUID        `json:"parent_id"`
-	Metadata    []byte             `json:"metadata"`
-	CreatedAt   pgtype.Timestamptz `json:"created_at"`
-	UpdatedAt   pgtype.Timestamptz `json:"updated_at"`
-	MemberRole  string             `json:"member_role"`
+	ID                 pgtype.UUID        `json:"id"`
+	Name               string             `json:"name"`
+	Description        string             `json:"description"`
+	ParentID           pgtype.UUID        `json:"parent_id"`
+	Metadata           []byte             `json:"metadata"`
+	CreatedAt          pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt          pgtype.Timestamptz `json:"updated_at"`
+	DirectoryTemplates []byte             `json:"directory_templates"`
+	MemberRole         string             `json:"member_role"`
 }
 
 func (q *Queries) ListUserDepartments(ctx context.Context, userID pgtype.UUID) ([]ListUserDepartmentsRow, error) {
@@ -380,6 +457,7 @@ func (q *Queries) ListUserDepartments(ctx context.Context, userID pgtype.UUID) (
 			&i.Metadata,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.DirectoryTemplates,
 			&i.MemberRole,
 		); err != nil {
 			return nil, err
@@ -420,6 +498,21 @@ func (q *Queries) RemoveDepartmentMember(ctx context.Context, arg RemoveDepartme
 	return err
 }
 
+const removeDepartmentSkillTemplate = `-- name: RemoveDepartmentSkillTemplate :exec
+DELETE FROM department_skill_templates
+WHERE department_id = $1 AND template_id = $2
+`
+
+type RemoveDepartmentSkillTemplateParams struct {
+	DepartmentID pgtype.UUID `json:"department_id"`
+	TemplateID   pgtype.UUID `json:"template_id"`
+}
+
+func (q *Queries) RemoveDepartmentSkillTemplate(ctx context.Context, arg RemoveDepartmentSkillTemplateParams) error {
+	_, err := q.db.Exec(ctx, removeDepartmentSkillTemplate, arg.DepartmentID, arg.TemplateID)
+	return err
+}
+
 const setBotDepartmentAccess = `-- name: SetBotDepartmentAccess :exec
 INSERT INTO bot_department_access (bot_id, department_id)
 VALUES ($1, $2)
@@ -440,7 +533,7 @@ const updateDepartment = `-- name: UpdateDepartment :one
 UPDATE departments
 SET name = $2, description = $3, parent_id = $4, metadata = $5, updated_at = now()
 WHERE id = $1
-RETURNING id, name, description, parent_id, metadata, created_at, updated_at
+RETURNING id, name, description, parent_id, metadata, created_at, updated_at, directory_templates
 `
 
 type UpdateDepartmentParams struct {
@@ -468,6 +561,23 @@ func (q *Queries) UpdateDepartment(ctx context.Context, arg UpdateDepartmentPara
 		&i.Metadata,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.DirectoryTemplates,
 	)
 	return i, err
+}
+
+const updateDepartmentDirectoryTemplates = `-- name: UpdateDepartmentDirectoryTemplates :exec
+UPDATE departments
+SET directory_templates = $2, updated_at = now()
+WHERE id = $1
+`
+
+type UpdateDepartmentDirectoryTemplatesParams struct {
+	ID                 pgtype.UUID `json:"id"`
+	DirectoryTemplates []byte      `json:"directory_templates"`
+}
+
+func (q *Queries) UpdateDepartmentDirectoryTemplates(ctx context.Context, arg UpdateDepartmentDirectoryTemplatesParams) error {
+	_, err := q.db.Exec(ctx, updateDepartmentDirectoryTemplates, arg.ID, arg.DirectoryTemplates)
+	return err
 }

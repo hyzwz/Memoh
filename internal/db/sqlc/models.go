@@ -301,19 +301,26 @@ type ContainerVersion struct {
 }
 
 type Department struct {
-	ID          pgtype.UUID        `json:"id"`
-	Name        string             `json:"name"`
-	Description string             `json:"description"`
-	ParentID    pgtype.UUID        `json:"parent_id"`
-	Metadata    []byte             `json:"metadata"`
-	CreatedAt   pgtype.Timestamptz `json:"created_at"`
-	UpdatedAt   pgtype.Timestamptz `json:"updated_at"`
+	ID                 pgtype.UUID        `json:"id"`
+	Name               string             `json:"name"`
+	Description        string             `json:"description"`
+	ParentID           pgtype.UUID        `json:"parent_id"`
+	Metadata           []byte             `json:"metadata"`
+	CreatedAt          pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt          pgtype.Timestamptz `json:"updated_at"`
+	DirectoryTemplates []byte             `json:"directory_templates"`
 }
 
 type DepartmentMember struct {
 	DepartmentID pgtype.UUID        `json:"department_id"`
 	UserID       pgtype.UUID        `json:"user_id"`
 	Role         string             `json:"role"`
+	CreatedAt    pgtype.Timestamptz `json:"created_at"`
+}
+
+type DepartmentSkillTemplate struct {
+	DepartmentID pgtype.UUID        `json:"department_id"`
+	TemplateID   pgtype.UUID        `json:"template_id"`
 	CreatedAt    pgtype.Timestamptz `json:"created_at"`
 }
 

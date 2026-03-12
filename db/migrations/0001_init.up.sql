@@ -574,3 +574,46 @@ CREATE TABLE IF NOT EXISTS bot_skill_installs (
 );
 
 CREATE INDEX IF NOT EXISTS idx_bot_skill_installs_bot_id ON bot_skill_installs(bot_id);
+
+-- departments: organizational units for grouping bots
+CREATE TABLE IF NOT EXISTS departments (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  name TEXT NOT NULL UNIQUE,
+  description TEXT NOT NULL DEFAULT '',
+  parent_id UUID REFERENCES departments(id) ON DELETE SET NULL,
+  metadata JSONB NOT NULL DEFAULT '{}',
+  directory_templates JSONB NOT NULL DEFAULT '[]',
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS idx_departments_parent_id ON departments(parent_id);
+
+CREATE TABLE IF NOT EXISTS department_members (
+  department_id UUID NOT NULL REFERENCES departments(id) ON DELETE CASCADE,
+  user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  role TEXT NOT NULL DEFAULT 'member' CHECK (role IN ('admin', 'member')),
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  PRIMARY KEY (department_id, user_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_department_members_user_id ON department_members(user_id);
+
+CREATE TABLE IF NOT EXISTS bot_department_access (
+  bot_id UUID NOT NULL REFERENCES bots(id) ON DELETE CASCADE,
+  department_id UUID NOT NULL REFERENCES departments(id) ON DELETE CASCADE,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  PRIMARY KEY (bot_id, department_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_bot_department_access_department_id ON bot_department_access(department_id);
+
+-- department_skill_templates: associate skill templates with departments for bulk sync
+CREATE TABLE IF NOT EXISTS department_skill_templates (
+  department_id UUID NOT NULL REFERENCES departments(id) ON DELETE CASCADE,
+  template_id UUID NOT NULL REFERENCES skill_templates(id) ON DELETE CASCADE,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  PRIMARY KEY (department_id, template_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_dept_skill_templates_template ON department_skill_templates(template_id);
