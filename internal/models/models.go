@@ -57,6 +57,7 @@ func (s *Service) Create(ctx context.Context, req AddRequest) (AddResponse, erro
 		LlmProviderID:     llmProviderID,
 		InputModalities:   inputMod,
 		SupportsReasoning: model.SupportsReasoning,
+		Store:             model.Store,
 		Type:              string(model.Type),
 	}
 	if model.ClientType != "" {
@@ -227,6 +228,7 @@ func (s *Service) UpdateByID(ctx context.Context, id string, req UpdateRequest) 
 		ModelID:           model.ModelID,
 		InputModalities:   inputMod,
 		SupportsReasoning: model.SupportsReasoning,
+		Store:             model.Store,
 		Type:              string(model.Type),
 	}
 	if model.ClientType != "" {
@@ -285,6 +287,7 @@ func (s *Service) UpdateByModelID(ctx context.Context, modelID string, req Updat
 		ID:                current.ID,
 		InputModalities:   inputMod,
 		SupportsReasoning: model.SupportsReasoning,
+		Store:             model.Store,
 		Type:              string(model.Type),
 	}
 	if model.ClientType != "" {
@@ -384,6 +387,7 @@ func convertToGetResponse(dbModel sqlc.Model) GetResponse {
 		Model: Model{
 			ModelID:           dbModel.ModelID,
 			SupportsReasoning: dbModel.SupportsReasoning,
+			Store:             dbModel.Store,
 			Type:              ModelType(dbModel.Type),
 		},
 	}

@@ -37,6 +37,7 @@ type Manager struct {
 	containerLocks  map[string]*sync.Mutex
 	mu              sync.RWMutex
 	containerIPs    map[string]string
+	ipNegCache      map[string]time.Time // negative cache: botID → expiry
 	grpcPool        *mcpclient.Pool
 }
 
@@ -53,6 +54,7 @@ func NewManager(log *slog.Logger, service ctr.Service, cfg config.MCPConfig, nam
 		logger:         log.With(slog.String("component", "mcp")),
 		containerLocks: make(map[string]*sync.Mutex),
 		containerIPs:   make(map[string]string),
+		ipNegCache:     make(map[string]time.Time),
 		containerID: func(botID string) string {
 			return ContainerPrefix + botID
 		},
@@ -74,13 +76,28 @@ func (m *Manager) lockContainer(containerID string) func() {
 	return lock.Unlock
 }
 
+// cachedContainerIP returns the cached IP without triggering recovery.
+// Used by EnsureRunning to avoid redundant recoverContainerIP calls
+// when it already handles container restart itself.
+func (m *Manager) cachedContainerIP(botID string) string {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+	return m.containerIPs[botID]
+}
+
 // ContainerIP returns the cached IP address for a bot's container.
 // If not cached, it attempts to recover the IP by re-running CNI setup.
+// A negative cache (30s TTL) prevents repeated recovery attempts for missing containers.
 func (m *Manager) ContainerIP(botID string) string {
 	m.mu.RLock()
 	if ip, ok := m.containerIPs[botID]; ok {
 		m.mu.RUnlock()
 		return ip
+	}
+	// Check negative cache — skip recovery if we recently failed.
+	if expiry, ok := m.ipNegCache[botID]; ok && time.Now().Before(expiry) {
+		m.mu.RUnlock()
+		return ""
 	}
 	m.mu.RUnlock()
 
@@ -88,11 +105,15 @@ func (m *Manager) ContainerIP(botID string) string {
 	ip, err := m.recoverContainerIP(botID)
 	if err != nil {
 		m.logger.Warn("container IP recovery failed", slog.String("bot_id", botID), slog.Any("error", err))
+		m.mu.Lock()
+		m.ipNegCache[botID] = time.Now().Add(30 * time.Second)
+		m.mu.Unlock()
 		return ""
 	}
 	if ip != "" {
 		m.mu.Lock()
 		m.containerIPs[botID] = ip
+		delete(m.ipNegCache, botID)
 		m.mu.Unlock()
 		m.logger.Info("container IP recovered", slog.String("bot_id", botID), slog.String("ip", ip))
 	}
@@ -108,6 +129,7 @@ func (m *Manager) SetContainerIP(botID, ip string) {
 	m.mu.Lock()
 	old := m.containerIPs[botID]
 	m.containerIPs[botID] = ip
+	delete(m.ipNegCache, botID)
 	m.mu.Unlock()
 
 	if old != "" && old != ip {
@@ -160,14 +182,12 @@ func (m *Manager) recoverContainerIP(botID string) (string, error) {
 }
 
 // MCPClient returns a gRPC client for the given bot's container.
-// If the container is not running and idle timeout is enabled (lazy-start mode),
-// it automatically starts the container before returning the client.
+// It ensures the container is running before connecting — if the container or
+// task is missing (e.g. after a server restart), it will be automatically rebuilt.
 // Implements mcpclient.Provider.
 func (m *Manager) MCPClient(ctx context.Context, botID string) (*mcpclient.Client, error) {
-	if m.cfg.IdleTimeoutMinutes > 0 {
-		if err := m.EnsureRunning(ctx, botID); err != nil {
-			return nil, fmt.Errorf("ensure container running: %w", err)
-		}
+	if err := m.EnsureRunning(ctx, botID); err != nil {
+		return nil, fmt.Errorf("ensure container running: %w", err)
 	}
 	client, err := m.grpcPool.Get(ctx, botID)
 	if err != nil {
@@ -181,19 +201,19 @@ func (m *Manager) MCPClient(ctx context.Context, botID string) (*mcpclient.Clien
 
 // EnsureRunning checks if the container task is running and starts it if not.
 // This is idempotent — if the container is already running, it returns immediately.
+// If the container or task is missing, it rebuilds via Start().
 func (m *Manager) EnsureRunning(ctx context.Context, botID string) error {
 	if err := validateBotID(botID); err != nil {
 		return err
 	}
 	containerID := m.containerID(botID)
 
-	// Fast path: check if task is already running.
+	// Fast path: check if task is already running and we have a cached IP.
 	tasks, err := m.service.ListTasks(ctx, &ctr.ListTasksOptions{
 		Filter: "container.id==" + containerID,
 	})
 	if err == nil && len(tasks) > 0 && tasks[0].Status == ctr.TaskStatusRunning {
-		// Already running — check if we have a cached IP.
-		if ip := m.ContainerIP(botID); ip != "" {
+		if ip := m.cachedContainerIP(botID); ip != "" {
 			return nil
 		}
 	}
@@ -207,7 +227,7 @@ func (m *Manager) EnsureRunning(ctx context.Context, botID string) error {
 		Filter: "container.id==" + containerID,
 	})
 	if err == nil && len(tasks) > 0 && tasks[0].Status == ctr.TaskStatusRunning {
-		if ip := m.ContainerIP(botID); ip != "" {
+		if ip := m.cachedContainerIP(botID); ip != "" {
 			return nil
 		}
 		// Running but no IP — recover via network setup.
@@ -216,17 +236,23 @@ func (m *Manager) EnsureRunning(ctx context.Context, botID string) error {
 			CNIBinDir:   m.cfg.CNIBinaryDir,
 			CNIConfDir:  m.cfg.CNIConfigDir,
 		})
-		if netErr != nil {
-			return netErr
-		}
-		if netResult.IP != "" {
+		if netErr == nil && netResult.IP != "" {
 			m.SetContainerIP(botID, netResult.IP)
+			return nil
 		}
-		return nil
+		// Network setup failed — task is stale. Clean up and fall through to rebuild.
+		m.logger.Warn("ensure-running: stale task detected, cleaning up for rebuild",
+			slog.String("bot_id", botID), slog.Any("network_error", netErr))
+		if delErr := m.service.DeleteTask(ctx, containerID, &ctr.DeleteTaskOptions{Force: true}); delErr != nil {
+			if !errdefs.IsNotFound(delErr) {
+				m.logger.Warn("ensure-running: delete stale task failed",
+					slog.String("bot_id", botID), slog.Any("error", delErr))
+			}
+		}
 	}
 
-	// Not running — start it. Manager.Start() handles EnsureBot + StartContainer + SetupNetwork.
-	m.logger.Info("lazy-start: starting idle container", slog.String("bot_id", botID))
+	// Not running or stale — start it. Manager.Start() handles EnsureBot + StartContainer + SetupNetwork.
+	m.logger.Info("ensure-running: starting container", slog.String("bot_id", botID))
 	if err := m.Start(ctx, botID); err != nil {
 		return err
 	}
@@ -280,6 +306,7 @@ func (m *Manager) StopIdle(ctx context.Context, botID string) error {
 
 	m.mu.Lock()
 	delete(m.containerIPs, botID)
+	delete(m.ipNegCache, botID)
 	m.mu.Unlock()
 
 	if err := m.service.StopContainer(ctx, containerID, &ctr.StopTaskOptions{

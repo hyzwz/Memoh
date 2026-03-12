@@ -27,6 +27,7 @@ export interface ModelConfig {
   clientType: ClientType
   input: ModelInput[]
   reasoning?: ReasoningConfig
+  store?: boolean
 }
 
 export const hasInputModality = (config: ModelConfig, modality: ModelInput): boolean =>

@@ -316,7 +316,7 @@
         font-family="system-ui, sans-serif"
         letter-spacing="0.12em"
       >
-        Memoh
+        GreatClaw
       </text>
 
       <!-- Reception desk -->

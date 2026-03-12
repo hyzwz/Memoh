@@ -10,10 +10,10 @@
           <img
             src="/logo.png"
             class="size-6 shrink-0"
-            alt="Memoh logo"
+            alt="GreatClaw logo"
           >
           <span class="text-lg font-bold text-muted-foreground truncate group-data-[collapsible=icon]:hidden">
-            Memoh
+            GreatClaw
           </span>
         </div>
       </SidebarHeader>

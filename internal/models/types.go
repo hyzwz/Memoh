@@ -38,6 +38,7 @@ type Model struct {
 	ClientType        ClientType `json:"client_type,omitempty"`
 	InputModalities   []string   `json:"input_modalities,omitempty"`
 	SupportsReasoning bool       `json:"supports_reasoning"`
+	Store             bool       `json:"store"`
 	Type              ModelType  `json:"type"`
 	Dimensions        int        `json:"dimensions"`
 }

@@ -11216,6 +11216,9 @@ const docTemplate = `{
                 "name": {
                     "type": "string"
                 },
+                "store": {
+                    "type": "boolean"
+                },
                 "supports_reasoning": {
                     "type": "boolean"
                 },
@@ -11284,6 +11287,9 @@ const docTemplate = `{
                 },
                 "name": {
                     "type": "string"
+                },
+                "store": {
+                    "type": "boolean"
                 },
                 "supports_reasoning": {
                     "type": "boolean"
@@ -11357,6 +11363,9 @@ const docTemplate = `{
                 },
                 "name": {
                     "type": "string"
+                },
+                "store": {
+                    "type": "boolean"
                 },
                 "supports_reasoning": {
                     "type": "boolean"

@@ -161,9 +161,9 @@ func (s *Service) Count(ctx context.Context) (int64, error) {
 	return count, nil
 }
 
-const probeTimeout = 5 * time.Second
+const probeTimeout = 10 * time.Second
 
-// Test probes the provider's base URL to check reachability.
+// Test probes the provider's /models endpoint with auth to check reachability.
 func (s *Service) Test(ctx context.Context, id string) (TestResponse, error) {
 	providerID, err := db.ParseUUID(id)
 	if err != nil {
@@ -178,7 +178,7 @@ func (s *Service) Test(ctx context.Context, id string) (TestResponse, error) {
 	baseURL := strings.TrimRight(provider.BaseUrl, "/")
 
 	start := time.Now()
-	reachable, msg := probeReachable(ctx, baseURL)
+	reachable, msg := probeProvider(ctx, baseURL, provider.ApiKey)
 	latency := time.Since(start).Milliseconds()
 
 	return TestResponse{
@@ -234,14 +234,23 @@ func (s *Service) FetchRemoteModels(ctx context.Context, id string) ([]RemoteMod
 	return fetchResp.Data, nil
 }
 
-func probeReachable(ctx context.Context, baseURL string) (bool, string) {
+// probeProvider hits GET /models with auth headers — a lightweight, standard
+// OpenAI-compatible endpoint that validates both connectivity and credentials.
+// Any HTTP response (including 401/404) counts as "reachable"; only network
+// errors or timeouts are treated as unreachable.
+func probeProvider(ctx context.Context, baseURL, apiKey string) (bool, string) {
 	ctx, cancel := context.WithTimeout(ctx, probeTimeout)
 	defer cancel()
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, baseURL, nil)
+	modelsURL := baseURL + "/models"
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, modelsURL, nil)
 	if err != nil {
 		return false, err.Error()
 	}
+	if apiKey != "" {
+		req.Header.Set("Authorization", "Bearer "+apiKey)
+	}
+
 	resp, err := http.DefaultClient.Do(req) //nolint:gosec // G704: URL is from operator-configured LLM provider base URL
 	if err != nil {
 		return false, err.Error()

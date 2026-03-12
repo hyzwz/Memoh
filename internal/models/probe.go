@@ -69,7 +69,7 @@ type probeResult struct {
 func probeChatModel(ctx context.Context, baseURL, apiKey, modelID string, clientType ClientType) probeResult {
 	switch clientType {
 	case ClientTypeOpenAIResponses:
-		body := fmt.Sprintf(`{"model":%q,"input":"hi","max_output_tokens":1}`, modelID)
+		body := fmt.Sprintf(`{"model":%q,"input":[{"role":"user","content":"hi"}],"max_output_tokens":1}`, modelID)
 		return doProbe(ctx, http.MethodPost, baseURL+"/responses", openAIHeaders(apiKey), body)
 
 	case ClientTypeOpenAICompletions:

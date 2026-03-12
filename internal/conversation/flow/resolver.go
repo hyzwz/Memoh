@@ -172,6 +172,7 @@ type gatewayModelConfig struct {
 	APIKey     string                  `json:"apiKey"` //nolint:gosec // intentional: forwarded to agent gateway for model authentication
 	BaseURL    string                  `json:"baseUrl"`
 	Reasoning  *gatewayReasoningConfig `json:"reasoning,omitempty"`
+	Store      bool                    `json:"store"`
 }
 
 type gatewayIdentity struct {
@@ -473,6 +474,7 @@ func (r *Resolver) resolve(ctx context.Context, req conversation.ChatRequest) (r
 			APIKey:     provider.ApiKey,
 			BaseURL:    provider.BaseUrl,
 			Reasoning:  reasoning,
+			Store:      chatModel.Store,
 		},
 		ActiveContextTime: maxCtx,
 		Channels:          nonNilStrings(req.Channels),

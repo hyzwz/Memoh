@@ -23,6 +23,7 @@ export const ModelConfigModel = z.object({
   apiKey: z.string().min(1, 'API key is required'),
   baseUrl: z.string(),
   reasoning: ReasoningConfigModel,
+  store: z.boolean().optional().default(false),
 })
 
 export const IdentityContextModel = z.object({

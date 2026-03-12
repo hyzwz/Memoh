@@ -86,6 +86,7 @@ CREATE TABLE IF NOT EXISTS models (
   dimensions INTEGER,
   input_modalities TEXT[] NOT NULL DEFAULT ARRAY['text']::TEXT[],
   supports_reasoning BOOLEAN NOT NULL DEFAULT false,
+  store BOOLEAN NOT NULL DEFAULT false,
   type TEXT NOT NULL DEFAULT 'chat',
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),

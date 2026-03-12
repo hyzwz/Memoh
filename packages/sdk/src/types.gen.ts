@@ -1084,6 +1084,7 @@ export type ModelsAddRequest = {
     llm_provider_id?: string;
     model_id?: string;
     name?: string;
+    store?: boolean;
     supports_reasoning?: boolean;
     type?: ModelsModelType;
 };
@@ -1107,6 +1108,7 @@ export type ModelsGetResponse = {
     llm_provider_id?: string;
     model_id?: string;
     name?: string;
+    store?: boolean;
     supports_reasoning?: boolean;
     type?: ModelsModelType;
 };
@@ -1129,6 +1131,7 @@ export type ModelsUpdateRequest = {
     llm_provider_id?: string;
     model_id?: string;
     name?: string;
+    store?: boolean;
     supports_reasoning?: boolean;
     type?: ModelsModelType;
 };

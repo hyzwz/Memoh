@@ -51,17 +51,17 @@ const TOOL_LOOP_WARNING_KEY = '__memoh_tool_loop_warning'
 const TOOL_LOOP_WARNING_TEXT = '[MEMOH_TOOL_LOOP_WARNING] Repeated identical tool invocation (same tool + arguments) was detected more than 5 times. Stop looping this tool and either summarize current results or change strategy.'
 
 const buildProviderOptions = (config: ModelConfig): Record<string, Record<string, unknown>> | undefined => {
-  if (!config.reasoning?.enabled) return undefined
-  const effort = config.reasoning.effort ?? 'medium'
+  const reasoning = config.reasoning?.enabled
+  const effort = config.reasoning?.effort ?? 'medium'
   switch (config.clientType) {
     case ClientType.AnthropicMessages:
-      return { anthropic: { thinking: { type: 'enabled' as const, budgetTokens: ANTHROPIC_BUDGET[effort] } } }
+      return reasoning ? { anthropic: { thinking: { type: 'enabled' as const, budgetTokens: ANTHROPIC_BUDGET[effort] } } } : undefined
     case ClientType.OpenAIResponses:
-      return { openai: { reasoningEffort: effort, reasoningSummary: 'auto' } }
+      return { openai: { store: config.store ?? false, ...(reasoning && { reasoningEffort: effort, reasoningSummary: 'auto' }) } }
     case ClientType.OpenAICompletions:
-      return { openai: { reasoningEffort: effort } }
+      return reasoning ? { openai: { reasoningEffort: effort } } : undefined
     case ClientType.GoogleGenerativeAI:
-      return { google: { thinkingConfig: { thinkingBudget: GOOGLE_BUDGET[effort] } } }
+      return reasoning ? { google: { thinkingConfig: { thinkingBudget: GOOGLE_BUDGET[effort] } } } : undefined
     default:
       return undefined
   }

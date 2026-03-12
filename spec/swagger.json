@@ -11207,6 +11207,9 @@
                 "name": {
                     "type": "string"
                 },
+                "store": {
+                    "type": "boolean"
+                },
                 "supports_reasoning": {
                     "type": "boolean"
                 },
@@ -11275,6 +11278,9 @@
                 },
                 "name": {
                     "type": "string"
+                },
+                "store": {
+                    "type": "boolean"
                 },
                 "supports_reasoning": {
                     "type": "boolean"
@@ -11348,6 +11354,9 @@
                 },
                 "name": {
                     "type": "string"
+                },
+                "store": {
+                    "type": "boolean"
                 },
                 "supports_reasoning": {
                     "type": "boolean"

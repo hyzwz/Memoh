@@ -173,6 +173,23 @@
               @update:model-value="(val) => supportsReasoning = !!val"
             />
           </div>
+
+          <!-- Store Responses (openai-responses only) -->
+          <div
+            v-if="form.values.client_type === 'openai-responses'"
+            class="flex items-center justify-between"
+          >
+            <div>
+              <Label>{{ $t('models.store') }}</Label>
+              <p class="text-[0.8rem] text-muted-foreground">
+                {{ $t('models.storeHint') }}
+              </p>
+            </div>
+            <Switch
+              :model-value="store"
+              @update:model-value="(val) => store = !!val"
+            />
+          </div>
         </div>
       </template>
     </FormDialogShell>
@@ -213,6 +230,7 @@ import { useDialogMutation } from '@/composables/useDialogMutation'
 const availableInputModalities = ['text', 'image', 'audio', 'video', 'file'] as const
 const selectedModalities = ref<string[]>(['text'])
 const supportsReasoning = ref(false)
+const store = ref(false)
 const { t } = useI18n()
 const { run } = useDialogMutation()
 
@@ -354,6 +372,7 @@ async function addModel() {
   if (type === 'chat') {
     payload.input_modalities = selectedModalities.value.length > 0 ? selectedModalities.value : ['text']
     payload.supports_reasoning = supportsReasoning.value
+    payload.store = store.value
   }
 
   await run(
@@ -390,11 +409,13 @@ watch(open, async () => {
     form.resetForm({ values: { type: type || 'chat', client_type: client_type || '', model_id, name, dimensions } })
     selectedModalities.value = input_modalities ?? ['text']
     supportsReasoning.value = !!editInfo.value.supports_reasoning
+    store.value = !!editInfo.value.store
     userEditedName.value = !!(name && name !== model_id)
   } else {
     form.resetForm({ values: { type: 'chat', client_type: '', model_id: '', name: '', dimensions: undefined } })
     selectedModalities.value = ['text']
     supportsReasoning.value = false
+    store.value = false
     userEditedName.value = false
   }
 }, {
