@@ -503,8 +503,9 @@ watch(botList, (list) => {
 const { data: departments, status, refetch } = useQuery({
   key: () => ['departments', selectedBotId.value],
   query: async () => {
-    const res = await client.GET('/bots/{bot_id}/departments', {
-      params: { path: { bot_id: selectedBotId.value } },
+    const res = await client.get({
+      url: '/bots/{bot_id}/departments',
+      path: { bot_id: selectedBotId.value },
     })
     if (res.error) throw new Error('Failed')
     return res.data ?? []
@@ -522,9 +523,11 @@ function shortId(id: string | undefined): string {
 async function handleCreate() {
   creating.value = true
   try {
-    const res = await client.POST('/bots/{bot_id}/departments', {
-      params: { path: { bot_id: selectedBotId.value } },
+    const res = await client.post({
+      url: '/bots/{bot_id}/departments',
+      path: { bot_id: selectedBotId.value },
       body: { name: form.name, description: form.description, parent_id: (form.parent_id && form.parent_id !== '__none__') ? form.parent_id : undefined },
+      headers: { 'Content-Type': 'application/json' },
     })
     if (res.error) throw res.error
     showCreate.value = false
@@ -584,8 +587,9 @@ async function fetchDeptSkillTemplates() {
   if (!selectedDept.value?.id || !selectedBotId.value) return
   loadingSkillTemplates.value = true
   try {
-    const res = await client.GET('/bots/{bot_id}/departments/{department_id}/skill-templates', {
-      params: { path: { bot_id: selectedBotId.value, department_id: selectedDept.value.id } },
+    const res = await client.get({
+      url: '/bots/{bot_id}/departments/{department_id}/skill-templates',
+      path: { bot_id: selectedBotId.value, department_id: selectedDept.value.id },
     })
     if (res.error) throw res.error
     deptSkillTemplates.value = res.data ?? []
@@ -601,8 +605,9 @@ async function fetchDeptDirTemplates() {
   if (!selectedDept.value?.id || !selectedBotId.value) return
   loadingDirTemplates.value = true
   try {
-    const res = await client.GET('/bots/{bot_id}/departments/{department_id}/directory-templates', {
-      params: { path: { bot_id: selectedBotId.value, department_id: selectedDept.value.id } },
+    const res = await client.get({
+      url: '/bots/{bot_id}/departments/{department_id}/directory-templates',
+      path: { bot_id: selectedBotId.value, department_id: selectedDept.value.id },
     })
     if (res.error) throw res.error
     const paths = res.data?.paths ?? []
@@ -620,7 +625,7 @@ async function fetchDeptDirTemplates() {
 async function fetchAllSkillTemplates() {
   loadingAllTemplates.value = true
   try {
-    const res = await client.GET('/skill-templates')
+    const res = await client.get({ url: '/skill-templates' })
     if (res.error) throw res.error
     allSkillTemplates.value = res.data ?? []
   } catch {
@@ -639,9 +644,11 @@ async function handleAddSkillTemplate(templateId: string) {
   if (!selectedDept.value?.id) return
   addingSkillId.value = templateId
   try {
-    const res = await client.POST('/bots/{bot_id}/departments/{department_id}/skill-templates', {
-      params: { path: { bot_id: selectedBotId.value, department_id: selectedDept.value.id } },
+    const res = await client.post({
+      url: '/bots/{bot_id}/departments/{department_id}/skill-templates',
+      path: { bot_id: selectedBotId.value, department_id: selectedDept.value.id },
       body: { template_id: templateId },
+      headers: { 'Content-Type': 'application/json' },
     })
     if (res.error) throw res.error
     toast.success('技能模板已添加')
@@ -658,8 +665,9 @@ async function handleRemoveSkillTemplate(templateId: string) {
   if (!selectedDept.value?.id) return
   removingSkillId.value = templateId
   try {
-    const res = await client.DELETE('/bots/{bot_id}/departments/{department_id}/skill-templates/{template_id}', {
-      params: { path: { bot_id: selectedBotId.value, department_id: selectedDept.value.id, template_id: templateId } },
+    const res = await client.delete({
+      url: '/bots/{bot_id}/departments/{department_id}/skill-templates/{template_id}',
+      path: { bot_id: selectedBotId.value, department_id: selectedDept.value.id, template_id: templateId },
     })
     if (res.error) throw res.error
     toast.success('技能模板已移除')
@@ -692,9 +700,11 @@ async function handleSaveDirTemplates() {
   if (!selectedDept.value?.id) return
   savingDirs.value = true
   try {
-    const res = await client.PUT('/bots/{bot_id}/departments/{department_id}/directory-templates', {
-      params: { path: { bot_id: selectedBotId.value, department_id: selectedDept.value.id } },
+    const res = await client.put({
+      url: '/bots/{bot_id}/departments/{department_id}/directory-templates',
+      path: { bot_id: selectedBotId.value, department_id: selectedDept.value.id },
       body: { paths: dirPaths.value },
+      headers: { 'Content-Type': 'application/json' },
     })
     if (res.error) throw res.error
     dirPathsOriginal.value = [...dirPaths.value]
@@ -712,8 +722,9 @@ async function handleSyncSkills() {
   if (!selectedDept.value?.id) return
   syncingSkills.value = true
   try {
-    const res = await client.POST('/bots/{bot_id}/departments/{department_id}/sync-skills', {
-      params: { path: { bot_id: selectedBotId.value, department_id: selectedDept.value.id } },
+    const res = await client.post({
+      url: '/bots/{bot_id}/departments/{department_id}/sync-skills',
+      path: { bot_id: selectedBotId.value, department_id: selectedDept.value.id },
     })
     if (res.error) throw res.error
     const d = res.data
@@ -732,8 +743,9 @@ async function handleSyncDirectories() {
   if (!selectedDept.value?.id) return
   syncingDirs.value = true
   try {
-    const res = await client.POST('/bots/{bot_id}/departments/{department_id}/sync-directories', {
-      params: { path: { bot_id: selectedBotId.value, department_id: selectedDept.value.id } },
+    const res = await client.post({
+      url: '/bots/{bot_id}/departments/{department_id}/sync-directories',
+      path: { bot_id: selectedBotId.value, department_id: selectedDept.value.id },
     })
     if (res.error) throw res.error
     const d = res.data
