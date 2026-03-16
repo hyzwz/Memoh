@@ -478,9 +478,8 @@ func (p *ChannelInboundProcessor) HandleInbound(ctx context.Context, cfg channel
 	})
 
 	var (
-		finalMessages       []conversation.ModelMessage
-		outboundAttachments []channel.Attachment
-		streamErr           error
+		finalMessages []conversation.ModelMessage
+		streamErr     error
 	)
 	for chunkCh != nil || streamErrCh != nil {
 		select {
@@ -506,7 +505,6 @@ func (p *ChannelInboundProcessor) HandleInbound(ctx context.Context, cfg channel
 				if event.Type == channel.StreamEventAttachment && len(event.Attachments) > 0 {
 					ingested := p.ingestOutboundAttachments(ctx, strings.TrimSpace(identity.BotID), event.Attachments)
 					events[i].Attachments = ingested
-					outboundAttachments = append(outboundAttachments, ingested...)
 					assetMu.Lock()
 					for _, att := range ingested {
 						contentHash := strings.TrimSpace(att.ContentHash)
@@ -590,10 +588,9 @@ func (p *ChannelInboundProcessor) HandleInbound(ctx context.Context, cfg channel
 	}
 
 	outputs := flow.ExtractAssistantOutputs(finalMessages)
-	attachmentsApplied := false
 	for _, output := range outputs {
 		outMessage := buildChannelMessage(output, desc.Capabilities)
-		if outMessage.IsEmpty() && (len(outboundAttachments) == 0 || attachmentsApplied) {
+		if outMessage.IsEmpty() {
 			continue
 		}
 		plainText := strings.TrimSpace(outMessage.PlainText())
@@ -602,10 +599,6 @@ func (p *ChannelInboundProcessor) HandleInbound(ctx context.Context, cfg channel
 		}
 		if isMessagingToolDuplicate(plainText, sentTexts) {
 			continue
-		}
-		if !attachmentsApplied && len(outboundAttachments) > 0 {
-			outMessage.Attachments = append(outMessage.Attachments, outboundAttachments...)
-			attachmentsApplied = true
 		}
 		if outMessage.Reply == nil && sourceMessageID != "" {
 			outMessage.Reply = &channel.ReplyRef{
@@ -618,18 +611,6 @@ func (p *ChannelInboundProcessor) HandleInbound(ctx context.Context, cfg channel
 			Final: &channel.StreamFinalizePayload{
 				Message: outMessage,
 			},
-		}); err != nil {
-			return err
-		}
-	}
-	if !attachmentsApplied && len(outboundAttachments) > 0 {
-		attachMsg := channel.Message{Attachments: outboundAttachments}
-		if sourceMessageID != "" {
-			attachMsg.Reply = &channel.ReplyRef{Target: target, MessageID: sourceMessageID}
-		}
-		if err := stream.Push(ctx, channel.StreamEvent{
-			Type:  channel.StreamEventFinal,
-			Final: &channel.StreamFinalizePayload{Message: attachMsg},
 		}); err != nil {
 			return err
 		}
@@ -1911,6 +1892,24 @@ func applyAssetToAttachment(asset media.Asset, botID string, item *channel.Attac
 	if item.Size == 0 && asset.SizeBytes > 0 {
 		item.Size = asset.SizeBytes
 	}
+	// Infer a better attachment type from MIME when the TS side sent a generic "file".
+	if item.Type == channel.AttachmentFile || item.Type == "" {
+		item.Type = inferAttachmentTypeFromMime(strings.TrimSpace(item.Mime))
+	}
+}
+
+func inferAttachmentTypeFromMime(mime string) channel.AttachmentType {
+	mime = strings.ToLower(strings.TrimSpace(mime))
+	switch {
+	case strings.HasPrefix(mime, "image/"):
+		return channel.AttachmentImage
+	case strings.HasPrefix(mime, "audio/"):
+		return channel.AttachmentAudio
+	case strings.HasPrefix(mime, "video/"):
+		return channel.AttachmentVideo
+	default:
+		return channel.AttachmentFile
+	}
 }
 
 // extractStorageKey derives the media storage key from a container-internal
@@ -2221,12 +2220,16 @@ func parseAttachmentDelta(raw json.RawMessage) []channel.Attachment {
 		if url == "" {
 			url = strings.TrimSpace(item.Path)
 		}
+		name := strings.TrimSpace(item.Name)
+		if name == "" && url != "" && !isDataURL(url) {
+			name = filepath.Base(url)
+		}
 		attachments = append(attachments, channel.Attachment{
 			Type:        channel.AttachmentType(strings.TrimSpace(item.Type)),
 			URL:         url,
 			PlatformKey: strings.TrimSpace(item.PlatformKey),
 			ContentHash: strings.TrimSpace(item.ContentHash),
-			Name:        strings.TrimSpace(item.Name),
+			Name:        name,
 			Mime:        strings.TrimSpace(item.Mime),
 			Size:        item.Size,
 		})
