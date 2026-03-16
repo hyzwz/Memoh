@@ -538,6 +538,94 @@ CREATE TABLE IF NOT EXISTS email_outbox (
 CREATE INDEX IF NOT EXISTS idx_email_outbox_provider_id ON email_outbox(provider_id);
 CREATE INDEX IF NOT EXISTS idx_email_outbox_bot_id ON email_outbox(bot_id, created_at DESC);
 
+-- email_oauth_tokens: stored OAuth2 tokens for Gmail email providers
+CREATE TABLE IF NOT EXISTS email_oauth_tokens (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  email_provider_id UUID NOT NULL UNIQUE REFERENCES email_providers(id) ON DELETE CASCADE,
+  email_address TEXT NOT NULL DEFAULT '',
+  access_token TEXT NOT NULL DEFAULT '',
+  refresh_token TEXT NOT NULL DEFAULT '',
+  expires_at TIMESTAMPTZ,
+  scope TEXT NOT NULL DEFAULT '',
+  state TEXT NOT NULL DEFAULT '',
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS idx_email_oauth_tokens_state ON email_oauth_tokens(state) WHERE state != '';
+
+-- bot_acl_rules: fine-grained per-bot access control rules
+CREATE TABLE IF NOT EXISTS bot_acl_rules (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  bot_id UUID NOT NULL REFERENCES bots(id) ON DELETE CASCADE,
+  action TEXT NOT NULL,
+  effect TEXT NOT NULL,
+  subject_kind TEXT NOT NULL,
+  user_id UUID REFERENCES users(id) ON DELETE CASCADE,
+  channel_identity_id UUID REFERENCES channel_identities(id) ON DELETE CASCADE,
+  source_channel TEXT,
+  source_conversation_type TEXT,
+  source_conversation_id TEXT,
+  source_thread_id TEXT,
+  created_by_user_id UUID REFERENCES users(id) ON DELETE SET NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  CONSTRAINT bot_acl_rules_action_check CHECK (action IN ('chat.trigger')),
+  CONSTRAINT bot_acl_rules_effect_check CHECK (effect IN ('allow', 'deny')),
+  CONSTRAINT bot_acl_rules_subject_kind_check CHECK (subject_kind IN ('guest_all', 'user', 'channel_identity')),
+  CONSTRAINT bot_acl_rules_source_conversation_type_check CHECK (
+    source_conversation_type IS NULL OR source_conversation_type IN ('private', 'group', 'thread')
+  ),
+  CONSTRAINT bot_acl_rules_source_scope_check CHECK (
+    (source_conversation_id IS NULL AND source_thread_id IS NULL)
+    OR source_channel IS NOT NULL
+  ),
+  CONSTRAINT bot_acl_rules_source_thread_check CHECK (
+    source_thread_id IS NULL OR source_conversation_id IS NOT NULL
+  ),
+  CONSTRAINT bot_acl_rules_subject_value_check CHECK (
+    (subject_kind = 'guest_all' AND user_id IS NULL AND channel_identity_id IS NULL) OR
+    (subject_kind = 'user' AND user_id IS NOT NULL AND channel_identity_id IS NULL) OR
+    (subject_kind = 'channel_identity' AND user_id IS NULL AND channel_identity_id IS NOT NULL)
+  ),
+  CONSTRAINT bot_acl_rules_unique_user UNIQUE NULLS NOT DISTINCT (
+    bot_id, action, effect, subject_kind, user_id,
+    source_channel, source_conversation_type, source_conversation_id, source_thread_id
+  ),
+  CONSTRAINT bot_acl_rules_unique_channel_identity UNIQUE NULLS NOT DISTINCT (
+    bot_id, action, effect, subject_kind, channel_identity_id,
+    source_channel, source_conversation_type, source_conversation_id, source_thread_id
+  )
+);
+
+CREATE INDEX IF NOT EXISTS idx_bot_acl_rules_bot_id ON bot_acl_rules(bot_id);
+CREATE INDEX IF NOT EXISTS idx_bot_acl_rules_user_id ON bot_acl_rules(user_id);
+CREATE INDEX IF NOT EXISTS idx_bot_acl_rules_channel_identity_id ON bot_acl_rules(channel_identity_id);
+
+-- tts_providers: text-to-speech provider configurations
+CREATE TABLE IF NOT EXISTS tts_providers (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  name TEXT NOT NULL,
+  provider TEXT NOT NULL,
+  config JSONB NOT NULL DEFAULT '{}'::jsonb,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  CONSTRAINT tts_providers_name_unique UNIQUE (name)
+);
+
+-- tts_models: text-to-speech model configurations
+CREATE TABLE IF NOT EXISTS tts_models (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  model_id TEXT NOT NULL,
+  name TEXT,
+  tts_provider_id UUID NOT NULL REFERENCES tts_providers(id) ON DELETE CASCADE,
+  config JSONB NOT NULL DEFAULT '{}'::jsonb,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS idx_tts_models_provider_id ON tts_models(tts_provider_id);
+
 -- skill_templates: global admin-managed skill template library
 CREATE TABLE IF NOT EXISTS skill_templates (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),

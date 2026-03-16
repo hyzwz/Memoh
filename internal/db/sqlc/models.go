@@ -49,6 +49,23 @@ type Bot struct {
 	UpdatedAt          pgtype.Timestamptz `json:"updated_at"`
 }
 
+type BotAclRule struct {
+	ID                     pgtype.UUID        `json:"id"`
+	BotID                  pgtype.UUID        `json:"bot_id"`
+	Action                 string             `json:"action"`
+	Effect                 string             `json:"effect"`
+	SubjectKind            string             `json:"subject_kind"`
+	UserID                 pgtype.UUID        `json:"user_id"`
+	ChannelIdentityID      pgtype.UUID        `json:"channel_identity_id"`
+	SourceChannel          pgtype.Text        `json:"source_channel"`
+	SourceConversationType pgtype.Text        `json:"source_conversation_type"`
+	SourceConversationID   pgtype.Text        `json:"source_conversation_id"`
+	SourceThreadID         pgtype.Text        `json:"source_thread_id"`
+	CreatedByUserID        pgtype.UUID        `json:"created_by_user_id"`
+	CreatedAt              pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt              pgtype.Timestamptz `json:"updated_at"`
+}
+
 type BotChannelConfig struct {
 	ID               pgtype.UUID        `json:"id"`
 	BotID            pgtype.UUID        `json:"bot_id"`
@@ -306,9 +323,9 @@ type Department struct {
 	Description        string             `json:"description"`
 	ParentID           pgtype.UUID        `json:"parent_id"`
 	Metadata           []byte             `json:"metadata"`
+	DirectoryTemplates []byte             `json:"directory_templates"`
 	CreatedAt          pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt          pgtype.Timestamptz `json:"updated_at"`
-	DirectoryTemplates []byte             `json:"directory_templates"`
 }
 
 type DepartmentMember struct {
@@ -322,6 +339,19 @@ type DepartmentSkillTemplate struct {
 	DepartmentID pgtype.UUID        `json:"department_id"`
 	TemplateID   pgtype.UUID        `json:"template_id"`
 	CreatedAt    pgtype.Timestamptz `json:"created_at"`
+}
+
+type EmailOauthToken struct {
+	ID              pgtype.UUID        `json:"id"`
+	EmailProviderID pgtype.UUID        `json:"email_provider_id"`
+	EmailAddress    string             `json:"email_address"`
+	AccessToken     string             `json:"access_token"`
+	RefreshToken    string             `json:"refresh_token"`
+	ExpiresAt       pgtype.Timestamptz `json:"expires_at"`
+	Scope           string             `json:"scope"`
+	State           string             `json:"state"`
+	CreatedAt       pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt       pgtype.Timestamptz `json:"updated_at"`
 }
 
 type EmailOutbox struct {
@@ -582,6 +612,25 @@ type Subagent struct {
 	Metadata    []byte             `json:"metadata"`
 	Skills      []byte             `json:"skills"`
 	Usage       []byte             `json:"usage"`
+}
+
+type TtsModel struct {
+	ID            pgtype.UUID        `json:"id"`
+	ModelID       string             `json:"model_id"`
+	Name          pgtype.Text        `json:"name"`
+	TtsProviderID pgtype.UUID        `json:"tts_provider_id"`
+	Config        []byte             `json:"config"`
+	CreatedAt     pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt     pgtype.Timestamptz `json:"updated_at"`
+}
+
+type TtsProvider struct {
+	ID        pgtype.UUID        `json:"id"`
+	Name      string             `json:"name"`
+	Provider  string             `json:"provider"`
+	Config    []byte             `json:"config"`
+	CreatedAt pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt pgtype.Timestamptz `json:"updated_at"`
 }
 
 type User struct {

@@ -4,26 +4,10 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
-	"strings"
 	"testing"
 
-	"github.com/memohai/memoh/internal/conversation"
 	"github.com/memohai/memoh/internal/models"
 )
-
-// --- Model routing test fakes ---
-
-type fakeModelRouter struct {
-	routes []ModelRouteEntry
-	err    error
-}
-
-func (f *fakeModelRouter) ListEnabledRoutes(_ context.Context, _ string) ([]ModelRouteEntry, error) {
-	if f.err != nil {
-		return nil, f.err
-	}
-	return f.routes, nil
-}
 
 func TestMatchesModelReference_ModelID(t *testing.T) {
 	t.Parallel()
@@ -77,115 +61,36 @@ func TestMatchesModelReference_TrimmedInput(t *testing.T) {
 	}
 }
 
-func TestResolveModelRoute_ReturnsHighestPriority(t *testing.T) {
+func TestModelOverrideHook_Applied(t *testing.T) {
 	t.Parallel()
 	r := &Resolver{
 		logger: slog.Default(),
-		modelRouter: &fakeModelRouter{
-			routes: []ModelRouteEntry{
-				{ModelID: "model-simple-high", Priority: 100, ComplexityTier: "simple", IsEnabled: true},
-				{ModelID: "model-simple-low", Priority: 10, ComplexityTier: "simple", IsEnabled: true},
-			},
-		},
 	}
-	modelID, ok := r.resolveModelRoute(context.Background(), "bot-1", conversation.ChatRequest{Query: "ping"})
-	if !ok {
-		t.Fatal("expected route to be found")
-	}
-	if modelID != "model-simple-high" {
-		t.Fatalf("expected model-simple-high, got %s", modelID)
-	}
-}
-
-func TestResolveModelRoute_NoRoutes(t *testing.T) {
-	t.Parallel()
-	r := &Resolver{
-		logger: slog.Default(),
-		modelRouter: &fakeModelRouter{
-			routes: []ModelRouteEntry{},
-		},
-	}
-	_, ok := r.resolveModelRoute(context.Background(), "bot-1", conversation.ChatRequest{Query: "ping"})
-	if ok {
-		t.Fatal("expected no route found")
-	}
-}
-
-func TestResolveModelRoute_ErrorFallsThrough(t *testing.T) {
-	t.Parallel()
-	r := &Resolver{
-		logger: slog.Default(),
-		modelRouter: &fakeModelRouter{
-			err: fmt.Errorf("db error"),
-		},
-	}
-	_, ok := r.resolveModelRoute(context.Background(), "bot-1", conversation.ChatRequest{Query: "ping"})
-	if ok {
-		t.Fatal("expected no route on error (graceful degradation)")
-	}
-}
-
-func TestResolveModelRoute_SkipsDisabled(t *testing.T) {
-	t.Parallel()
-	r := &Resolver{
-		logger: slog.Default(),
-		modelRouter: &fakeModelRouter{
-			routes: []ModelRouteEntry{
-				{ModelID: "model-disabled", Priority: 100, ComplexityTier: "simple", IsEnabled: false},
-				{ModelID: "model-enabled", Priority: 50, ComplexityTier: "simple", IsEnabled: true},
-			},
-		},
-	}
-	modelID, ok := r.resolveModelRoute(context.Background(), "bot-1", conversation.ChatRequest{Query: "ping"})
-	if !ok {
-		t.Fatal("expected route to be found")
-	}
-	if modelID != "model-enabled" {
-		t.Fatalf("expected model-enabled, got %s", modelID)
-	}
-}
-
-func TestResolveModelRoute_PrefersComplexityTier(t *testing.T) {
-	t.Parallel()
-	r := &Resolver{
-		logger: slog.Default(),
-		modelRouter: &fakeModelRouter{
-			routes: []ModelRouteEntry{
-				{ModelID: "model-complex", Priority: 100, ComplexityTier: "complex", IsEnabled: true},
-				{ModelID: "model-simple", Priority: 50, ComplexityTier: "simple", IsEnabled: true},
-			},
-		},
-	}
-	modelID, ok := r.resolveModelRoute(context.Background(), "bot-1", conversation.ChatRequest{
-		Query: strings.Repeat("detailed architecture analysis\n", 12),
+	r.SetModelOverride(func(_ context.Context, _, modelID string) (string, error) {
+		return "overridden-model", nil
 	})
-	if !ok {
-		t.Fatal("expected route to be found")
+	if r.modelOverride == nil {
+		t.Fatal("expected modelOverride hook to be set")
 	}
-	if modelID != "model-complex" {
-		t.Fatalf("expected model-complex, got %s", modelID)
+	got, err := r.modelOverride(context.Background(), "bot-1", "original-model")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if got != "overridden-model" {
+		t.Fatalf("expected overridden-model, got %s", got)
 	}
 }
 
-func TestResolveModelRoute_UsesExplicitFallbackTier(t *testing.T) {
+func TestModelOverrideHook_ErrorPassthrough(t *testing.T) {
 	t.Parallel()
 	r := &Resolver{
 		logger: slog.Default(),
-		modelRouter: &fakeModelRouter{
-			routes: []ModelRouteEntry{
-				{ModelID: "model-fallback", Priority: 100, ComplexityTier: "fallback", IsEnabled: true},
-				{ModelID: "model-complex", Priority: 50, ComplexityTier: "complex", IsEnabled: true},
-			},
-		},
 	}
-	modelID, ok := r.resolveModelRoute(context.Background(), "bot-1", conversation.ChatRequest{
-		Query:          strings.Repeat("detailed architecture analysis\n", 12),
-		ModelRouteTier: "fallback",
+	r.SetModelOverride(func(_ context.Context, _, _ string) (string, error) {
+		return "", fmt.Errorf("routing error")
 	})
-	if !ok {
-		t.Fatal("expected route to be found")
-	}
-	if modelID != "model-fallback" {
-		t.Fatalf("expected model-fallback, got %s", modelID)
+	_, err := r.modelOverride(context.Background(), "bot-1", "model-1")
+	if err == nil {
+		t.Fatal("expected error from model override hook")
 	}
 }

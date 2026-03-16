@@ -1746,21 +1746,9 @@ func TestMapChannelToChatAttachments(t *testing.T) {
 	}
 }
 
-// --- Budget enforcement tests ---
+// --- ChatPreCheck hook tests ---
 
-type fakeBudgetChecker struct {
-	result *BudgetCheckResult
-	err    error
-}
-
-func (f *fakeBudgetChecker) CheckChatBudget(_ context.Context, _, _ string) (*BudgetCheckResult, error) {
-	if f.err != nil {
-		return nil, f.err
-	}
-	return f.result, nil
-}
-
-func TestChannelInboundProcessorBudgetBlocked(t *testing.T) {
+func TestChannelInboundProcessorPreCheckDenied(t *testing.T) {
 	channelIdentitySvc := &fakeChannelIdentityService{channelIdentity: identities.ChannelIdentity{ID: "ci-1"}}
 	memberSvc := &fakeMemberService{isMember: true}
 	policySvc := &fakePolicyService{allow: false}
@@ -1773,8 +1761,8 @@ func TestChannelInboundProcessorBudgetBlocked(t *testing.T) {
 		},
 	}
 	processor := NewChannelInboundProcessor(slog.Default(), nil, chatSvc, chatSvc, gateway, channelIdentitySvc, memberSvc, policySvc, nil, nil, "", 0)
-	processor.SetBudgetChecker(&fakeBudgetChecker{
-		result: &BudgetCheckResult{Allowed: false, Action: "block"},
+	processor.SetChatPreCheck(func(_ context.Context, _, _ string) error {
+		return &ChatPreCheckDenied{Message: "预算已超限"}
 	})
 	sender := &fakeReplySender{}
 
@@ -1796,23 +1784,23 @@ func TestChannelInboundProcessorBudgetBlocked(t *testing.T) {
 	if gateway.gotReq.Query != "" {
 		t.Fatalf("expected no chat request, got query: %s", gateway.gotReq.Query)
 	}
-	// Should have sent a budget exceeded reply via stream final event
+	// Should have sent a denied reply via stream final event
 	if len(sender.events) == 0 {
 		t.Fatal("expected stream events")
 	}
-	foundBudgetMsg := false
+	foundDeniedMsg := false
 	for _, ev := range sender.events {
 		if ev.Final != nil && strings.Contains(ev.Final.Message.Text, "预算已超限") {
-			foundBudgetMsg = true
+			foundDeniedMsg = true
 			break
 		}
 	}
-	if !foundBudgetMsg {
-		t.Fatal("expected budget exceeded message in stream events")
+	if !foundDeniedMsg {
+		t.Fatal("expected pre-check denied message in stream events")
 	}
 }
 
-func TestChannelInboundProcessorBudgetAllowed(t *testing.T) {
+func TestChannelInboundProcessorPreCheckAllowed(t *testing.T) {
 	channelIdentitySvc := &fakeChannelIdentityService{channelIdentity: identities.ChannelIdentity{ID: "ci-1"}}
 	memberSvc := &fakeMemberService{isMember: true}
 	policySvc := &fakePolicyService{allow: false}
@@ -1825,8 +1813,8 @@ func TestChannelInboundProcessorBudgetAllowed(t *testing.T) {
 		},
 	}
 	processor := NewChannelInboundProcessor(slog.Default(), nil, chatSvc, chatSvc, gateway, channelIdentitySvc, memberSvc, policySvc, nil, nil, "", 0)
-	processor.SetBudgetChecker(&fakeBudgetChecker{
-		result: &BudgetCheckResult{Allowed: true},
+	processor.SetChatPreCheck(func(_ context.Context, _, _ string) error {
+		return nil // allowed
 	})
 	sender := &fakeReplySender{}
 
@@ -1850,51 +1838,15 @@ func TestChannelInboundProcessorBudgetAllowed(t *testing.T) {
 	}
 }
 
-func TestChannelInboundProcessorBudgetDowngradeRoutesToFallback(t *testing.T) {
-	channelIdentitySvc := &fakeChannelIdentityService{channelIdentity: identities.ChannelIdentity{ID: "ci-1"}}
-	memberSvc := &fakeMemberService{isMember: true}
-	policySvc := &fakePolicyService{allow: false}
-	chatSvc := &fakeChatService{resolveResult: route.ResolveConversationResult{ChatID: "chat-1", RouteID: "route-1"}}
-	gateway := &fakeChatGateway{
-		resp: conversation.ChatResponse{
-			Messages: []conversation.ModelMessage{
-				{Role: "assistant", Content: conversation.NewTextContent("AI reply")},
-			},
-		},
-	}
-	processor := NewChannelInboundProcessor(slog.Default(), nil, chatSvc, chatSvc, gateway, channelIdentitySvc, memberSvc, policySvc, nil, nil, "", 0)
-	processor.SetBudgetChecker(&fakeBudgetChecker{
-		result: &BudgetCheckResult{Allowed: true, Alert: true, Action: "downgrade"},
-	})
-	sender := &fakeReplySender{}
-
-	cfg := channel.ChannelConfig{ID: "cfg-1", BotID: "bot-1", ChannelType: channel.ChannelType("feishu")}
-	msg := channel.InboundMessage{
-		BotID:        "bot-1",
-		Channel:      channel.ChannelType("feishu"),
-		Message:      channel.Message{Text: "hello"},
-		ReplyTarget:  "target-id",
-		Sender:       channel.Identity{SubjectID: "ext-1", DisplayName: "User1"},
-		Conversation: channel.Conversation{ID: "chat-1", Type: "p2p"},
-	}
-
-	if err := processor.HandleInbound(context.Background(), cfg, msg, sender); err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if gateway.gotReq.ModelRouteTier != "fallback" {
-		t.Fatalf("expected fallback routing tier, got %q", gateway.gotReq.ModelRouteTier)
-	}
-}
-
-func TestChannelInboundProcessorBudgetCheckErrorDenies(t *testing.T) {
+func TestChannelInboundProcessorPreCheckErrorDenies(t *testing.T) {
 	channelIdentitySvc := &fakeChannelIdentityService{channelIdentity: identities.ChannelIdentity{ID: "ci-1"}}
 	memberSvc := &fakeMemberService{isMember: true}
 	policySvc := &fakePolicyService{allow: false}
 	chatSvc := &fakeChatService{resolveResult: route.ResolveConversationResult{ChatID: "chat-1", RouteID: "route-1"}}
 	gateway := &fakeChatGateway{}
 	processor := NewChannelInboundProcessor(slog.Default(), nil, chatSvc, chatSvc, gateway, channelIdentitySvc, memberSvc, policySvc, nil, nil, "", 0)
-	processor.SetBudgetChecker(&fakeBudgetChecker{
-		err: errors.New("db error"),
+	processor.SetChatPreCheck(func(_ context.Context, _, _ string) error {
+		return errors.New("db error")
 	})
 	sender := &fakeReplySender{}
 
@@ -1910,13 +1862,13 @@ func TestChannelInboundProcessorBudgetCheckErrorDenies(t *testing.T) {
 
 	err := processor.HandleInbound(context.Background(), cfg, msg, sender)
 	if err == nil {
-		t.Fatal("expected error for budget check failure (fail-closed)")
+		t.Fatal("expected error for pre-check failure (fail-closed)")
 	}
-	if !strings.Contains(err.Error(), "budget check failed") {
-		t.Fatalf("expected budget check failed error, got: %v", err)
+	if !strings.Contains(err.Error(), "chat pre-check failed") {
+		t.Fatalf("expected chat pre-check failed error, got: %v", err)
 	}
 	// Chat should NOT have been called
 	if gateway.gotReq.Query != "" {
-		t.Fatalf("expected no chat request on budget error, got: %s", gateway.gotReq.Query)
+		t.Fatalf("expected no chat request on pre-check error, got: %s", gateway.gotReq.Query)
 	}
 }

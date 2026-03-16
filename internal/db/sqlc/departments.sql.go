@@ -85,7 +85,7 @@ func (q *Queries) CheckUserDepartmentMembership(ctx context.Context, arg CheckUs
 const createDepartment = `-- name: CreateDepartment :one
 INSERT INTO departments (name, description, parent_id, metadata)
 VALUES ($1, $2, $3, $4)
-RETURNING id, name, description, parent_id, metadata, created_at, updated_at, directory_templates
+RETURNING id, name, description, parent_id, metadata, directory_templates, created_at, updated_at
 `
 
 type CreateDepartmentParams struct {
@@ -109,9 +109,9 @@ func (q *Queries) CreateDepartment(ctx context.Context, arg CreateDepartmentPara
 		&i.Description,
 		&i.ParentID,
 		&i.Metadata,
+		&i.DirectoryTemplates,
 		&i.CreatedAt,
 		&i.UpdatedAt,
-		&i.DirectoryTemplates,
 	)
 	return i, err
 }
@@ -126,7 +126,7 @@ func (q *Queries) DeleteDepartment(ctx context.Context, id pgtype.UUID) error {
 }
 
 const getDepartmentByID = `-- name: GetDepartmentByID :one
-SELECT id, name, description, parent_id, metadata, created_at, updated_at, directory_templates FROM departments WHERE id = $1
+SELECT id, name, description, parent_id, metadata, directory_templates, created_at, updated_at FROM departments WHERE id = $1
 `
 
 func (q *Queries) GetDepartmentByID(ctx context.Context, id pgtype.UUID) (Department, error) {
@@ -138,15 +138,15 @@ func (q *Queries) GetDepartmentByID(ctx context.Context, id pgtype.UUID) (Depart
 		&i.Description,
 		&i.ParentID,
 		&i.Metadata,
+		&i.DirectoryTemplates,
 		&i.CreatedAt,
 		&i.UpdatedAt,
-		&i.DirectoryTemplates,
 	)
 	return i, err
 }
 
 const getDepartmentByName = `-- name: GetDepartmentByName :one
-SELECT id, name, description, parent_id, metadata, created_at, updated_at, directory_templates FROM departments WHERE name = $1
+SELECT id, name, description, parent_id, metadata, directory_templates, created_at, updated_at FROM departments WHERE name = $1
 `
 
 func (q *Queries) GetDepartmentByName(ctx context.Context, name string) (Department, error) {
@@ -158,9 +158,9 @@ func (q *Queries) GetDepartmentByName(ctx context.Context, name string) (Departm
 		&i.Description,
 		&i.ParentID,
 		&i.Metadata,
+		&i.DirectoryTemplates,
 		&i.CreatedAt,
 		&i.UpdatedAt,
-		&i.DirectoryTemplates,
 	)
 	return i, err
 }
@@ -177,7 +177,7 @@ func (q *Queries) GetDepartmentDirectoryTemplates(ctx context.Context, id pgtype
 }
 
 const listBotDepartments = `-- name: ListBotDepartments :many
-SELECT d.id, d.name, d.description, d.parent_id, d.metadata, d.created_at, d.updated_at, d.directory_templates
+SELECT d.id, d.name, d.description, d.parent_id, d.metadata, d.directory_templates, d.created_at, d.updated_at
 FROM departments d
 JOIN bot_department_access bda ON bda.department_id = d.id
 WHERE bda.bot_id = $1
@@ -199,9 +199,9 @@ func (q *Queries) ListBotDepartments(ctx context.Context, botID pgtype.UUID) ([]
 			&i.Description,
 			&i.ParentID,
 			&i.Metadata,
+			&i.DirectoryTemplates,
 			&i.CreatedAt,
 			&i.UpdatedAt,
-			&i.DirectoryTemplates,
 		); err != nil {
 			return nil, err
 		}
@@ -214,7 +214,7 @@ func (q *Queries) ListBotDepartments(ctx context.Context, botID pgtype.UUID) ([]
 }
 
 const listChildDepartments = `-- name: ListChildDepartments :many
-SELECT id, name, description, parent_id, metadata, created_at, updated_at, directory_templates FROM departments WHERE parent_id = $1 ORDER BY name
+SELECT id, name, description, parent_id, metadata, directory_templates, created_at, updated_at FROM departments WHERE parent_id = $1 ORDER BY name
 `
 
 func (q *Queries) ListChildDepartments(ctx context.Context, parentID pgtype.UUID) ([]Department, error) {
@@ -232,9 +232,9 @@ func (q *Queries) ListChildDepartments(ctx context.Context, parentID pgtype.UUID
 			&i.Description,
 			&i.ParentID,
 			&i.Metadata,
+			&i.DirectoryTemplates,
 			&i.CreatedAt,
 			&i.UpdatedAt,
-			&i.DirectoryTemplates,
 		); err != nil {
 			return nil, err
 		}
@@ -388,7 +388,7 @@ func (q *Queries) ListDepartmentSkillTemplates(ctx context.Context, departmentID
 }
 
 const listDepartments = `-- name: ListDepartments :many
-SELECT id, name, description, parent_id, metadata, created_at, updated_at, directory_templates FROM departments ORDER BY name
+SELECT id, name, description, parent_id, metadata, directory_templates, created_at, updated_at FROM departments ORDER BY name
 `
 
 func (q *Queries) ListDepartments(ctx context.Context) ([]Department, error) {
@@ -406,9 +406,9 @@ func (q *Queries) ListDepartments(ctx context.Context) ([]Department, error) {
 			&i.Description,
 			&i.ParentID,
 			&i.Metadata,
+			&i.DirectoryTemplates,
 			&i.CreatedAt,
 			&i.UpdatedAt,
-			&i.DirectoryTemplates,
 		); err != nil {
 			return nil, err
 		}
@@ -421,7 +421,7 @@ func (q *Queries) ListDepartments(ctx context.Context) ([]Department, error) {
 }
 
 const listUserDepartments = `-- name: ListUserDepartments :many
-SELECT d.id, d.name, d.description, d.parent_id, d.metadata, d.created_at, d.updated_at, d.directory_templates, dm.role AS member_role
+SELECT d.id, d.name, d.description, d.parent_id, d.metadata, d.directory_templates, d.created_at, d.updated_at, dm.role AS member_role
 FROM departments d
 JOIN department_members dm ON dm.department_id = d.id
 WHERE dm.user_id = $1
@@ -434,9 +434,9 @@ type ListUserDepartmentsRow struct {
 	Description        string             `json:"description"`
 	ParentID           pgtype.UUID        `json:"parent_id"`
 	Metadata           []byte             `json:"metadata"`
+	DirectoryTemplates []byte             `json:"directory_templates"`
 	CreatedAt          pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt          pgtype.Timestamptz `json:"updated_at"`
-	DirectoryTemplates []byte             `json:"directory_templates"`
 	MemberRole         string             `json:"member_role"`
 }
 
@@ -455,9 +455,9 @@ func (q *Queries) ListUserDepartments(ctx context.Context, userID pgtype.UUID) (
 			&i.Description,
 			&i.ParentID,
 			&i.Metadata,
+			&i.DirectoryTemplates,
 			&i.CreatedAt,
 			&i.UpdatedAt,
-			&i.DirectoryTemplates,
 			&i.MemberRole,
 		); err != nil {
 			return nil, err
@@ -533,7 +533,7 @@ const updateDepartment = `-- name: UpdateDepartment :one
 UPDATE departments
 SET name = $2, description = $3, parent_id = $4, metadata = $5, updated_at = now()
 WHERE id = $1
-RETURNING id, name, description, parent_id, metadata, created_at, updated_at, directory_templates
+RETURNING id, name, description, parent_id, metadata, directory_templates, created_at, updated_at
 `
 
 type UpdateDepartmentParams struct {
@@ -559,9 +559,9 @@ func (q *Queries) UpdateDepartment(ctx context.Context, arg UpdateDepartmentPara
 		&i.Description,
 		&i.ParentID,
 		&i.Metadata,
+		&i.DirectoryTemplates,
 		&i.CreatedAt,
 		&i.UpdatedAt,
-		&i.DirectoryTemplates,
 	)
 	return i, err
 }
