@@ -20,6 +20,135 @@
         :providers="memoryProviders"
         :placeholder="$t('bots.settings.memoryProviderPlaceholder')"
       />
+      <div
+        v-if="selectedBuiltinMemoryProvider"
+        class="rounded-md border border-border bg-card px-3 py-2 text-sm text-muted-foreground"
+      >
+        {{ $t('bots.settings.memoryModePreview', {
+          mode: $t(`memoryProvider.modeNames.${selectedBuiltinMemoryMode}`),
+        }) }}
+      </div>
+      <div
+        v-if="showMemoryProviderStatusCard"
+        class="rounded-lg border border-border bg-card p-4 space-y-4"
+      >
+        <div class="flex items-start justify-between gap-3">
+          <div class="space-y-1">
+            <p class="text-sm font-medium text-foreground">
+              {{ indexedMemoryStatusTitle }}
+            </p>
+            <p class="text-xs text-muted-foreground">
+              {{ isSelectedMemoryProviderPersisted
+                ? indexedMemoryStatusHint
+                : $t('bots.settings.indexedMemoryStatusPendingSave') }}
+            </p>
+          </div>
+          <Button
+            variant="outline"
+            size="sm"
+            :disabled="!isSelectedMemoryProviderPersisted || isRebuilding || !memoryStatus?.can_manual_sync"
+            @click="handleMemorySync"
+          >
+            <Spinner
+              v-if="isRebuilding"
+              class="mr-1.5"
+            />
+            {{ $t('bots.settings.memorySyncAction') }}
+          </Button>
+        </div>
+
+        <div
+          v-if="isMemoryStatusLoading"
+          class="text-sm text-muted-foreground"
+        >
+          {{ $t('common.loading') }}
+        </div>
+
+        <div
+          v-else-if="statusCardData"
+          class="grid gap-3 md:grid-cols-2"
+        >
+          <div class="rounded-md border border-border bg-background/60 px-3 py-2">
+            <p class="text-xs text-muted-foreground">
+              {{ $t('bots.settings.memorySourceDir') }}
+            </p>
+            <p class="mt-1 text-sm font-medium text-foreground break-all">
+              {{ statusCardData.source_dir || '-' }}
+            </p>
+          </div>
+          <div class="rounded-md border border-border bg-background/60 px-3 py-2">
+            <p class="text-xs text-muted-foreground">
+              {{ $t('bots.settings.memoryOverviewPath') }}
+            </p>
+            <p class="mt-1 text-sm font-medium text-foreground break-all">
+              {{ statusCardData.overview_path || '-' }}
+            </p>
+          </div>
+          <div class="rounded-md border border-border bg-background/60 px-3 py-2">
+            <p class="text-xs text-muted-foreground">
+              {{ $t('bots.settings.memoryMarkdownFiles') }}
+            </p>
+            <p class="mt-1 text-sm font-medium text-foreground">
+              {{ statusCardData.markdown_file_count ?? 0 }}
+            </p>
+          </div>
+          <div class="rounded-md border border-border bg-background/60 px-3 py-2">
+            <p class="text-xs text-muted-foreground">
+              {{ $t('bots.settings.memorySourceEntries') }}
+            </p>
+            <p class="mt-1 text-sm font-medium text-foreground">
+              {{ statusCardData.source_count ?? 0 }}
+            </p>
+          </div>
+          <div class="rounded-md border border-border bg-background/60 px-3 py-2">
+            <p class="text-xs text-muted-foreground">
+              {{ $t('bots.settings.memoryIndexedEntries') }}
+            </p>
+            <p class="mt-1 text-sm font-medium text-foreground">
+              {{ statusCardData.indexed_count ?? 0 }}
+            </p>
+          </div>
+          <div
+            v-if="showQdrantDetails"
+            class="rounded-md border border-border bg-background/60 px-3 py-2"
+          >
+            <p class="text-xs text-muted-foreground">
+              {{ $t('bots.settings.memoryQdrantCollection') }}
+            </p>
+            <p class="mt-1 text-sm font-medium text-foreground break-all">
+              {{ statusCardData.qdrant_collection || '-' }}
+            </p>
+          </div>
+          <div
+            v-if="showEncoderHealth"
+            class="rounded-md border border-border bg-background/60 px-3 py-2"
+          >
+            <p class="text-xs text-muted-foreground">
+              {{ encoderHealthLabel }}
+            </p>
+            <p
+              class="mt-1 text-sm font-medium"
+              :class="healthTextClass(statusCardData.encoder?.ok)"
+            >
+              {{ healthLabel(statusCardData.encoder?.ok, statusCardData.encoder?.error) }}
+            </p>
+          </div>
+          <div
+            v-if="showQdrantHealth"
+            class="rounded-md border border-border bg-background/60 px-3 py-2"
+          >
+            <p class="text-xs text-muted-foreground">
+              {{ $t('bots.settings.memoryQdrantHealth') }}
+            </p>
+            <p
+              class="mt-1 text-sm font-medium"
+              :class="healthTextClass(statusCardData.qdrant?.ok)"
+            >
+              {{ healthLabel(statusCardData.qdrant?.ok, statusCardData.qdrant?.error) }}
+            </p>
+          </div>
+        </div>
+      </div>
     </div>
 
     <!-- Search Provider -->
@@ -29,6 +158,17 @@
         v-model="form.search_provider_id"
         :providers="searchProviders"
         :placeholder="$t('bots.settings.searchProviderPlaceholder')"
+      />
+    </div>
+
+    <!-- TTS Model -->
+    <div class="space-y-2">
+      <Label>{{ $t('bots.settings.ttsModel') }}</Label>
+      <TtsModelSelect
+        v-model="form.tts_model_id"
+        :models="ttsModels"
+        :providers="ttsProviders"
+        :placeholder="$t('bots.settings.ttsModelPlaceholder')"
       />
     </div>
 
@@ -130,92 +270,6 @@
       <Separator />
     </template>
 
-    <!-- Departments -->
-    <div class="space-y-3">
-      <Label>所属部门</Label>
-      <div
-        v-if="botDepartmentsLoading"
-        class="flex justify-center py-4"
-      >
-        <Spinner class="size-5" />
-      </div>
-      <template v-else>
-        <div
-          v-if="botDepartments.length === 0"
-          class="text-sm text-muted-foreground"
-        >
-          尚未加入任何部门
-        </div>
-        <div
-          v-else
-          class="flex flex-wrap gap-2"
-        >
-          <span
-            v-for="dept in botDepartments"
-            :key="dept.id"
-            class="inline-flex items-center gap-1 px-2.5 py-1 rounded-md border bg-muted/50 text-sm"
-          >
-            {{ dept.name }}
-            <button
-              class="ml-0.5 text-muted-foreground hover:text-destructive transition-colors"
-              :disabled="removingDeptId === dept.id"
-              @click="handleRemoveDepartment(dept.id!)"
-            >
-              <Spinner
-                v-if="removingDeptId === dept.id"
-                class="size-3"
-              />
-              <svg
-                v-else
-                xmlns="http://www.w3.org/2000/svg"
-                class="size-3.5"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-                stroke-width="2"
-              ><path
-                stroke-linecap="round"
-                stroke-linejoin="round"
-                d="M6 18 18 6M6 6l12 12"
-              /></svg>
-            </button>
-          </span>
-        </div>
-        <div class="flex items-center gap-2">
-          <Select
-            v-model="selectedDeptToAdd"
-          >
-            <SelectTrigger class="flex-1">
-              <SelectValue placeholder="选择部门" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem
-                v-for="dept in availableDepartments"
-                :key="dept.id"
-                :value="dept.id!"
-              >
-                {{ dept.name }}
-              </SelectItem>
-            </SelectContent>
-          </Select>
-          <Button
-            size="sm"
-            variant="outline"
-            :disabled="!selectedDeptToAdd || addingDept"
-            @click="handleAddDepartment"
-          >
-            <Spinner
-              v-if="addingDept"
-              class="mr-1.5 size-3"
-            />
-            添加
-          </Button>
-        </div>
-      </template>
-    </div>
-
-    <Separator />
-
     <!-- Save -->
     <div class="flex justify-end">
       <Button
@@ -277,7 +331,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@memoh/ui'
-import { ref, reactive, computed, watch } from 'vue'
+import { reactive, computed, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { toast } from 'vue-sonner'
 import { useI18n } from 'vue-i18n'
@@ -285,9 +339,10 @@ import ConfirmPopover from '@/components/confirm-popover/index.vue'
 import ModelSelect from './model-select.vue'
 import SearchProviderSelect from './search-provider-select.vue'
 import MemoryProviderSelect from './memory-provider-select.vue'
+import TtsModelSelect from './tts-model-select.vue'
 import BrowserContextSelect from './browser-context-select.vue'
 import { useQuery, useMutation, useQueryCache } from '@pinia/colada'
-import { getBotsByBotIdSettings, putBotsByBotIdSettings, deleteBotsById, getModels, getProviders, getSearchProviders, getMemoryProviders, getBrowserContexts, getBotsByBotIdDepartments, getDepartments, postBotsByBotIdDepartments, deleteBotsByBotIdDepartmentsByDepartmentId } from '@memoh/sdk'
+import { getBotsByBotIdSettings, putBotsByBotIdSettings, deleteBotsById, getModels, getProviders, getSearchProviders, getMemoryProviders, getTtsProviders, getBrowserContexts, getBotsByBotIdMemoryStatus, postBotsByBotIdMemoryRebuild } from '@memoh/sdk'
 import type { SettingsSettings } from '@memoh/sdk'
 import type { Ref } from 'vue'
 import { resolveApiErrorMessage } from '@/utils/api-error'
@@ -348,6 +403,27 @@ const { data: memoryProviderData } = useQuery({
   },
 })
 
+const { data: ttsProviderData } = useQuery({
+  key: ['tts-providers'],
+  query: async () => {
+    const { data } = await getTtsProviders({ throwOnError: true })
+    return data
+  },
+})
+
+const { data: ttsModelData } = useQuery({
+  key: ['tts-models'],
+  query: async () => {
+    const apiBase = import.meta.env.VITE_API_URL?.trim() || '/api'
+    const token = localStorage.getItem('token')
+    const resp = await fetch(`${apiBase}/tts-models`, {
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+    })
+    if (!resp.ok) throw new Error('Failed to fetch TTS models')
+    return resp.json()
+  },
+})
+
 const { data: browserContextData } = useQuery({
   key: ['all-browser-contexts'],
   query: async () => {
@@ -382,7 +458,56 @@ const models = computed(() => modelData.value ?? [])
 const providers = computed(() => providerData.value ?? [])
 const searchProviders = computed(() => searchProviderData.value ?? [])
 const memoryProviders = computed(() => memoryProviderData.value ?? [])
+const ttsProviders = computed(() => ttsProviderData.value ?? [])
+const ttsModels = computed(() => ttsModelData.value ?? [])
 const browserContexts = computed(() => browserContextData.value ?? [])
+const selectedMemoryProvider = computed(() =>
+  memoryProviders.value.find((provider) => provider.id === form.memory_provider_id),
+)
+const selectedMemoryProviderType = computed(() =>
+  selectedMemoryProvider.value?.provider ?? '',
+)
+const selectedBuiltinMemoryProvider = computed(() =>
+  selectedMemoryProvider.value?.provider === 'builtin' ? selectedMemoryProvider.value : null,
+)
+const selectedMem0MemoryProvider = computed(() =>
+  selectedMemoryProvider.value?.provider === 'mem0' ? selectedMemoryProvider.value : null,
+)
+const selectedBuiltinMemoryMode = computed(() =>
+  (selectedBuiltinMemoryProvider.value?.config as Record<string, string> | undefined)?.memory_mode || 'off',
+)
+const persistedMemoryProviderID = computed(() => settings.value?.memory_provider_id ?? '')
+const isSelectedMemoryProviderPersisted = computed(() =>
+  !!form.memory_provider_id && form.memory_provider_id === persistedMemoryProviderID.value,
+)
+const showBuiltinIndexedMemoryStatus = computed(() =>
+  selectedBuiltinMemoryMode.value === 'sparse' || selectedBuiltinMemoryMode.value === 'dense',
+)
+const showMem0MemoryStatus = computed(() =>
+  !!selectedMem0MemoryProvider.value,
+)
+const showMemoryProviderStatusCard = computed(() =>
+  showBuiltinIndexedMemoryStatus.value || showMem0MemoryStatus.value,
+)
+const shouldLoadMemoryStatus = computed(() =>
+  !!botIdRef.value
+  && showMemoryProviderStatusCard.value
+  && isSelectedMemoryProviderPersisted.value,
+)
+const indexedMemoryStatusTitle = computed(() =>
+  selectedMemoryProviderType.value === 'mem0'
+    ? t('bots.settings.mem0StatusTitle')
+    : selectedBuiltinMemoryMode.value === 'dense'
+    ? t('bots.settings.denseStatusTitle')
+    : t('bots.settings.sparseStatusTitle'),
+)
+const indexedMemoryStatusHint = computed(() =>
+  selectedMemoryProviderType.value === 'mem0'
+    ? t('bots.settings.mem0StatusHint')
+    : selectedBuiltinMemoryMode.value === 'dense'
+    ? t('bots.settings.denseStatusHint')
+    : t('bots.settings.sparseStatusHint'),
+)
 
 const chatModelSupportsReasoning = computed(() => {
   if (!form.chat_model_id) return false
@@ -390,11 +515,54 @@ const chatModelSupportsReasoning = computed(() => {
   return !!m?.supports_reasoning
 })
 
+const { data: memoryStatusData, isLoading: isMemoryStatusLoading } = useQuery({
+  key: () => ['bot-memory-status', botIdRef.value, persistedMemoryProviderID.value],
+  query: async () => {
+    const { data } = await getBotsByBotIdMemoryStatus({
+      path: { bot_id: botIdRef.value },
+      throwOnError: true,
+    })
+    return data
+  },
+  enabled: () => shouldLoadMemoryStatus.value,
+})
+
+const { mutateAsync: rebuildMemory, isLoading: isRebuilding } = useMutation({
+  mutation: async () => {
+    const { data } = await postBotsByBotIdMemoryRebuild({
+      path: { bot_id: botIdRef.value },
+      throwOnError: true,
+    })
+    return data
+  },
+  onSettled: () => {
+    queryCache.invalidateQueries({ key: ['bot-memory-status', botIdRef.value, persistedMemoryProviderID.value] })
+  },
+})
+
+const memoryStatus = computed(() => memoryStatusData.value ?? null)
+const statusCardData = computed(() => memoryStatus.value)
+const showQdrantDetails = computed(() =>
+  selectedBuiltinMemoryMode.value === 'sparse' || selectedBuiltinMemoryMode.value === 'dense',
+)
+const showEncoderHealth = computed(() =>
+  selectedBuiltinMemoryMode.value === 'sparse' || selectedBuiltinMemoryMode.value === 'dense',
+)
+const showQdrantHealth = computed(() =>
+  selectedBuiltinMemoryMode.value === 'sparse' || selectedBuiltinMemoryMode.value === 'dense',
+)
+const encoderHealthLabel = computed(() =>
+  selectedBuiltinMemoryMode.value === 'dense'
+    ? t('bots.settings.memoryDenseEmbeddingHealth')
+    : t('bots.settings.memoryEncoderHealth'),
+)
+
 // ---- Form ----
 const form = reactive({
   chat_model_id: '',
   search_provider_id: '',
   memory_provider_id: '',
+  tts_model_id: '',
   browser_context_id: '',
   max_context_load_time: 0,
   max_context_tokens: 0,
@@ -408,8 +576,9 @@ watch(settings, (val) => {
   if (val) {
     form.chat_model_id = val.chat_model_id ?? ''
     form.search_provider_id = val.search_provider_id ?? ''
-    form.memory_provider_id = (val as any).memory_provider_id ?? ''
-    form.browser_context_id = (val as any).browser_context_id ?? ''
+    form.memory_provider_id = val.memory_provider_id ?? ''
+    form.tts_model_id = val.tts_model_id ?? ''
+    form.browser_context_id = val.browser_context_id ?? ''
     form.max_context_load_time = val.max_context_load_time ?? 0
     form.max_context_tokens = val.max_context_tokens ?? 0
     form.language = val.language ?? ''
@@ -421,11 +590,12 @@ watch(settings, (val) => {
 
 const hasChanges = computed(() => {
   if (!settings.value) return true
-  const s = settings.value as any
+  const s = settings.value
   let changed =
     form.chat_model_id !== (s.chat_model_id ?? '')
     || form.search_provider_id !== (s.search_provider_id ?? '')
     || form.memory_provider_id !== (s.memory_provider_id ?? '')
+    || form.tts_model_id !== (s.tts_model_id ?? '')
     || form.browser_context_id !== (s.browser_context_id ?? '')
     || form.max_context_load_time !== (s.max_context_load_time ?? 0)
     || form.max_context_tokens !== (s.max_context_tokens ?? 0)
@@ -447,6 +617,33 @@ async function handleSave() {
   }
 }
 
+function healthTextClass(ok: boolean | undefined) {
+  return ok ? 'text-foreground' : 'text-destructive'
+}
+
+function healthLabel(ok: boolean | undefined, error?: string) {
+  if (ok) return t('bots.settings.memoryHealthOk')
+  if (error) return error
+  return t('bots.settings.memoryHealthUnavailable')
+}
+
+async function handleMemorySync() {
+  if (!isSelectedMemoryProviderPersisted.value) {
+    toast.error(t('bots.settings.indexedMemoryStatusPendingSave'))
+    return
+  }
+  try {
+    const result = await rebuildMemory()
+    toast.success(t('bots.settings.memorySyncSuccess', {
+      fsCount: result?.fs_count ?? 0,
+      restoredCount: result?.restored_count ?? 0,
+      storageCount: result?.storage_count ?? 0,
+    }))
+  } catch (error) {
+    toast.error(resolveApiErrorMessage(error, t('bots.settings.memorySyncFailed')))
+  }
+}
+
 async function handleDeleteBot() {
   try {
     await deleteBot()
@@ -456,89 +653,4 @@ async function handleDeleteBot() {
     toast.error(resolveApiErrorMessage(error, t('bots.lifecycle.deleteFailed')))
   }
 }
-
-// ─── Department association ─────────────────────────────────────
-
-interface DeptBrief {
-  id?: string
-  name?: string
-}
-
-const botDepartments = ref<DeptBrief[]>([])
-const botDepartmentsLoading = ref(false)
-const allDepartments = ref<DeptBrief[]>([])
-const selectedDeptToAdd = ref('')
-const addingDept = ref(false)
-const removingDeptId = ref<string | null>(null)
-
-const availableDepartments = computed(() => {
-  const existingIds = new Set(botDepartments.value.map(d => d.id))
-  return allDepartments.value.filter(d => !existingIds.has(d.id))
-})
-
-async function fetchBotDepartments() {
-  if (!botIdRef.value) return
-  botDepartmentsLoading.value = true
-  try {
-    const { data } = await getBotsByBotIdDepartments({ path: { bot_id: botIdRef.value }, throwOnError: true })
-    botDepartments.value = (data ?? []) as DeptBrief[]
-  } catch {
-    botDepartments.value = []
-  } finally {
-    botDepartmentsLoading.value = false
-  }
-}
-
-async function fetchAllDepartments() {
-  try {
-    const { data } = await getDepartments({ throwOnError: true })
-    allDepartments.value = (data ?? []) as DeptBrief[]
-  } catch {
-    allDepartments.value = []
-  }
-}
-
-async function handleAddDepartment() {
-  if (!selectedDeptToAdd.value || !botIdRef.value) return
-  addingDept.value = true
-  try {
-    await postBotsByBotIdDepartments({
-      path: { bot_id: botIdRef.value },
-      body: { department_id: selectedDeptToAdd.value },
-      throwOnError: true,
-    })
-    selectedDeptToAdd.value = ''
-    toast.success('已加入部门')
-    fetchBotDepartments()
-  } catch {
-    toast.error('加入部门失败')
-  } finally {
-    addingDept.value = false
-  }
-}
-
-async function handleRemoveDepartment(deptId: string) {
-  if (!botIdRef.value) return
-  removingDeptId.value = deptId
-  try {
-    await deleteBotsByBotIdDepartmentsByDepartmentId({
-      path: { bot_id: botIdRef.value, department_id: deptId },
-      throwOnError: true,
-    })
-    toast.success('已退出部门')
-    fetchBotDepartments()
-  } catch {
-    toast.error('退出部门失败')
-  } finally {
-    removingDeptId.value = null
-  }
-}
-
-// Load departments when botId is ready
-watch(botIdRef, (id) => {
-  if (id) {
-    fetchBotDepartments()
-    fetchAllDepartments()
-  }
-}, { immediate: true })
 </script>

@@ -23,7 +23,7 @@ import (
 	"github.com/memohai/memoh/internal/db/sqlc"
 	"github.com/memohai/memoh/internal/heartbeat"
 	"github.com/memohai/memoh/internal/inbox"
-	memprovider "github.com/memohai/memoh/internal/memory/provider"
+	memprovider "github.com/memohai/memoh/internal/memory/adapters"
 	messagepkg "github.com/memohai/memoh/internal/message"
 	"github.com/memohai/memoh/internal/models"
 	"github.com/memohai/memoh/internal/schedule"
@@ -1402,7 +1402,6 @@ func (r *Resolver) loadMemoryContextMessage(ctx context.Context, req conversatio
 		Query:  req.Query,
 		BotID:  req.BotID,
 		ChatID: req.ChatID,
-		UserID: req.UserID,
 	})
 	if err != nil {
 		r.logger.Warn("memory provider OnBeforeChat failed", slog.Any("error", err))
@@ -1477,7 +1476,7 @@ func (r *Resolver) storeRound(ctx context.Context, req conversation.ChatRequest,
 	}
 
 	r.storeMessages(ctx, req, fullRound, usage, roundUsages, modelID)
-	go r.storeMemory(context.WithoutCancel(ctx), req.BotID, req.UserID, fullRound)
+	go r.storeMemory(context.WithoutCancel(ctx), req, fullRound)
 	return nil
 }
 
@@ -1735,8 +1734,9 @@ func (r *Resolver) resolveDisplayName(ctx context.Context, req conversation.Chat
 	return "User"
 }
 
-func (r *Resolver) storeMemory(ctx context.Context, botID string, userID string, messages []conversation.ModelMessage) {
-	if strings.TrimSpace(botID) == "" {
+func (r *Resolver) storeMemory(ctx context.Context, req conversation.ChatRequest, messages []conversation.ModelMessage) {
+	botID := strings.TrimSpace(req.BotID)
+	if botID == "" {
 		return
 	}
 	memMsgs := toProviderMessages(messages)
@@ -1749,9 +1749,11 @@ func (r *Resolver) storeMemory(ctx context.Context, botID string, userID string,
 		return
 	}
 	if err := p.OnAfterChat(ctx, memprovider.AfterChatRequest{
-		BotID:    botID,
-		UserID:   userID,
-		Messages: memMsgs,
+		BotID:             botID,
+		Messages:          memMsgs,
+		UserID:            strings.TrimSpace(req.UserID),
+		ChannelIdentityID: strings.TrimSpace(req.SourceChannelIdentityID),
+		DisplayName:       r.resolveDisplayName(ctx, req),
 	}); err != nil {
 		r.logger.Warn("memory provider OnAfterChat failed", slog.String("bot_id", botID), slog.Any("error", err))
 	}

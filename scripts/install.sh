@@ -98,6 +98,7 @@ PG_PASS="memoh123"
 WORKSPACE="$WORKSPACE_DEFAULT"
 MEMOH_DATA_DIR="$MEMOH_DATA_DIR_DEFAULT"
 USE_CN_MIRROR="${USE_CN_MIRROR:-false}"
+USE_SPARSE="${USE_SPARSE:-false}"
 
 if [ "$SILENT" = false ]; then
   echo "Configure Memoh (press Enter to use defaults):" > /dev/tty
@@ -141,6 +142,12 @@ if [ "$SILENT" = false ]; then
   read -r input < /dev/tty || true
   [ -n "$input" ] && PG_PASS="$input"
 
+  printf "  Enable sparse memory service? [y/N]: " > /dev/tty
+  read -r input < /dev/tty || true
+  case "$input" in
+    y|Y|yes|YES) USE_SPARSE=true ;;
+  esac
+
   echo "" > /dev/tty
 fi
 
@@ -176,6 +183,7 @@ if [ "$MEMOH_DOCKER_VERSION" != "latest" ]; then
     sed -i.bak "s|memohai/agent:latest|memohai/agent:${MEMOH_DOCKER_VERSION}|g" docker-compose.yml
     sed -i.bak "s|memohai/web:latest|memohai/web:${MEMOH_DOCKER_VERSION}|g" docker-compose.yml
     sed -i.bak "s|memohai/browser:latest|memohai/browser:${MEMOH_DOCKER_VERSION}|g" docker-compose.yml
+    sed -i.bak "s|memohai/sparse:latest|memohai/sparse:${MEMOH_DOCKER_VERSION}|g" docker-compose.yml
     rm -f docker-compose.yml.bak
     echo "${GREEN}✓ Docker images pinned to ${MEMOH_DOCKER_VERSION}${NC}"
 fi
@@ -199,6 +207,13 @@ export MEMOH_DATA_DIR
 mkdir -p "$MEMOH_DATA_DIR"
 
 COMPOSE_FILES="-f docker-compose.yml"
+COMPOSE_PROFILES="--profile qdrant --profile browser"
+if [ "$USE_SPARSE" = true ]; then
+  COMPOSE_PROFILES="$COMPOSE_PROFILES --profile sparse"
+  echo "${GREEN}✓ Sparse memory service enabled${NC}"
+else
+  echo "${YELLOW}ℹ Sparse memory service disabled${NC}"
+fi
 if [ "$USE_CN_MIRROR" = true ]; then
   COMPOSE_FILES="$COMPOSE_FILES -f docker/docker-compose.cn.yml"
   echo "${GREEN}✓ Using China mainland mirror (memoh.cn)${NC}"
@@ -207,14 +222,15 @@ fi
 echo POSTGRES_PASSWORD="${PG_PASS}" >> .env
 echo MEMOH_CONFIG=./config.toml >> .env
 echo MEMOH_DATA_DIR="{$MEMOH_DATA_DIR}" >> .env
+echo USE_SPARSE="${USE_SPARSE}" >> .env
 
 echo ""
 echo "${GREEN}Pulling latest Docker images...${NC}"
-$DOCKER compose $COMPOSE_FILES pull
+$DOCKER compose $COMPOSE_FILES $COMPOSE_PROFILES pull
 
 echo ""
 echo "${GREEN}Starting services (first startup may take a few minutes)...${NC}"
-$DOCKER compose $COMPOSE_FILES up -d
+$DOCKER compose $COMPOSE_FILES $COMPOSE_PROFILES up -d
 
 echo ""
 echo "${GREEN}✅ Memoh is running!${NC}${NC}"
@@ -226,7 +242,7 @@ echo "  🌍 Browser Gateway:   http://localhost:8083"
 echo ""
 echo "  🔑 Admin login:       ${ADMIN_USER} / ${ADMIN_PASS}"
 echo ""
-COMPOSE_CMD="$DOCKER compose $COMPOSE_FILES"
+COMPOSE_CMD="$DOCKER compose $COMPOSE_FILES $COMPOSE_PROFILES"
 echo "📋 Commands:"
 echo "  cd ${INSTALL_DIR} && ${COMPOSE_CMD} ps       # Status"
 echo "  cd ${INSTALL_DIR} && ${COMPOSE_CMD} logs -f   # Logs"
