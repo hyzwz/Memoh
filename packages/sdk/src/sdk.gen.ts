@@ -1619,3 +1619,30 @@ export const putUsersByIdPassword = <ThrowOnError extends boolean = false>(optio
         ...options.headers
     }
 });
+
+// --- Stubs for upstream endpoints not yet in our swagger spec ---
+// These will be replaced when the corresponding Go handlers are added and SDK is regenerated.
+
+/* eslint-disable @typescript-eslint/no-explicit-any */
+export const getTtsProviders = <ThrowOnError extends boolean = false>(options?: Options<any, ThrowOnError>) => ((options?.client ?? client) as any).get({ url: '/tts-providers', ...options });
+
+export const getBotsByBotIdMemoryStatus = <ThrowOnError extends boolean = false>(options: Options<any, ThrowOnError>) => ((options.client ?? client) as any).get({ url: '/bots/{bot_id}/memory/status', ...options });
+
+export const getMemoryProvidersByIdStatus = <ThrowOnError extends boolean = false>(options: Options<any, ThrowOnError>) => ((options.client ?? client) as any).get({ url: '/memory-providers/{id}/status', ...options });
+
+export const getBotsByBotIdSkillStore = <ThrowOnError extends boolean = false>(options: Options<any, ThrowOnError>) => ((options.client ?? client) as any).get({ url: '/bots/{bot_id}/skill-store', ...options });
+
+export const postBotsByBotIdSkillStoreInstall = <ThrowOnError extends boolean = false>(options: Options<any, ThrowOnError>) => ((options.client ?? client) as any).post({ url: '/bots/{bot_id}/skill-store/install', ...options });
+
+export const postBotsByBotIdSkillStoreUninstall = <ThrowOnError extends boolean = false>(options: Options<any, ThrowOnError>) => ((options.client ?? client) as any).post({ url: '/bots/{bot_id}/skill-store/uninstall', ...options });
+
+export const postBotsByBotIdSkillStoreUpdate = <ThrowOnError extends boolean = false>(options: Options<any, ThrowOnError>) => ((options.client ?? client) as any).post({ url: '/bots/{bot_id}/skill-store/update', ...options });
+
+export const getSkillTemplates = <ThrowOnError extends boolean = false>(options?: Options<any, ThrowOnError>) => ((options?.client ?? client) as any).get({ url: '/skill-templates', ...options });
+
+export const postSkillTemplates = <ThrowOnError extends boolean = false>(options: Options<any, ThrowOnError>) => ((options.client ?? client) as any).post({ url: '/skill-templates', ...options });
+
+export const putSkillTemplatesById = <ThrowOnError extends boolean = false>(options: Options<any, ThrowOnError>) => ((options.client ?? client) as any).put({ url: '/skill-templates/{id}', ...options });
+
+export const deleteSkillTemplatesById = <ThrowOnError extends boolean = false>(options: Options<any, ThrowOnError>) => ((options.client ?? client) as any).delete({ url: '/skill-templates/{id}', ...options });
+/* eslint-enable @typescript-eslint/no-explicit-any */
