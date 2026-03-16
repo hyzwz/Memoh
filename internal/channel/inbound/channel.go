@@ -309,8 +309,6 @@ func (p *ChannelInboundProcessor) HandleInbound(ctx context.Context, cfg channel
 		p.markInboxItemRead(ctx, inboxItem)
 	}
 
-	userMessagePersisted := p.persistInboundUser(ctx, resolved.RouteID, identity, msg, text, attachments, "active_chat")
-
 	// Issue chat token for reply routing.
 	chatToken := ""
 	if p.jwtSecret != "" && strings.TrimSpace(msg.ReplyTarget) != "" {
@@ -492,7 +490,7 @@ func (p *ChannelInboundProcessor) HandleInbound(ctx context.Context, cfg channel
 		Query:                   text,
 		CurrentChannel:          msg.Channel.String(),
 		Channels:                []string{msg.Channel.String()},
-		UserMessagePersisted:    userMessagePersisted,
+		UserMessagePersisted:    false,
 		Attachments:             attachments,
 		OutboundAssetCollector:  assetCollector,
 	})
@@ -771,74 +769,6 @@ func metadataBool(metadata map[string]any, key string) bool {
 	default:
 		return false
 	}
-}
-
-func (p *ChannelInboundProcessor) persistInboundUser(
-	ctx context.Context,
-	routeID string,
-	identity InboundIdentity,
-	msg channel.InboundMessage,
-	query string,
-	attachments []conversation.ChatAttachment,
-	triggerMode string,
-) bool {
-	if p.message == nil {
-		return false
-	}
-	botID := strings.TrimSpace(identity.BotID)
-	if botID == "" {
-		return false
-	}
-	var attachmentPaths []string
-	for _, att := range attachments {
-		if ap := strings.TrimSpace(att.Path); ap != "" {
-			attachmentPaths = append(attachmentPaths, ap)
-		}
-	}
-	headerifiedQuery := flow.FormatUserHeader(
-		strings.TrimSpace(msg.Message.ID),
-		strings.TrimSpace(identity.ChannelIdentityID),
-		strings.TrimSpace(identity.DisplayName),
-		msg.Channel.String(),
-		strings.TrimSpace(msg.Conversation.Type),
-		strings.TrimSpace(msg.Conversation.Name),
-		attachmentPaths,
-		query,
-	)
-	payload, err := json.Marshal(conversation.ModelMessage{
-		Role:    "user",
-		Content: conversation.NewTextContent(headerifiedQuery),
-	})
-	if err != nil {
-		if p.logger != nil {
-			p.logger.Warn("marshal inbound user message failed", slog.Any("error", err))
-		}
-		return false
-	}
-	meta := map[string]any{
-		"route_id":     strings.TrimSpace(routeID),
-		"platform":     msg.Channel.String(),
-		"trigger_mode": strings.TrimSpace(triggerMode),
-	}
-	if strings.TrimSpace(identity.UserID) != "" {
-		meta["context_user_id"] = strings.TrimSpace(identity.UserID)
-	}
-	if _, err := p.message.Persist(ctx, messagepkg.PersistInput{
-		BotID:                   botID,
-		RouteID:                 strings.TrimSpace(routeID),
-		SenderChannelIdentityID: strings.TrimSpace(identity.ChannelIdentityID),
-		SenderUserID:            strings.TrimSpace(identity.UserID),
-		Platform:                msg.Channel.String(),
-		ExternalMessageID:       strings.TrimSpace(msg.Message.ID),
-		Role:                    "user",
-		Content:                 payload,
-		Metadata:                meta,
-		Assets:                  chatAttachmentsToAssetRefs(attachments),
-	}); err != nil && p.logger != nil {
-		p.logger.Warn("persist inbound user message failed", slog.Any("error", err))
-		return false
-	}
-	return true
 }
 
 func (p *ChannelInboundProcessor) createInboxItem(
@@ -2015,36 +1945,6 @@ func channelAttachmentsToAssetRefs(attachments []channel.Attachment, role string
 		ref := messagepkg.AssetRef{
 			ContentHash: contentHash,
 			Role:        role,
-			Ordinal:     idx,
-			Mime:        strings.TrimSpace(att.Mime),
-			SizeBytes:   att.Size,
-		}
-		if att.Metadata != nil {
-			if sk, ok := att.Metadata["storage_key"].(string); ok {
-				ref.StorageKey = sk
-			}
-		}
-		refs = append(refs, ref)
-	}
-	if len(refs) == 0 {
-		return nil
-	}
-	return refs
-}
-
-func chatAttachmentsToAssetRefs(attachments []conversation.ChatAttachment) []messagepkg.AssetRef {
-	if len(attachments) == 0 {
-		return nil
-	}
-	refs := make([]messagepkg.AssetRef, 0, len(attachments))
-	for idx, att := range attachments {
-		contentHash := strings.TrimSpace(att.ContentHash)
-		if contentHash == "" {
-			continue
-		}
-		ref := messagepkg.AssetRef{
-			ContentHash: contentHash,
-			Role:        "attachment",
 			Ordinal:     idx,
 			Mime:        strings.TrimSpace(att.Mime),
 			SizeBytes:   att.Size,
