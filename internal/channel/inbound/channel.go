@@ -58,17 +58,13 @@ type mediaIngestor interface {
 	IngestContainerFile(ctx context.Context, botID, containerPath string) (media.Asset, error)
 }
 
-// BudgetCheckResult holds the outcome of a pre-chat budget check.
-type BudgetCheckResult struct {
-	Allowed bool
-	Alert   bool
-	Action  string // "block", "warn", or "downgrade"
+// ChatPreCheckDenied signals that a pre-chat check rejected the message.
+// Callers should display Message to the user and stop processing.
+type ChatPreCheckDenied struct {
+	Message string
 }
 
-// BudgetChecker checks whether a chat is allowed under budget constraints.
-type BudgetChecker interface {
-	CheckChatBudget(ctx context.Context, botID, userID string) (*BudgetCheckResult, error)
-}
+func (e *ChatPreCheckDenied) Error() string { return e.Message }
 
 // ChannelInboundProcessor routes channel inbound messages to the chat gateway.
 type ChannelInboundProcessor struct {
@@ -83,8 +79,8 @@ type ChannelInboundProcessor struct {
 	jwtSecret     string
 	tokenTTL      time.Duration
 	identity      *IdentityResolver
-	observer      channel.StreamObserver
-	budgetChecker BudgetChecker
+	observer     channel.StreamObserver
+	chatPreCheck func(ctx context.Context, botID, userID string) error
 }
 
 // NewChannelInboundProcessor creates a processor with channel identity-based resolution.
@@ -155,12 +151,15 @@ func (p *ChannelInboundProcessor) SetStreamObserver(observer channel.StreamObser
 	p.observer = observer
 }
 
-// SetBudgetChecker configures budget enforcement before chat.
-func (p *ChannelInboundProcessor) SetBudgetChecker(checker BudgetChecker) {
+// SetChatPreCheck registers a hook called before each chat request.
+// If the hook returns a *ChatPreCheckDenied error the message is rejected
+// with the embedded user-facing message. Any other error is treated as
+// an internal failure (fail-closed).
+func (p *ChannelInboundProcessor) SetChatPreCheck(fn func(ctx context.Context, botID, userID string) error) {
 	if p == nil {
 		return
 	}
-	p.budgetChecker = checker
+	p.chatPreCheck = fn
 }
 
 // SetInboxService configures the inbox service for storing non-mentioned
@@ -409,50 +408,34 @@ func (p *ChannelInboundProcessor) HandleInbound(ctx context.Context, cfg channel
 		return err
 	}
 
-	var (
-		budgetResult *BudgetCheckResult
-		budgetErr    error
-	)
-
-	// Budget enforcement: check before sending to AI.
-	if p.budgetChecker != nil {
-		budgetResult, budgetErr = p.budgetChecker.CheckChatBudget(ctx, strings.TrimSpace(identity.BotID), strings.TrimSpace(identity.UserID))
-		if budgetErr != nil {
-			p.logger.Error("budget check failed", slog.String("error", budgetErr.Error()))
-			// fail-closed: deny on error
-			budgetDenied := fmt.Errorf("budget check failed: %w", budgetErr)
+	// Pre-chat hook (e.g. budget enforcement). A *ChatPreCheckDenied error
+	// means the request is politely rejected; any other error is fail-closed.
+	if p.chatPreCheck != nil {
+		if preErr := p.chatPreCheck(ctx, strings.TrimSpace(identity.BotID), strings.TrimSpace(identity.UserID)); preErr != nil {
+			var denied *ChatPreCheckDenied
+			if errors.As(preErr, &denied) {
+				_ = stream.Push(ctx, channel.StreamEvent{
+					Type:  channel.StreamEventFinal,
+					Final: &channel.StreamFinalizePayload{Message: channel.Message{Text: denied.Message}},
+				})
+				if statusNotifier != nil {
+					if notifyErr := p.notifyProcessingFailed(ctx, statusNotifier, cfg, msg, statusInfo, statusHandle, preErr); notifyErr != nil {
+						p.logProcessingStatusError("processing_failed", msg, identity, notifyErr)
+					}
+				}
+				return nil // not an error, just a rejection
+			}
+			p.logger.Error("chat pre-check failed", slog.String("error", preErr.Error()))
 			if statusNotifier != nil {
-				if notifyErr := p.notifyProcessingFailed(ctx, statusNotifier, cfg, msg, statusInfo, statusHandle, budgetDenied); notifyErr != nil {
+				if notifyErr := p.notifyProcessingFailed(ctx, statusNotifier, cfg, msg, statusInfo, statusHandle, preErr); notifyErr != nil {
 					p.logProcessingStatusError("processing_failed", msg, identity, notifyErr)
 				}
 			}
-			return budgetDenied
-		}
-		if !budgetResult.Allowed {
-			budgetDenied := fmt.Errorf("budget exceeded: action=%s", budgetResult.Action)
-			_ = stream.Push(ctx, channel.StreamEvent{
-				Type:  channel.StreamEventFinal,
-				Final: &channel.StreamFinalizePayload{Message: channel.Message{Text: "⚠️ 预算已超限，请联系管理员。"}},
-			})
-			if statusNotifier != nil {
-				if notifyErr := p.notifyProcessingFailed(ctx, statusNotifier, cfg, msg, statusInfo, statusHandle, budgetDenied); notifyErr != nil {
-					p.logProcessingStatusError("processing_failed", msg, identity, notifyErr)
-				}
-			}
-			return nil // not an error, just a rejection
-		}
-		if budgetResult.Alert {
-			p.logger.Warn("budget alert",
-				slog.String("bot_id", strings.TrimSpace(identity.BotID)),
-				slog.String("action", budgetResult.Action),
-			)
+			return fmt.Errorf("chat pre-check failed: %w", preErr)
 		}
 	}
 
 	modelRouteTier := ""
-	if budgetResult != nil && budgetResult.Alert && budgetResult.Action == "downgrade" {
-		modelRouteTier = "fallback"
-	}
 
 	// Mutex-protected collector for outbound asset refs. The resolver's
 	// streaming goroutine calls OutboundAssetCollector at persist time.

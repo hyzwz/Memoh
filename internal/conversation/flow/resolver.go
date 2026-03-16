@@ -75,9 +75,10 @@ type ModelRouteEntry struct {
 	IsEnabled      bool
 }
 
-// ModelRouter resolves model routing overrides for a bot.
-type ModelRouter interface {
-	ListEnabledRoutes(ctx context.Context, botID string) ([]ModelRouteEntry, error)
+// SelectModelRoute picks the best matching model from the given routes and preferred tier.
+// Exported so enterprise code can reuse the same selection logic.
+func SelectModelRoute(routes []ModelRouteEntry, preferredTier string) (string, bool) {
+	return selectModelRoute(routes, preferredTier)
 }
 
 type Resolver struct {
@@ -88,9 +89,9 @@ type Resolver struct {
 	messageService  messagepkg.Service
 	settingsService *settings.Service
 	inboxService    *inbox.Service
-	skillLoader     SkillLoader
-	assetLoader     gatewayAssetLoader
-	modelRouter     ModelRouter
+	skillLoader    SkillLoader
+	assetLoader    gatewayAssetLoader
+	modelOverride  func(ctx context.Context, botID, modelID string) (string, error)
 	gatewayBaseURL  string
 	timeout         time.Duration
 	logger          *slog.Logger
@@ -146,12 +147,12 @@ func (r *Resolver) SetGatewayAssetLoader(loader gatewayAssetLoader) {
 	r.assetLoader = loader
 }
 
-// SetInboxService configures inbox support for injecting unread items into the
-// system prompt and marking them as read after a response.
-// SetModelRouter configures model routing overrides for bot-level model selection.
-func (r *Resolver) SetModelRouter(router ModelRouter) {
+// SetModelOverride registers a hook that can override the resolved model ID.
+// The hook receives (ctx, botID, currentModelID) and returns (newModelID, error).
+// Return an empty string to keep the original model.
+func (r *Resolver) SetModelOverride(fn func(ctx context.Context, botID, modelID string) (string, error)) {
 	if r != nil {
-		r.modelRouter = router
+		r.modelOverride = fn
 	}
 }
 
@@ -1794,15 +1795,16 @@ func (r *Resolver) selectChatModel(ctx context.Context, req conversation.ChatReq
 		return models.GetResponse{}, sqlc.LlmProvider{}, errors.New("chat model not configured: specify model in request or bot settings")
 	}
 
-	// Model routing override: if no explicit model in request, check bot routes.
-	if r.modelRouter != nil && strings.TrimSpace(req.Model) == "" {
-		if overrideID, ok := r.resolveModelRoute(ctx, req.BotID, req); ok {
-			modelID = overrideID
-			r.logger.Debug("model route override applied",
+	// Model override hook: allow enterprise / plugins to swap the resolved model.
+	if r.modelOverride != nil && strings.TrimSpace(req.Model) == "" {
+		if overrideID, err := r.modelOverride(ctx, req.BotID, modelID); err != nil {
+			r.logger.Warn("model override hook failed", slog.String("bot_id", req.BotID), slog.String("error", err.Error()))
+		} else if overrideID != "" {
+			r.logger.Debug("model override applied",
 				slog.String("bot_id", req.BotID),
-				slog.String("route_tier", resolvePreferredModelRouteTier(req)),
-				slog.String("routed_model_id", modelID),
+				slog.String("overridden_model_id", overrideID),
 			)
+			modelID = overrideID
 		}
 	}
 
@@ -1861,15 +1863,6 @@ resolved:
 	return model, prov, nil
 }
 
-// resolveModelRoute returns the model UUID from the best matching enabled route for a bot.
-func (r *Resolver) resolveModelRoute(ctx context.Context, botID string, req conversation.ChatRequest) (string, bool) {
-	routes, err := r.modelRouter.ListEnabledRoutes(ctx, botID)
-	if err != nil {
-		r.logger.Warn("model route lookup failed", slog.String("bot_id", botID), slog.String("error", err.Error()))
-		return "", false
-	}
-	return selectModelRoute(routes, resolvePreferredModelRouteTier(req))
-}
 
 func resolvePreferredModelRouteTier(req conversation.ChatRequest) string {
 	if tier := normalizeModelRouteTier(req.ModelRouteTier); tier != "" {

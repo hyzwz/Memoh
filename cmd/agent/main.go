@@ -44,7 +44,6 @@ import (
 	emailpkg "github.com/memohai/memoh/internal/email"
 	emailgeneric "github.com/memohai/memoh/internal/email/adapters/generic"
 	emailmailgun "github.com/memohai/memoh/internal/email/adapters/mailgun"
-	"github.com/memohai/memoh/internal/enterprise"
 	"github.com/memohai/memoh/internal/handlers"
 	"github.com/memohai/memoh/internal/healthcheck"
 	channelchecker "github.com/memohai/memoh/internal/healthcheck/checkers/channel"
@@ -75,7 +74,6 @@ import (
 	"github.com/memohai/memoh/internal/policy"
 	"github.com/memohai/memoh/internal/preauth"
 	"github.com/memohai/memoh/internal/providers"
-	authz "github.com/memohai/memoh/internal/rbac"
 	"github.com/memohai/memoh/internal/schedule"
 	"github.com/memohai/memoh/internal/seeds"
 	"github.com/memohai/memoh/internal/searchproviders"
@@ -142,6 +140,7 @@ func runMigrate(args []string) {
 
 func runServe() {
 	fx.New(
+		enterpriseModule,
 		fx.Provide(
 			provideConfig,
 			boot.ProvideRuntimeConfig,
@@ -242,18 +241,6 @@ func runServe() {
 			provideServerHandler(handlers.NewSkillTemplateHandler),
 			provideServerHandler(provideCLIHandler),
 			provideServerHandler(provideWebHandler),
-
-			// Enterprise shared dependencies
-			provideAuditLogger,
-			provideEnterpriseRBACResolver,
-
-			// Enterprise feature handlers (F1-F7)
-			provideServerHandler(provideDepartmentHandler),
-			provideServerHandler(provideAuditHandler),
-			provideServerHandler(provideCockpitHandler),
-			provideServerHandler(provideHandsHandler),
-			provideServerHandler(provideModelRoutingHandler),
-			provideServerHandler(provideCostTrackingHandler),
 
 			provideServer,
 		),
@@ -391,7 +378,6 @@ func provideChatResolver(log *slog.Logger, cfg config.Config, modelsService *mod
 	resolver.SetSkillLoader(&skillLoaderAdapter{handler: containerdHandler})
 	resolver.SetGatewayAssetLoader(&gatewayAssetLoaderAdapter{media: mediaService})
 	resolver.SetInboxService(inboxService)
-	resolver.SetModelRouter(enterprise.NewModelRouterAdapter(log, queries))
 	return resolver
 }
 
@@ -441,7 +427,6 @@ func provideChannelRouter(
 	mediaService *media.Service,
 	inboxService *inbox.Service,
 	rc *boot.RuntimeConfig,
-	queries *dbsqlc.Queries,
 ) *inbound.ChannelInboundProcessor {
 	adapter, ok := registry.Get(qq.Type)
 	if !ok {
@@ -458,9 +443,6 @@ func provideChannelRouter(
 	processor.SetMediaService(mediaService)
 	processor.SetStreamObserver(local.NewRouteHubBroadcaster(hub))
 	processor.SetInboxService(inboxService)
-	// Budget enforcement before chat
-	costSvc := enterprise.NewCostTrackingService(log, queries)
-	processor.SetBudgetChecker(enterprise.NewBudgetCheckerAdapter(log, costSvc, queries))
 	return processor
 }
 
@@ -651,34 +633,10 @@ func startMemoryProviderBootstrap(lc fx.Lifecycle, log *slog.Logger, mpService *
 	})
 }
 
-func startScheduleService(lc fx.Lifecycle, log *slog.Logger, scheduleService *schedule.Service, queries *dbsqlc.Queries) {
+func startScheduleService(lc fx.Lifecycle, scheduleService *schedule.Service) {
 	lc.Append(fx.Hook{
 		OnStart: func(ctx context.Context) error {
-			if err := scheduleService.Bootstrap(ctx); err != nil {
-				return err
-			}
-			// Register cockpit daily report auto-generation (runs at 01:00 UTC daily)
-			reportGen := enterprise.NewCockpitReportGenerator(log, queries)
-			return scheduleService.AddSystemJob("cockpit-daily-report", "0 1 * * *", func() {
-				reportCtx := context.Background()
-				yesterday := time.Now().UTC().AddDate(0, 0, -1)
-				bots, err := queries.ListActiveBotIDsWithOwner(reportCtx)
-				if err != nil {
-					log.Error("cockpit daily report: failed to list bots", slog.String("error", err.Error()))
-					return
-				}
-				for _, bot := range bots {
-					botID := bot.ID.String()
-					ownerID := bot.OwnerUserID.String()
-					if err := reportGen.GenerateDailyReport(reportCtx, botID, ownerID, yesterday); err != nil {
-						log.Error("cockpit daily report: generation failed",
-							slog.String("bot_id", botID),
-							slog.String("error", err.Error()),
-						)
-					}
-				}
-				log.Info("cockpit daily report: completed", slog.Int("bots", len(bots)))
-			})
+			return scheduleService.Bootstrap(ctx)
 		},
 	})
 }
@@ -968,85 +926,3 @@ func (a *gatewayAssetLoaderAdapter) OpenForGateway(ctx context.Context, botID, c
 	return reader, strings.TrimSpace(asset.Mime), nil
 }
 
-// ---------------------------------------------------------------------------
-// enterprise feature providers (F1-F7)
-// ---------------------------------------------------------------------------
-
-func provideAuditLogger(log *slog.Logger, queries *dbsqlc.Queries) *enterprise.AuditLogger {
-	return enterprise.NewAuditLogger(log, queries)
-}
-
-func provideEnterpriseRBACResolver(queries *dbsqlc.Queries) *authz.Resolver {
-	return authz.NewResolver(authz.NewSQLCStore(queries))
-}
-
-// mcpManagerAdapter wraps *mcp.Manager to satisfy enterprise.ContainerClientProvider.
-type mcpManagerAdapter struct {
-	m *mcp.Manager
-}
-
-func (a *mcpManagerAdapter) MCPClient(ctx context.Context, botID string) (enterprise.ContainerClient, error) {
-	return a.m.MCPClient(ctx, botID)
-}
-
-func provideDepartmentHandler(log *slog.Logger, queries *dbsqlc.Queries, al *enterprise.AuditLogger, resolver *authz.Resolver, mgr *mcp.Manager) *handlers.DepartmentHandler {
-	svc := enterprise.NewDepartmentService(log, queries, &mcpManagerAdapter{m: mgr})
-	botAuthMw := enterprise.RequireBotPermission(
-		enterprise.NewBotAuthorizerAdapter(resolver),
-		authz.ResourceMembers,
-		enterprise.ResolveMethodAction(authz.ActionRead, authz.ActionWrite),
-	)
-	globalAuthMw := enterprise.RequireRole(queries, log, "admin")
-	return handlers.NewDepartmentHandler(svc, botAuthMw,
-		handlers.WithDepartmentAudit(al),
-		handlers.WithDepartmentGlobalMiddleware(globalAuthMw),
-	)
-}
-
-func provideAuditHandler(log *slog.Logger, queries *dbsqlc.Queries, resolver *authz.Resolver) *handlers.AuditHandler {
-	svc := enterprise.NewAuditQueryService(log, queries)
-	authMw := enterprise.RequireBotPermission(
-		enterprise.NewBotAuthorizerAdapter(resolver),
-		authz.ResourceSettings,
-		enterprise.ResolveMethodAction(authz.ActionRead, authz.ActionRead),
-	)
-	return handlers.NewAuditHandler(svc, authMw)
-}
-
-func provideCockpitHandler(log *slog.Logger, queries *dbsqlc.Queries, resolver *authz.Resolver) *handlers.CockpitHandler {
-	svc := enterprise.NewCockpitService(log, queries)
-	reportGen := enterprise.NewCockpitReportGenerator(log, queries)
-	authMw := enterprise.RequireBotPermission(
-		enterprise.NewBotAuthorizerAdapter(resolver),
-		authz.ResourceSettings,
-		enterprise.ResolveCockpitAction,
-	)
-	return handlers.NewCockpitHandler(svc, reportGen, authMw)
-}
-
-func provideHandsHandler(log *slog.Logger, queries *dbsqlc.Queries, flowResolver *flow.Resolver, cfg config.Config, al *enterprise.AuditLogger, resolver *authz.Resolver) *handlers.HandsHandler {
-	chatExec := enterprise.NewResolverChatExecutor(flowResolver)
-	svc := enterprise.NewHandsService(log, queries, chatExec, cfg.Auth.JWTSecret)
-	authMw := enterprise.RequireBotPermission(
-		enterprise.NewBotAuthorizerAdapter(resolver),
-		authz.ResourceTools,
-		enterprise.ResolveHandsAction,
-	)
-	return handlers.NewHandsHandler(svc, authMw, handlers.WithAuditLogger(al))
-}
-
-func provideModelRoutingHandler(log *slog.Logger, queries *dbsqlc.Queries, al *enterprise.AuditLogger, resolver *authz.Resolver) *handlers.ModelRoutingHandler {
-	svc := enterprise.NewModelRoutingService(log, queries)
-	authMw := enterprise.RequireBotPermission(
-		enterprise.NewBotAuthorizerAdapter(resolver),
-		authz.ResourceSettings,
-		enterprise.ResolveMethodAction(authz.ActionRead, authz.ActionWrite),
-	)
-	return handlers.NewModelRoutingHandler(svc, authMw, handlers.WithModelRoutingAudit(al))
-}
-
-func provideCostTrackingHandler(log *slog.Logger, queries *dbsqlc.Queries, al *enterprise.AuditLogger) *handlers.CostTrackingHandler {
-	svc := enterprise.NewCostTrackingService(log, queries)
-	adminMw := enterprise.RequireRole(queries, log, "admin")
-	return handlers.NewCostTrackingHandler(svc, adminMw, handlers.WithCostTrackingAudit(al))
-}

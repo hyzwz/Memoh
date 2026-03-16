@@ -4,12 +4,18 @@ import (
 	"context"
 	"log/slog"
 
-	"github.com/memohai/memoh/internal/channel/inbound"
 	"github.com/memohai/memoh/internal/db"
 	"github.com/memohai/memoh/internal/db/sqlc"
 )
 
-// BudgetCheckerAdapter adapts CostTrackingService to the inbound.BudgetChecker interface.
+// BudgetCheckResult holds the outcome of a pre-chat budget check.
+type BudgetCheckResult struct {
+	Allowed bool
+	Alert   bool
+	Action  string // "block", "warn", or "downgrade"
+}
+
+// BudgetCheckerAdapter adapts CostTrackingService to budget checking.
 type BudgetCheckerAdapter struct {
 	svc     *CostTrackingService
 	queries *sqlc.Queries
@@ -20,7 +26,7 @@ func NewBudgetCheckerAdapter(log *slog.Logger, svc *CostTrackingService, queries
 	return &BudgetCheckerAdapter{svc: svc, queries: queries, logger: log}
 }
 
-func (b *BudgetCheckerAdapter) CheckChatBudget(ctx context.Context, botID, userID string) (*inbound.BudgetCheckResult, error) {
+func (b *BudgetCheckerAdapter) CheckChatBudget(ctx context.Context, botID, userID string) (*BudgetCheckResult, error) {
 	// Check all applicable scopes. Strictest wins (block > downgrade > warn > allow).
 	scopes := []struct {
 		scopeType string
@@ -53,15 +59,14 @@ func (b *BudgetCheckerAdapter) CheckChatBudget(ctx context.Context, botID, userI
 		}
 	}
 
-	merged := &inbound.BudgetCheckResult{Allowed: true}
+	merged := &BudgetCheckResult{Allowed: true}
 	for _, scope := range scopes {
 		result, err := b.svc.CheckBudget(ctx, scope.scopeType, scope.scopeID)
 		if err != nil {
 			return nil, err
 		}
 		if !result.Allowed {
-			// Block is the strictest — immediately deny
-			return &inbound.BudgetCheckResult{
+			return &BudgetCheckResult{
 				Allowed: false,
 				Alert:   true,
 				Action:  result.Action,
