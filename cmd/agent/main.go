@@ -990,12 +990,16 @@ func (a *mcpManagerAdapter) MCPClient(ctx context.Context, botID string) (enterp
 
 func provideDepartmentHandler(log *slog.Logger, queries *dbsqlc.Queries, al *enterprise.AuditLogger, resolver *authz.Resolver, mgr *mcp.Manager) *handlers.DepartmentHandler {
 	svc := enterprise.NewDepartmentService(log, queries, &mcpManagerAdapter{m: mgr})
-	authMw := enterprise.RequireBotPermission(
+	botAuthMw := enterprise.RequireBotPermission(
 		enterprise.NewBotAuthorizerAdapter(resolver),
 		authz.ResourceMembers,
 		enterprise.ResolveMethodAction(authz.ActionRead, authz.ActionWrite),
 	)
-	return handlers.NewDepartmentHandler(svc, authMw, handlers.WithDepartmentAudit(al))
+	globalAuthMw := enterprise.RequireRole(queries, log, "admin")
+	return handlers.NewDepartmentHandler(svc, botAuthMw,
+		handlers.WithDepartmentAudit(al),
+		handlers.WithDepartmentGlobalMiddleware(globalAuthMw),
+	)
 }
 
 func provideAuditHandler(log *slog.Logger, queries *dbsqlc.Queries, resolver *authz.Resolver) *handlers.AuditHandler {

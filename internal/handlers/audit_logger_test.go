@@ -250,12 +250,10 @@ func TestDepartmentHandlerCreateAuditLog(t *testing.T) {
 
 	e := echo.New()
 	reqBody := `{"name":"Engineering","description":"Eng team"}`
-	req := httptest.NewRequest(http.MethodPost, "/bots/bot-1/departments", strings.NewReader(reqBody))
+	req := httptest.NewRequest(http.MethodPost, "/departments", strings.NewReader(reqBody))
 	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
 	rec := httptest.NewRecorder()
 	c := e.NewContext(req, rec)
-	c.SetParamNames("bot_id")
-	c.SetParamValues("bot-1")
 
 	if err := h.CreateDepartment(c); err != nil {
 		t.Fatalf("CreateDepartment: %v", err)

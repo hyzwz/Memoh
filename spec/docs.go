@@ -1550,7 +1550,7 @@ const docTemplate = `{
                 "tags": [
                     "departments"
                 ],
-                "summary": "Create a department",
+                "summary": "Assign a bot to a department",
                 "parameters": [
                     {
                         "type": "string",
@@ -1560,95 +1560,12 @@ const docTemplate = `{
                         "required": true
                     },
                     {
-                        "description": "Department data",
+                        "description": "Department to assign",
                         "name": "body",
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/handlers.CreateDepartmentRequest"
-                        }
-                    }
-                ],
-                "responses": {
-                    "201": {
-                        "description": "Created",
-                        "schema": {
-                            "$ref": "#/definitions/handlers.DepartmentDTO"
-                        }
-                    },
-                    "400": {
-                        "description": "Bad Request",
-                        "schema": {
-                            "$ref": "#/definitions/handlers.ErrorResponse"
-                        }
-                    }
-                }
-            }
-        },
-        "/bots/{bot_id}/departments/{department_id}/directory-templates": {
-            "get": {
-                "tags": [
-                    "departments"
-                ],
-                "summary": "Get directory templates for a department",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "Bot ID",
-                        "name": "bot_id",
-                        "in": "path",
-                        "required": true
-                    },
-                    {
-                        "type": "string",
-                        "description": "Department ID",
-                        "name": "department_id",
-                        "in": "path",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/handlers.DirectoryTemplatesRequest"
-                        }
-                    },
-                    "400": {
-                        "description": "Bad Request",
-                        "schema": {
-                            "$ref": "#/definitions/handlers.ErrorResponse"
-                        }
-                    }
-                }
-            },
-            "put": {
-                "tags": [
-                    "departments"
-                ],
-                "summary": "Update directory templates for a department",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "Bot ID",
-                        "name": "bot_id",
-                        "in": "path",
-                        "required": true
-                    },
-                    {
-                        "type": "string",
-                        "description": "Department ID",
-                        "name": "department_id",
-                        "in": "path",
-                        "required": true
-                    },
-                    {
-                        "description": "Directory templates",
-                        "name": "body",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/handlers.DirectoryTemplatesRequest"
+                            "$ref": "#/definitions/handlers.BotDepartmentAssignRequest"
                         }
                     }
                 ],
@@ -1665,95 +1582,12 @@ const docTemplate = `{
                 }
             }
         },
-        "/bots/{bot_id}/departments/{department_id}/skill-templates": {
-            "get": {
-                "tags": [
-                    "departments"
-                ],
-                "summary": "List skill templates assigned to a department",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "Bot ID",
-                        "name": "bot_id",
-                        "in": "path",
-                        "required": true
-                    },
-                    {
-                        "type": "string",
-                        "description": "Department ID",
-                        "name": "department_id",
-                        "in": "path",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "type": "array",
-                            "items": {
-                                "$ref": "#/definitions/handlers.SkillTemplateBriefDTO"
-                            }
-                        }
-                    },
-                    "400": {
-                        "description": "Bad Request",
-                        "schema": {
-                            "$ref": "#/definitions/handlers.ErrorResponse"
-                        }
-                    }
-                }
-            },
-            "post": {
-                "tags": [
-                    "departments"
-                ],
-                "summary": "Add a skill template to a department",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "Bot ID",
-                        "name": "bot_id",
-                        "in": "path",
-                        "required": true
-                    },
-                    {
-                        "type": "string",
-                        "description": "Department ID",
-                        "name": "department_id",
-                        "in": "path",
-                        "required": true
-                    },
-                    {
-                        "description": "Skill template to add",
-                        "name": "body",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/handlers.AddSkillTemplateRequest"
-                        }
-                    }
-                ],
-                "responses": {
-                    "204": {
-                        "description": "No Content"
-                    },
-                    "400": {
-                        "description": "Bad Request",
-                        "schema": {
-                            "$ref": "#/definitions/handlers.ErrorResponse"
-                        }
-                    }
-                }
-            }
-        },
-        "/bots/{bot_id}/departments/{department_id}/skill-templates/{template_id}": {
+        "/bots/{bot_id}/departments/{department_id}": {
             "delete": {
                 "tags": [
                     "departments"
                 ],
-                "summary": "Remove a skill template from a department",
+                "summary": "Remove a bot from a department",
                 "parameters": [
                     {
                         "type": "string",
@@ -1766,13 +1600,6 @@ const docTemplate = `{
                         "type": "string",
                         "description": "Department ID",
                         "name": "department_id",
-                        "in": "path",
-                        "required": true
-                    },
-                    {
-                        "type": "string",
-                        "description": "Template ID",
-                        "name": "template_id",
                         "in": "path",
                         "required": true
                     }
@@ -1780,82 +1607,6 @@ const docTemplate = `{
                 "responses": {
                     "204": {
                         "description": "No Content"
-                    },
-                    "400": {
-                        "description": "Bad Request",
-                        "schema": {
-                            "$ref": "#/definitions/handlers.ErrorResponse"
-                        }
-                    }
-                }
-            }
-        },
-        "/bots/{bot_id}/departments/{department_id}/sync-directories": {
-            "post": {
-                "tags": [
-                    "departments"
-                ],
-                "summary": "Sync directory templates to all bots in a department",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "Bot ID",
-                        "name": "bot_id",
-                        "in": "path",
-                        "required": true
-                    },
-                    {
-                        "type": "string",
-                        "description": "Department ID",
-                        "name": "department_id",
-                        "in": "path",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/handlers.SyncResultDTO"
-                        }
-                    },
-                    "400": {
-                        "description": "Bad Request",
-                        "schema": {
-                            "$ref": "#/definitions/handlers.ErrorResponse"
-                        }
-                    }
-                }
-            }
-        },
-        "/bots/{bot_id}/departments/{department_id}/sync-skills": {
-            "post": {
-                "tags": [
-                    "departments"
-                ],
-                "summary": "Sync skill templates to all bots in a department",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "Bot ID",
-                        "name": "bot_id",
-                        "in": "path",
-                        "required": true
-                    },
-                    {
-                        "type": "string",
-                        "description": "Department ID",
-                        "name": "department_id",
-                        "in": "path",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/handlers.SyncResultDTO"
-                        }
                     },
                     "400": {
                         "description": "Bad Request",
@@ -6490,6 +6241,417 @@ const docTemplate = `{
                 }
             }
         },
+        "/departments": {
+            "get": {
+                "tags": [
+                    "departments"
+                ],
+                "summary": "List all departments",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/handlers.DepartmentDTO"
+                            }
+                        }
+                    }
+                }
+            },
+            "post": {
+                "tags": [
+                    "departments"
+                ],
+                "summary": "Create a department",
+                "parameters": [
+                    {
+                        "description": "Department data",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/handlers.CreateDepartmentRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/handlers.DepartmentDTO"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/handlers.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/departments/{department_id}": {
+            "get": {
+                "tags": [
+                    "departments"
+                ],
+                "summary": "Get a department by ID",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Department ID",
+                        "name": "department_id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/handlers.DepartmentDTO"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/handlers.ErrorResponse"
+                        }
+                    }
+                }
+            },
+            "put": {
+                "tags": [
+                    "departments"
+                ],
+                "summary": "Update a department",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Department ID",
+                        "name": "department_id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Department data",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/handlers.UpdateDepartmentRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/handlers.DepartmentDTO"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/handlers.ErrorResponse"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "tags": [
+                    "departments"
+                ],
+                "summary": "Delete a department",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Department ID",
+                        "name": "department_id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "No Content"
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/handlers.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/departments/{department_id}/bots": {
+            "get": {
+                "tags": [
+                    "departments"
+                ],
+                "summary": "List bots in a department",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Department ID",
+                        "name": "department_id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/handlers.BotBriefDTO"
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/handlers.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/departments/{department_id}/directory-templates": {
+            "get": {
+                "tags": [
+                    "departments"
+                ],
+                "summary": "Get directory templates for a department",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Department ID",
+                        "name": "department_id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/handlers.DirectoryTemplatesRequest"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/handlers.ErrorResponse"
+                        }
+                    }
+                }
+            },
+            "put": {
+                "tags": [
+                    "departments"
+                ],
+                "summary": "Update directory templates for a department",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Department ID",
+                        "name": "department_id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Directory templates",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/handlers.DirectoryTemplatesRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "No Content"
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/handlers.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/departments/{department_id}/skill-templates": {
+            "get": {
+                "tags": [
+                    "departments"
+                ],
+                "summary": "List skill templates assigned to a department",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Department ID",
+                        "name": "department_id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/handlers.SkillTemplateBriefDTO"
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/handlers.ErrorResponse"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "tags": [
+                    "departments"
+                ],
+                "summary": "Add a skill template to a department",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Department ID",
+                        "name": "department_id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Skill template to add",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/handlers.AddSkillTemplateRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "No Content"
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/handlers.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/departments/{department_id}/skill-templates/{template_id}": {
+            "delete": {
+                "tags": [
+                    "departments"
+                ],
+                "summary": "Remove a skill template from a department",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Department ID",
+                        "name": "department_id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Template ID",
+                        "name": "template_id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "No Content"
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/handlers.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/departments/{department_id}/sync-directories": {
+            "post": {
+                "tags": [
+                    "departments"
+                ],
+                "summary": "Sync directory templates to all bots in a department",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Department ID",
+                        "name": "department_id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/handlers.SyncResultDTO"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/handlers.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/departments/{department_id}/sync-skills": {
+            "post": {
+                "tags": [
+                    "departments"
+                ],
+                "summary": "Sync skill templates to all bots in a department",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Department ID",
+                        "name": "department_id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/handlers.SyncResultDTO"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/handlers.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/email-providers": {
             "get": {
                 "produces": [
@@ -9933,6 +10095,25 @@ const docTemplate = `{
                 }
             }
         },
+        "handlers.BotBriefDTO": {
+            "type": "object",
+            "properties": {
+                "display_name": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                }
+            }
+        },
+        "handlers.BotDepartmentAssignRequest": {
+            "type": "object",
+            "properties": {
+                "department_id": {
+                    "type": "string"
+                }
+            }
+        },
         "handlers.BotSyncError": {
             "type": "object",
             "properties": {
@@ -10956,6 +11137,20 @@ const docTemplate = `{
             "type": "object",
             "properties": {
                 "template_id": {
+                    "type": "string"
+                }
+            }
+        },
+        "handlers.UpdateDepartmentRequest": {
+            "type": "object",
+            "properties": {
+                "description": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "parent_id": {
                     "type": "string"
                 }
             }

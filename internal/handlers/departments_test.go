@@ -16,18 +16,56 @@ type fakeDepartmentService struct {
 	skillTemplates []SkillTemplateBriefDTO
 	dirTemplates   []string
 	syncResult     *SyncResultDTO
+	bots           []BotBriefDTO
 	err            error
 }
 
-func (f *fakeDepartmentService) ListDepartments(_ context.Context, _ string) ([]DepartmentDTO, error) {
+func (f *fakeDepartmentService) ListAllDepartments(_ context.Context) ([]DepartmentDTO, error) {
 	return f.departments, f.err
 }
 
-func (f *fakeDepartmentService) CreateDepartment(_ context.Context, _ string, _ CreateDepartmentRequest) (*DepartmentDTO, error) {
+func (f *fakeDepartmentService) GetDepartment(_ context.Context, _ string) (*DepartmentDTO, error) {
+	if f.err != nil {
+		return nil, f.err
+	}
+	if len(f.departments) > 0 {
+		return &f.departments[0], nil
+	}
+	return &DepartmentDTO{ID: "dept-1", Name: "Engineering"}, nil
+}
+
+func (f *fakeDepartmentService) CreateDepartment(_ context.Context, _ CreateDepartmentRequest) (*DepartmentDTO, error) {
 	if f.err != nil {
 		return nil, f.err
 	}
 	return &DepartmentDTO{ID: "dept-1", Name: "Engineering"}, nil
+}
+
+func (f *fakeDepartmentService) UpdateDepartment(_ context.Context, _ string, _ UpdateDepartmentRequest) (*DepartmentDTO, error) {
+	if f.err != nil {
+		return nil, f.err
+	}
+	return &DepartmentDTO{ID: "dept-1", Name: "Engineering Updated"}, nil
+}
+
+func (f *fakeDepartmentService) DeleteDepartment(_ context.Context, _ string) error {
+	return f.err
+}
+
+func (f *fakeDepartmentService) ListBotDepartments(_ context.Context, _ string) ([]DepartmentDTO, error) {
+	return f.departments, f.err
+}
+
+func (f *fakeDepartmentService) SetBotDepartmentAccess(_ context.Context, _, _ string) error {
+	return f.err
+}
+
+func (f *fakeDepartmentService) RemoveBotDepartmentAccess(_ context.Context, _, _ string) error {
+	return f.err
+}
+
+func (f *fakeDepartmentService) ListDepartmentBots(_ context.Context, _ string) ([]BotBriefDTO, error) {
+	return f.bots, f.err
 }
 
 func (f *fakeDepartmentService) AddSkillTemplate(_ context.Context, _, _ string) error {
@@ -68,9 +106,9 @@ func (f *fakeDepartmentService) SyncDirectories(_ context.Context, _ string) (*S
 	return f.syncResult, nil
 }
 
-// --- Existing tests ---
+// --- Global department tests ---
 
-func TestDepartmentHandlerList(t *testing.T) {
+func TestDepartmentHandlerListAll(t *testing.T) {
 	svc := &fakeDepartmentService{
 		departments: []DepartmentDTO{
 			{ID: "dept-1", Name: "Engineering"},
@@ -80,14 +118,12 @@ func TestDepartmentHandlerList(t *testing.T) {
 	h := NewDepartmentHandler(svc)
 
 	e := echo.New()
-	req := httptest.NewRequest(http.MethodGet, "/bots/bot-1/departments", nil)
+	req := httptest.NewRequest(http.MethodGet, "/departments", nil)
 	rec := httptest.NewRecorder()
 	c := e.NewContext(req, rec)
-	c.SetParamNames("bot_id")
-	c.SetParamValues("bot-1")
 
-	if err := h.ListDepartments(c); err != nil {
-		t.Fatalf("ListDepartments: %v", err)
+	if err := h.ListAllDepartments(c); err != nil {
+		t.Fatalf("ListAllDepartments: %v", err)
 	}
 	if rec.Code != http.StatusOK {
 		t.Fatalf("status = %d", rec.Code)
@@ -104,17 +140,40 @@ func TestDepartmentHandlerCreate(t *testing.T) {
 
 	e := echo.New()
 	reqBody := `{"name":"Engineering","description":"Eng team"}`
-	req := httptest.NewRequest(http.MethodPost, "/bots/bot-1/departments", strings.NewReader(reqBody))
+	req := httptest.NewRequest(http.MethodPost, "/departments", strings.NewReader(reqBody))
 	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
 	rec := httptest.NewRecorder()
 	c := e.NewContext(req, rec)
-	c.SetParamNames("bot_id")
-	c.SetParamValues("bot-1")
 
 	if err := h.CreateDepartment(c); err != nil {
 		t.Fatalf("CreateDepartment: %v", err)
 	}
 	if rec.Code != http.StatusCreated {
+		t.Fatalf("status = %d", rec.Code)
+	}
+}
+
+// --- Bot-scoped department tests ---
+
+func TestDepartmentHandlerListBotDepartments(t *testing.T) {
+	svc := &fakeDepartmentService{
+		departments: []DepartmentDTO{
+			{ID: "dept-1", Name: "Engineering"},
+		},
+	}
+	h := NewDepartmentHandler(svc)
+
+	e := echo.New()
+	req := httptest.NewRequest(http.MethodGet, "/bots/bot-1/departments", nil)
+	rec := httptest.NewRecorder()
+	c := e.NewContext(req, rec)
+	c.SetParamNames("bot_id")
+	c.SetParamValues("bot-1")
+
+	if err := h.ListBotDepartments(c); err != nil {
+		t.Fatalf("ListBotDepartments: %v", err)
+	}
+	if rec.Code != http.StatusOK {
 		t.Fatalf("status = %d", rec.Code)
 	}
 }
@@ -130,9 +189,49 @@ func TestDepartmentHandlerMissingBotID(t *testing.T) {
 	c.SetParamNames("bot_id")
 	c.SetParamValues("")
 
-	err := h.ListDepartments(c)
+	err := h.ListBotDepartments(c)
 	if err == nil {
 		t.Fatal("expected error for missing bot_id")
+	}
+}
+
+func TestAssignBotDepartment(t *testing.T) {
+	svc := &fakeDepartmentService{}
+	h := NewDepartmentHandler(svc)
+
+	e := echo.New()
+	body := `{"department_id":"dept-1"}`
+	req := httptest.NewRequest(http.MethodPost, "/bots/bot-1/departments", strings.NewReader(body))
+	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
+	rec := httptest.NewRecorder()
+	c := e.NewContext(req, rec)
+	c.SetParamNames("bot_id")
+	c.SetParamValues("bot-1")
+
+	if err := h.AssignBotDepartment(c); err != nil {
+		t.Fatalf("AssignBotDepartment: %v", err)
+	}
+	if rec.Code != http.StatusNoContent {
+		t.Fatalf("status = %d, want 204", rec.Code)
+	}
+}
+
+func TestRemoveBotDepartment(t *testing.T) {
+	svc := &fakeDepartmentService{}
+	h := NewDepartmentHandler(svc)
+
+	e := echo.New()
+	req := httptest.NewRequest(http.MethodDelete, "/bots/bot-1/departments/dept-1", nil)
+	rec := httptest.NewRecorder()
+	c := e.NewContext(req, rec)
+	c.SetParamNames("bot_id", "department_id")
+	c.SetParamValues("bot-1", "dept-1")
+
+	if err := h.RemoveBotDepartment(c); err != nil {
+		t.Fatalf("RemoveBotDepartment: %v", err)
+	}
+	if rec.Code != http.StatusNoContent {
+		t.Fatalf("status = %d, want 204", rec.Code)
 	}
 }
 
@@ -423,5 +522,34 @@ func TestSyncDirectories_ServiceError(t *testing.T) {
 	err := h.SyncDirectories(c)
 	if err == nil {
 		t.Fatal("expected error from service")
+	}
+}
+
+// --- Department bots tests ---
+
+func TestListDepartmentBots(t *testing.T) {
+	svc := &fakeDepartmentService{
+		bots: []BotBriefDTO{
+			{ID: "bot-1", DisplayName: "Bot One"},
+		},
+	}
+	h := NewDepartmentHandler(svc)
+
+	e := echo.New()
+	req := httptest.NewRequest(http.MethodGet, "/departments/dept-1/bots", nil)
+	rec := httptest.NewRecorder()
+	c := e.NewContext(req, rec)
+	c.SetParamNames("department_id")
+	c.SetParamValues("dept-1")
+
+	if err := h.ListDepartmentBots(c); err != nil {
+		t.Fatalf("ListDepartmentBots: %v", err)
+	}
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want 200", rec.Code)
+	}
+	body := rec.Body.String()
+	if !strings.Contains(body, "Bot One") {
+		t.Fatalf("body missing Bot One: %s", body)
 	}
 }

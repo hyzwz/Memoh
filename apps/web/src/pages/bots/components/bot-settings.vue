@@ -130,6 +130,92 @@
       <Separator />
     </template>
 
+    <!-- Departments -->
+    <div class="space-y-3">
+      <Label>所属部门</Label>
+      <div
+        v-if="botDepartmentsLoading"
+        class="flex justify-center py-4"
+      >
+        <Spinner class="size-5" />
+      </div>
+      <template v-else>
+        <div
+          v-if="botDepartments.length === 0"
+          class="text-sm text-muted-foreground"
+        >
+          尚未加入任何部门
+        </div>
+        <div
+          v-else
+          class="flex flex-wrap gap-2"
+        >
+          <span
+            v-for="dept in botDepartments"
+            :key="dept.id"
+            class="inline-flex items-center gap-1 px-2.5 py-1 rounded-md border bg-muted/50 text-sm"
+          >
+            {{ dept.name }}
+            <button
+              class="ml-0.5 text-muted-foreground hover:text-destructive transition-colors"
+              :disabled="removingDeptId === dept.id"
+              @click="handleRemoveDepartment(dept.id!)"
+            >
+              <Spinner
+                v-if="removingDeptId === dept.id"
+                class="size-3"
+              />
+              <svg
+                v-else
+                xmlns="http://www.w3.org/2000/svg"
+                class="size-3.5"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+                stroke-width="2"
+              ><path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                d="M6 18 18 6M6 6l12 12"
+              /></svg>
+            </button>
+          </span>
+        </div>
+        <div class="flex items-center gap-2">
+          <Select
+            v-model="selectedDeptToAdd"
+          >
+            <SelectTrigger class="flex-1">
+              <SelectValue placeholder="选择部门" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem
+                v-for="dept in availableDepartments"
+                :key="dept.id"
+                :value="dept.id!"
+              >
+                {{ dept.name }}
+              </SelectItem>
+            </SelectContent>
+          </Select>
+          <Button
+            size="sm"
+            variant="outline"
+            :disabled="!selectedDeptToAdd || addingDept"
+            @click="handleAddDepartment"
+          >
+            <Spinner
+              v-if="addingDept"
+              class="mr-1.5 size-3"
+            />
+            添加
+          </Button>
+        </div>
+      </template>
+    </div>
+
+    <Separator />
+
     <!-- Save -->
     <div class="flex justify-end">
       <Button
@@ -191,7 +277,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@memoh/ui'
-import { reactive, computed, watch } from 'vue'
+import { ref, reactive, computed, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { toast } from 'vue-sonner'
 import { useI18n } from 'vue-i18n'
@@ -201,7 +287,7 @@ import SearchProviderSelect from './search-provider-select.vue'
 import MemoryProviderSelect from './memory-provider-select.vue'
 import BrowserContextSelect from './browser-context-select.vue'
 import { useQuery, useMutation, useQueryCache } from '@pinia/colada'
-import { getBotsByBotIdSettings, putBotsByBotIdSettings, deleteBotsById, getModels, getProviders, getSearchProviders, getMemoryProviders, getBrowserContexts } from '@memoh/sdk'
+import { getBotsByBotIdSettings, putBotsByBotIdSettings, deleteBotsById, getModels, getProviders, getSearchProviders, getMemoryProviders, getBrowserContexts, getBotsByBotIdDepartments, getDepartments, postBotsByBotIdDepartments, deleteBotsByBotIdDepartmentsByDepartmentId } from '@memoh/sdk'
 import type { SettingsSettings } from '@memoh/sdk'
 import type { Ref } from 'vue'
 import { resolveApiErrorMessage } from '@/utils/api-error'
@@ -365,9 +451,94 @@ async function handleDeleteBot() {
   try {
     await deleteBot()
     await router.push({ name: 'bots' })
-    toast.success(t('bots.deleteSuccess'))    
+    toast.success(t('bots.deleteSuccess'))
   } catch (error) {
     toast.error(resolveApiErrorMessage(error, t('bots.lifecycle.deleteFailed')))
   }
 }
+
+// ─── Department association ─────────────────────────────────────
+
+interface DeptBrief {
+  id?: string
+  name?: string
+}
+
+const botDepartments = ref<DeptBrief[]>([])
+const botDepartmentsLoading = ref(false)
+const allDepartments = ref<DeptBrief[]>([])
+const selectedDeptToAdd = ref('')
+const addingDept = ref(false)
+const removingDeptId = ref<string | null>(null)
+
+const availableDepartments = computed(() => {
+  const existingIds = new Set(botDepartments.value.map(d => d.id))
+  return allDepartments.value.filter(d => !existingIds.has(d.id))
+})
+
+async function fetchBotDepartments() {
+  if (!botIdRef.value) return
+  botDepartmentsLoading.value = true
+  try {
+    const { data } = await getBotsByBotIdDepartments({ path: { bot_id: botIdRef.value }, throwOnError: true })
+    botDepartments.value = (data ?? []) as DeptBrief[]
+  } catch {
+    botDepartments.value = []
+  } finally {
+    botDepartmentsLoading.value = false
+  }
+}
+
+async function fetchAllDepartments() {
+  try {
+    const { data } = await getDepartments({ throwOnError: true })
+    allDepartments.value = (data ?? []) as DeptBrief[]
+  } catch {
+    allDepartments.value = []
+  }
+}
+
+async function handleAddDepartment() {
+  if (!selectedDeptToAdd.value || !botIdRef.value) return
+  addingDept.value = true
+  try {
+    await postBotsByBotIdDepartments({
+      path: { bot_id: botIdRef.value },
+      body: { department_id: selectedDeptToAdd.value },
+      throwOnError: true,
+    })
+    selectedDeptToAdd.value = ''
+    toast.success('已加入部门')
+    fetchBotDepartments()
+  } catch {
+    toast.error('加入部门失败')
+  } finally {
+    addingDept.value = false
+  }
+}
+
+async function handleRemoveDepartment(deptId: string) {
+  if (!botIdRef.value) return
+  removingDeptId.value = deptId
+  try {
+    await deleteBotsByBotIdDepartmentsByDepartmentId({
+      path: { bot_id: botIdRef.value, department_id: deptId },
+      throwOnError: true,
+    })
+    toast.success('已退出部门')
+    fetchBotDepartments()
+  } catch {
+    toast.error('退出部门失败')
+  } finally {
+    removingDeptId.value = null
+  }
+}
+
+// Load departments when botId is ready
+watch(botIdRef, (id) => {
+  if (id) {
+    fetchBotDepartments()
+    fetchAllDepartments()
+  }
+}, { immediate: true })
 </script>

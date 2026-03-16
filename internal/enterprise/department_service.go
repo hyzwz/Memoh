@@ -42,7 +42,19 @@ func NewDepartmentService(log *slog.Logger, queries *sqlc.Queries, manager Conta
 	}
 }
 
-func (s *DepartmentService) ListDepartments(ctx context.Context, botID string) ([]handlers.DepartmentDTO, error) {
+func (s *DepartmentService) ListAllDepartments(ctx context.Context) ([]handlers.DepartmentDTO, error) {
+	rows, err := s.queries.ListDepartments(ctx)
+	if err != nil {
+		return nil, err
+	}
+	out := make([]handlers.DepartmentDTO, len(rows))
+	for i, r := range rows {
+		out[i] = departmentToDTO(r)
+	}
+	return out, nil
+}
+
+func (s *DepartmentService) ListBotDepartments(ctx context.Context, botID string) ([]handlers.DepartmentDTO, error) {
 	pgBotID, err := db.ParseUUID(botID)
 	if err != nil {
 		return nil, err
@@ -58,12 +70,7 @@ func (s *DepartmentService) ListDepartments(ctx context.Context, botID string) (
 	return out, nil
 }
 
-func (s *DepartmentService) CreateDepartment(ctx context.Context, botID string, req handlers.CreateDepartmentRequest) (*handlers.DepartmentDTO, error) {
-	pgBotID, err := db.ParseUUID(botID)
-	if err != nil {
-		return nil, err
-	}
-
+func (s *DepartmentService) CreateDepartment(ctx context.Context, req handlers.CreateDepartmentRequest) (*handlers.DepartmentDTO, error) {
 	dept, err := s.queries.CreateDepartment(ctx, sqlc.CreateDepartmentParams{
 		Name:        req.Name,
 		Description: req.Description,
@@ -74,16 +81,97 @@ func (s *DepartmentService) CreateDepartment(ctx context.Context, botID string, 
 		return nil, err
 	}
 
-	// Associate department with bot.
-	if err := s.queries.SetBotDepartmentAccess(ctx, sqlc.SetBotDepartmentAccessParams{
-		BotID:        pgBotID,
-		DepartmentID: dept.ID,
-	}); err != nil {
-		return nil, err
-	}
-
 	dto := departmentToDTO(dept)
 	return &dto, nil
+}
+
+func (s *DepartmentService) GetDepartment(ctx context.Context, departmentID string) (*handlers.DepartmentDTO, error) {
+	pgID, err := db.ParseUUID(departmentID)
+	if err != nil {
+		return nil, err
+	}
+	dept, err := s.queries.GetDepartmentByID(ctx, pgID)
+	if err != nil {
+		return nil, err
+	}
+	dto := departmentToDTO(dept)
+	return &dto, nil
+}
+
+func (s *DepartmentService) UpdateDepartment(ctx context.Context, departmentID string, req handlers.UpdateDepartmentRequest) (*handlers.DepartmentDTO, error) {
+	pgID, err := db.ParseUUID(departmentID)
+	if err != nil {
+		return nil, err
+	}
+	dept, err := s.queries.UpdateDepartment(ctx, sqlc.UpdateDepartmentParams{
+		ID:          pgID,
+		Name:        req.Name,
+		Description: req.Description,
+		ParentID:    db.ParseUUIDOrEmpty(req.ParentID),
+		Metadata:    []byte("{}"),
+	})
+	if err != nil {
+		return nil, err
+	}
+	dto := departmentToDTO(dept)
+	return &dto, nil
+}
+
+func (s *DepartmentService) DeleteDepartment(ctx context.Context, departmentID string) error {
+	pgID, err := db.ParseUUID(departmentID)
+	if err != nil {
+		return err
+	}
+	return s.queries.DeleteDepartment(ctx, pgID)
+}
+
+func (s *DepartmentService) SetBotDepartmentAccess(ctx context.Context, botID, departmentID string) error {
+	pgBotID, err := db.ParseUUID(botID)
+	if err != nil {
+		return err
+	}
+	pgDeptID, err := db.ParseUUID(departmentID)
+	if err != nil {
+		return err
+	}
+	return s.queries.SetBotDepartmentAccess(ctx, sqlc.SetBotDepartmentAccessParams{
+		BotID:        pgBotID,
+		DepartmentID: pgDeptID,
+	})
+}
+
+func (s *DepartmentService) RemoveBotDepartmentAccess(ctx context.Context, botID, departmentID string) error {
+	pgBotID, err := db.ParseUUID(botID)
+	if err != nil {
+		return err
+	}
+	pgDeptID, err := db.ParseUUID(departmentID)
+	if err != nil {
+		return err
+	}
+	return s.queries.RemoveBotDepartmentAccess(ctx, sqlc.RemoveBotDepartmentAccessParams{
+		BotID:        pgBotID,
+		DepartmentID: pgDeptID,
+	})
+}
+
+func (s *DepartmentService) ListDepartmentBots(ctx context.Context, departmentID string) ([]handlers.BotBriefDTO, error) {
+	pgDeptID, err := db.ParseUUID(departmentID)
+	if err != nil {
+		return nil, err
+	}
+	rows, err := s.queries.ListDepartmentBots(ctx, pgDeptID)
+	if err != nil {
+		return nil, err
+	}
+	out := make([]handlers.BotBriefDTO, len(rows))
+	for i, r := range rows {
+		out[i] = handlers.BotBriefDTO{
+			ID:          uuidToString(r.ID),
+			DisplayName: r.DisplayName.String,
+		}
+	}
+	return out, nil
 }
 
 func (s *DepartmentService) AddSkillTemplate(ctx context.Context, departmentID, templateID string) error {

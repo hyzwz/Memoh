@@ -458,6 +458,15 @@ export type HandlersBatchDeleteRequest = {
     ids?: Array<string>;
 };
 
+export type HandlersBotBriefDto = {
+    display_name?: string;
+    id?: string;
+};
+
+export type HandlersBotDepartmentAssignRequest = {
+    department_id?: string;
+};
+
 export type HandlersBotSyncError = {
     bot_id?: string;
     message?: string;
@@ -863,6 +872,12 @@ export type HandlersTokenUsageResponse = {
 
 export type HandlersUninstallRequest = {
     template_id?: string;
+};
+
+export type HandlersUpdateDepartmentRequest = {
+    description?: string;
+    name?: string;
+    parent_id?: string;
 };
 
 export type HandlersUpdateInstallRequest = {
@@ -2822,9 +2837,9 @@ export type GetBotsByBotIdDepartmentsResponse = GetBotsByBotIdDepartmentsRespons
 
 export type PostBotsByBotIdDepartmentsData = {
     /**
-     * Department data
+     * Department to assign
      */
-    body: HandlersCreateDepartmentRequest;
+    body: HandlersBotDepartmentAssignRequest;
     path: {
         /**
          * Bot ID
@@ -2846,83 +2861,12 @@ export type PostBotsByBotIdDepartmentsError = PostBotsByBotIdDepartmentsErrors[k
 
 export type PostBotsByBotIdDepartmentsResponses = {
     /**
-     * Created
-     */
-    201: HandlersDepartmentDto;
-};
-
-export type PostBotsByBotIdDepartmentsResponse = PostBotsByBotIdDepartmentsResponses[keyof PostBotsByBotIdDepartmentsResponses];
-
-export type GetBotsByBotIdDepartmentsByDepartmentIdDirectoryTemplatesData = {
-    body?: never;
-    path: {
-        /**
-         * Bot ID
-         */
-        bot_id: string;
-        /**
-         * Department ID
-         */
-        department_id: string;
-    };
-    query?: never;
-    url: '/bots/{bot_id}/departments/{department_id}/directory-templates';
-};
-
-export type GetBotsByBotIdDepartmentsByDepartmentIdDirectoryTemplatesErrors = {
-    /**
-     * Bad Request
-     */
-    400: HandlersErrorResponse;
-};
-
-export type GetBotsByBotIdDepartmentsByDepartmentIdDirectoryTemplatesError = GetBotsByBotIdDepartmentsByDepartmentIdDirectoryTemplatesErrors[keyof GetBotsByBotIdDepartmentsByDepartmentIdDirectoryTemplatesErrors];
-
-export type GetBotsByBotIdDepartmentsByDepartmentIdDirectoryTemplatesResponses = {
-    /**
-     * OK
-     */
-    200: HandlersDirectoryTemplatesRequest;
-};
-
-export type GetBotsByBotIdDepartmentsByDepartmentIdDirectoryTemplatesResponse = GetBotsByBotIdDepartmentsByDepartmentIdDirectoryTemplatesResponses[keyof GetBotsByBotIdDepartmentsByDepartmentIdDirectoryTemplatesResponses];
-
-export type PutBotsByBotIdDepartmentsByDepartmentIdDirectoryTemplatesData = {
-    /**
-     * Directory templates
-     */
-    body: HandlersDirectoryTemplatesRequest;
-    path: {
-        /**
-         * Bot ID
-         */
-        bot_id: string;
-        /**
-         * Department ID
-         */
-        department_id: string;
-    };
-    query?: never;
-    url: '/bots/{bot_id}/departments/{department_id}/directory-templates';
-};
-
-export type PutBotsByBotIdDepartmentsByDepartmentIdDirectoryTemplatesErrors = {
-    /**
-     * Bad Request
-     */
-    400: HandlersErrorResponse;
-};
-
-export type PutBotsByBotIdDepartmentsByDepartmentIdDirectoryTemplatesError = PutBotsByBotIdDepartmentsByDepartmentIdDirectoryTemplatesErrors[keyof PutBotsByBotIdDepartmentsByDepartmentIdDirectoryTemplatesErrors];
-
-export type PutBotsByBotIdDepartmentsByDepartmentIdDirectoryTemplatesResponses = {
-    /**
      * No Content
      */
     204: unknown;
 };
 
-export type GetBotsByBotIdDepartmentsByDepartmentIdSkillTemplatesData = {
+export type DeleteBotsByBotIdDepartmentsByDepartmentIdData = {
     body?: never;
     path: {
         /**
@@ -2935,165 +2879,24 @@ export type GetBotsByBotIdDepartmentsByDepartmentIdSkillTemplatesData = {
         department_id: string;
     };
     query?: never;
-    url: '/bots/{bot_id}/departments/{department_id}/skill-templates';
+    url: '/bots/{bot_id}/departments/{department_id}';
 };
 
-export type GetBotsByBotIdDepartmentsByDepartmentIdSkillTemplatesErrors = {
+export type DeleteBotsByBotIdDepartmentsByDepartmentIdErrors = {
     /**
      * Bad Request
      */
     400: HandlersErrorResponse;
 };
 
-export type GetBotsByBotIdDepartmentsByDepartmentIdSkillTemplatesError = GetBotsByBotIdDepartmentsByDepartmentIdSkillTemplatesErrors[keyof GetBotsByBotIdDepartmentsByDepartmentIdSkillTemplatesErrors];
+export type DeleteBotsByBotIdDepartmentsByDepartmentIdError = DeleteBotsByBotIdDepartmentsByDepartmentIdErrors[keyof DeleteBotsByBotIdDepartmentsByDepartmentIdErrors];
 
-export type GetBotsByBotIdDepartmentsByDepartmentIdSkillTemplatesResponses = {
-    /**
-     * OK
-     */
-    200: Array<HandlersSkillTemplateBriefDto>;
-};
-
-export type GetBotsByBotIdDepartmentsByDepartmentIdSkillTemplatesResponse = GetBotsByBotIdDepartmentsByDepartmentIdSkillTemplatesResponses[keyof GetBotsByBotIdDepartmentsByDepartmentIdSkillTemplatesResponses];
-
-export type PostBotsByBotIdDepartmentsByDepartmentIdSkillTemplatesData = {
-    /**
-     * Skill template to add
-     */
-    body: HandlersAddSkillTemplateRequest;
-    path: {
-        /**
-         * Bot ID
-         */
-        bot_id: string;
-        /**
-         * Department ID
-         */
-        department_id: string;
-    };
-    query?: never;
-    url: '/bots/{bot_id}/departments/{department_id}/skill-templates';
-};
-
-export type PostBotsByBotIdDepartmentsByDepartmentIdSkillTemplatesErrors = {
-    /**
-     * Bad Request
-     */
-    400: HandlersErrorResponse;
-};
-
-export type PostBotsByBotIdDepartmentsByDepartmentIdSkillTemplatesError = PostBotsByBotIdDepartmentsByDepartmentIdSkillTemplatesErrors[keyof PostBotsByBotIdDepartmentsByDepartmentIdSkillTemplatesErrors];
-
-export type PostBotsByBotIdDepartmentsByDepartmentIdSkillTemplatesResponses = {
+export type DeleteBotsByBotIdDepartmentsByDepartmentIdResponses = {
     /**
      * No Content
      */
     204: unknown;
 };
-
-export type DeleteBotsByBotIdDepartmentsByDepartmentIdSkillTemplatesByTemplateIdData = {
-    body?: never;
-    path: {
-        /**
-         * Bot ID
-         */
-        bot_id: string;
-        /**
-         * Department ID
-         */
-        department_id: string;
-        /**
-         * Template ID
-         */
-        template_id: string;
-    };
-    query?: never;
-    url: '/bots/{bot_id}/departments/{department_id}/skill-templates/{template_id}';
-};
-
-export type DeleteBotsByBotIdDepartmentsByDepartmentIdSkillTemplatesByTemplateIdErrors = {
-    /**
-     * Bad Request
-     */
-    400: HandlersErrorResponse;
-};
-
-export type DeleteBotsByBotIdDepartmentsByDepartmentIdSkillTemplatesByTemplateIdError = DeleteBotsByBotIdDepartmentsByDepartmentIdSkillTemplatesByTemplateIdErrors[keyof DeleteBotsByBotIdDepartmentsByDepartmentIdSkillTemplatesByTemplateIdErrors];
-
-export type DeleteBotsByBotIdDepartmentsByDepartmentIdSkillTemplatesByTemplateIdResponses = {
-    /**
-     * No Content
-     */
-    204: unknown;
-};
-
-export type PostBotsByBotIdDepartmentsByDepartmentIdSyncDirectoriesData = {
-    body?: never;
-    path: {
-        /**
-         * Bot ID
-         */
-        bot_id: string;
-        /**
-         * Department ID
-         */
-        department_id: string;
-    };
-    query?: never;
-    url: '/bots/{bot_id}/departments/{department_id}/sync-directories';
-};
-
-export type PostBotsByBotIdDepartmentsByDepartmentIdSyncDirectoriesErrors = {
-    /**
-     * Bad Request
-     */
-    400: HandlersErrorResponse;
-};
-
-export type PostBotsByBotIdDepartmentsByDepartmentIdSyncDirectoriesError = PostBotsByBotIdDepartmentsByDepartmentIdSyncDirectoriesErrors[keyof PostBotsByBotIdDepartmentsByDepartmentIdSyncDirectoriesErrors];
-
-export type PostBotsByBotIdDepartmentsByDepartmentIdSyncDirectoriesResponses = {
-    /**
-     * OK
-     */
-    200: HandlersSyncResultDto;
-};
-
-export type PostBotsByBotIdDepartmentsByDepartmentIdSyncDirectoriesResponse = PostBotsByBotIdDepartmentsByDepartmentIdSyncDirectoriesResponses[keyof PostBotsByBotIdDepartmentsByDepartmentIdSyncDirectoriesResponses];
-
-export type PostBotsByBotIdDepartmentsByDepartmentIdSyncSkillsData = {
-    body?: never;
-    path: {
-        /**
-         * Bot ID
-         */
-        bot_id: string;
-        /**
-         * Department ID
-         */
-        department_id: string;
-    };
-    query?: never;
-    url: '/bots/{bot_id}/departments/{department_id}/sync-skills';
-};
-
-export type PostBotsByBotIdDepartmentsByDepartmentIdSyncSkillsErrors = {
-    /**
-     * Bad Request
-     */
-    400: HandlersErrorResponse;
-};
-
-export type PostBotsByBotIdDepartmentsByDepartmentIdSyncSkillsError = PostBotsByBotIdDepartmentsByDepartmentIdSyncSkillsErrors[keyof PostBotsByBotIdDepartmentsByDepartmentIdSyncSkillsErrors];
-
-export type PostBotsByBotIdDepartmentsByDepartmentIdSyncSkillsResponses = {
-    /**
-     * OK
-     */
-    200: HandlersSyncResultDto;
-};
-
-export type PostBotsByBotIdDepartmentsByDepartmentIdSyncSkillsResponse = PostBotsByBotIdDepartmentsByDepartmentIdSyncSkillsResponses[keyof PostBotsByBotIdDepartmentsByDepartmentIdSyncSkillsResponses];
 
 export type GetBotsByBotIdEmailBindingsData = {
     body?: never;
@@ -6899,6 +6702,385 @@ export type GetChannelsByPlatformResponses = {
 };
 
 export type GetChannelsByPlatformResponse = GetChannelsByPlatformResponses[keyof GetChannelsByPlatformResponses];
+
+export type GetDepartmentsData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/departments';
+};
+
+export type GetDepartmentsResponses = {
+    /**
+     * OK
+     */
+    200: Array<HandlersDepartmentDto>;
+};
+
+export type GetDepartmentsResponse = GetDepartmentsResponses[keyof GetDepartmentsResponses];
+
+export type PostDepartmentsData = {
+    /**
+     * Department data
+     */
+    body: HandlersCreateDepartmentRequest;
+    path?: never;
+    query?: never;
+    url: '/departments';
+};
+
+export type PostDepartmentsErrors = {
+    /**
+     * Bad Request
+     */
+    400: HandlersErrorResponse;
+};
+
+export type PostDepartmentsError = PostDepartmentsErrors[keyof PostDepartmentsErrors];
+
+export type PostDepartmentsResponses = {
+    /**
+     * Created
+     */
+    201: HandlersDepartmentDto;
+};
+
+export type PostDepartmentsResponse = PostDepartmentsResponses[keyof PostDepartmentsResponses];
+
+export type DeleteDepartmentsByDepartmentIdData = {
+    body?: never;
+    path: {
+        /**
+         * Department ID
+         */
+        department_id: string;
+    };
+    query?: never;
+    url: '/departments/{department_id}';
+};
+
+export type DeleteDepartmentsByDepartmentIdErrors = {
+    /**
+     * Bad Request
+     */
+    400: HandlersErrorResponse;
+};
+
+export type DeleteDepartmentsByDepartmentIdError = DeleteDepartmentsByDepartmentIdErrors[keyof DeleteDepartmentsByDepartmentIdErrors];
+
+export type DeleteDepartmentsByDepartmentIdResponses = {
+    /**
+     * No Content
+     */
+    204: unknown;
+};
+
+export type GetDepartmentsByDepartmentIdData = {
+    body?: never;
+    path: {
+        /**
+         * Department ID
+         */
+        department_id: string;
+    };
+    query?: never;
+    url: '/departments/{department_id}';
+};
+
+export type GetDepartmentsByDepartmentIdErrors = {
+    /**
+     * Bad Request
+     */
+    400: HandlersErrorResponse;
+};
+
+export type GetDepartmentsByDepartmentIdError = GetDepartmentsByDepartmentIdErrors[keyof GetDepartmentsByDepartmentIdErrors];
+
+export type GetDepartmentsByDepartmentIdResponses = {
+    /**
+     * OK
+     */
+    200: HandlersDepartmentDto;
+};
+
+export type GetDepartmentsByDepartmentIdResponse = GetDepartmentsByDepartmentIdResponses[keyof GetDepartmentsByDepartmentIdResponses];
+
+export type PutDepartmentsByDepartmentIdData = {
+    /**
+     * Department data
+     */
+    body: HandlersUpdateDepartmentRequest;
+    path: {
+        /**
+         * Department ID
+         */
+        department_id: string;
+    };
+    query?: never;
+    url: '/departments/{department_id}';
+};
+
+export type PutDepartmentsByDepartmentIdErrors = {
+    /**
+     * Bad Request
+     */
+    400: HandlersErrorResponse;
+};
+
+export type PutDepartmentsByDepartmentIdError = PutDepartmentsByDepartmentIdErrors[keyof PutDepartmentsByDepartmentIdErrors];
+
+export type PutDepartmentsByDepartmentIdResponses = {
+    /**
+     * OK
+     */
+    200: HandlersDepartmentDto;
+};
+
+export type PutDepartmentsByDepartmentIdResponse = PutDepartmentsByDepartmentIdResponses[keyof PutDepartmentsByDepartmentIdResponses];
+
+export type GetDepartmentsByDepartmentIdBotsData = {
+    body?: never;
+    path: {
+        /**
+         * Department ID
+         */
+        department_id: string;
+    };
+    query?: never;
+    url: '/departments/{department_id}/bots';
+};
+
+export type GetDepartmentsByDepartmentIdBotsErrors = {
+    /**
+     * Bad Request
+     */
+    400: HandlersErrorResponse;
+};
+
+export type GetDepartmentsByDepartmentIdBotsError = GetDepartmentsByDepartmentIdBotsErrors[keyof GetDepartmentsByDepartmentIdBotsErrors];
+
+export type GetDepartmentsByDepartmentIdBotsResponses = {
+    /**
+     * OK
+     */
+    200: Array<HandlersBotBriefDto>;
+};
+
+export type GetDepartmentsByDepartmentIdBotsResponse = GetDepartmentsByDepartmentIdBotsResponses[keyof GetDepartmentsByDepartmentIdBotsResponses];
+
+export type GetDepartmentsByDepartmentIdDirectoryTemplatesData = {
+    body?: never;
+    path: {
+        /**
+         * Department ID
+         */
+        department_id: string;
+    };
+    query?: never;
+    url: '/departments/{department_id}/directory-templates';
+};
+
+export type GetDepartmentsByDepartmentIdDirectoryTemplatesErrors = {
+    /**
+     * Bad Request
+     */
+    400: HandlersErrorResponse;
+};
+
+export type GetDepartmentsByDepartmentIdDirectoryTemplatesError = GetDepartmentsByDepartmentIdDirectoryTemplatesErrors[keyof GetDepartmentsByDepartmentIdDirectoryTemplatesErrors];
+
+export type GetDepartmentsByDepartmentIdDirectoryTemplatesResponses = {
+    /**
+     * OK
+     */
+    200: HandlersDirectoryTemplatesRequest;
+};
+
+export type GetDepartmentsByDepartmentIdDirectoryTemplatesResponse = GetDepartmentsByDepartmentIdDirectoryTemplatesResponses[keyof GetDepartmentsByDepartmentIdDirectoryTemplatesResponses];
+
+export type PutDepartmentsByDepartmentIdDirectoryTemplatesData = {
+    /**
+     * Directory templates
+     */
+    body: HandlersDirectoryTemplatesRequest;
+    path: {
+        /**
+         * Department ID
+         */
+        department_id: string;
+    };
+    query?: never;
+    url: '/departments/{department_id}/directory-templates';
+};
+
+export type PutDepartmentsByDepartmentIdDirectoryTemplatesErrors = {
+    /**
+     * Bad Request
+     */
+    400: HandlersErrorResponse;
+};
+
+export type PutDepartmentsByDepartmentIdDirectoryTemplatesError = PutDepartmentsByDepartmentIdDirectoryTemplatesErrors[keyof PutDepartmentsByDepartmentIdDirectoryTemplatesErrors];
+
+export type PutDepartmentsByDepartmentIdDirectoryTemplatesResponses = {
+    /**
+     * No Content
+     */
+    204: unknown;
+};
+
+export type GetDepartmentsByDepartmentIdSkillTemplatesData = {
+    body?: never;
+    path: {
+        /**
+         * Department ID
+         */
+        department_id: string;
+    };
+    query?: never;
+    url: '/departments/{department_id}/skill-templates';
+};
+
+export type GetDepartmentsByDepartmentIdSkillTemplatesErrors = {
+    /**
+     * Bad Request
+     */
+    400: HandlersErrorResponse;
+};
+
+export type GetDepartmentsByDepartmentIdSkillTemplatesError = GetDepartmentsByDepartmentIdSkillTemplatesErrors[keyof GetDepartmentsByDepartmentIdSkillTemplatesErrors];
+
+export type GetDepartmentsByDepartmentIdSkillTemplatesResponses = {
+    /**
+     * OK
+     */
+    200: Array<HandlersSkillTemplateBriefDto>;
+};
+
+export type GetDepartmentsByDepartmentIdSkillTemplatesResponse = GetDepartmentsByDepartmentIdSkillTemplatesResponses[keyof GetDepartmentsByDepartmentIdSkillTemplatesResponses];
+
+export type PostDepartmentsByDepartmentIdSkillTemplatesData = {
+    /**
+     * Skill template to add
+     */
+    body: HandlersAddSkillTemplateRequest;
+    path: {
+        /**
+         * Department ID
+         */
+        department_id: string;
+    };
+    query?: never;
+    url: '/departments/{department_id}/skill-templates';
+};
+
+export type PostDepartmentsByDepartmentIdSkillTemplatesErrors = {
+    /**
+     * Bad Request
+     */
+    400: HandlersErrorResponse;
+};
+
+export type PostDepartmentsByDepartmentIdSkillTemplatesError = PostDepartmentsByDepartmentIdSkillTemplatesErrors[keyof PostDepartmentsByDepartmentIdSkillTemplatesErrors];
+
+export type PostDepartmentsByDepartmentIdSkillTemplatesResponses = {
+    /**
+     * No Content
+     */
+    204: unknown;
+};
+
+export type DeleteDepartmentsByDepartmentIdSkillTemplatesByTemplateIdData = {
+    body?: never;
+    path: {
+        /**
+         * Department ID
+         */
+        department_id: string;
+        /**
+         * Template ID
+         */
+        template_id: string;
+    };
+    query?: never;
+    url: '/departments/{department_id}/skill-templates/{template_id}';
+};
+
+export type DeleteDepartmentsByDepartmentIdSkillTemplatesByTemplateIdErrors = {
+    /**
+     * Bad Request
+     */
+    400: HandlersErrorResponse;
+};
+
+export type DeleteDepartmentsByDepartmentIdSkillTemplatesByTemplateIdError = DeleteDepartmentsByDepartmentIdSkillTemplatesByTemplateIdErrors[keyof DeleteDepartmentsByDepartmentIdSkillTemplatesByTemplateIdErrors];
+
+export type DeleteDepartmentsByDepartmentIdSkillTemplatesByTemplateIdResponses = {
+    /**
+     * No Content
+     */
+    204: unknown;
+};
+
+export type PostDepartmentsByDepartmentIdSyncDirectoriesData = {
+    body?: never;
+    path: {
+        /**
+         * Department ID
+         */
+        department_id: string;
+    };
+    query?: never;
+    url: '/departments/{department_id}/sync-directories';
+};
+
+export type PostDepartmentsByDepartmentIdSyncDirectoriesErrors = {
+    /**
+     * Bad Request
+     */
+    400: HandlersErrorResponse;
+};
+
+export type PostDepartmentsByDepartmentIdSyncDirectoriesError = PostDepartmentsByDepartmentIdSyncDirectoriesErrors[keyof PostDepartmentsByDepartmentIdSyncDirectoriesErrors];
+
+export type PostDepartmentsByDepartmentIdSyncDirectoriesResponses = {
+    /**
+     * OK
+     */
+    200: HandlersSyncResultDto;
+};
+
+export type PostDepartmentsByDepartmentIdSyncDirectoriesResponse = PostDepartmentsByDepartmentIdSyncDirectoriesResponses[keyof PostDepartmentsByDepartmentIdSyncDirectoriesResponses];
+
+export type PostDepartmentsByDepartmentIdSyncSkillsData = {
+    body?: never;
+    path: {
+        /**
+         * Department ID
+         */
+        department_id: string;
+    };
+    query?: never;
+    url: '/departments/{department_id}/sync-skills';
+};
+
+export type PostDepartmentsByDepartmentIdSyncSkillsErrors = {
+    /**
+     * Bad Request
+     */
+    400: HandlersErrorResponse;
+};
+
+export type PostDepartmentsByDepartmentIdSyncSkillsError = PostDepartmentsByDepartmentIdSyncSkillsErrors[keyof PostDepartmentsByDepartmentIdSyncSkillsErrors];
+
+export type PostDepartmentsByDepartmentIdSyncSkillsResponses = {
+    /**
+     * OK
+     */
+    200: HandlersSyncResultDto;
+};
+
+export type PostDepartmentsByDepartmentIdSyncSkillsResponse = PostDepartmentsByDepartmentIdSyncSkillsResponses[keyof PostDepartmentsByDepartmentIdSyncSkillsResponses];
 
 export type GetEmailProvidersData = {
     body?: never;
