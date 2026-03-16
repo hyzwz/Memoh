@@ -126,7 +126,9 @@
     "themeLight": "Light",
     "themeDark": "Dark",
     "langZh": "中文",
-    "langEn": "English"
+    "langEn": "English",
+    "themeDeepSpace": "Deep Space",
+    "themeSystem": "System"
   },
   "chat": {
     "greeting": "Hi! How can I help you today?",

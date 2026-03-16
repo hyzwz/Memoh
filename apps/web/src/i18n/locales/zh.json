@@ -122,7 +122,9 @@
     "themeLight": "浅色",
     "themeDark": "深色",
     "langZh": "中文",
-    "langEn": "English"
+    "langEn": "English",
+    "themeDeepSpace": "深空",
+    "themeSystem": "跟随系统"
   },
   "chat": {
     "greeting": "你好！有什么我可以帮你的吗？",
