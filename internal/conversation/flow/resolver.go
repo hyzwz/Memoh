@@ -90,9 +90,9 @@ type Resolver struct {
 	messageService  messagepkg.Service
 	settingsService *settings.Service
 	inboxService    *inbox.Service
-	skillLoader    SkillLoader
-	assetLoader    gatewayAssetLoader
-	modelOverride  func(ctx context.Context, botID, modelID string) (string, error)
+	skillLoader     SkillLoader
+	assetLoader     gatewayAssetLoader
+	modelOverride   func(ctx context.Context, botID, modelID string, req conversation.ChatRequest) (string, error)
 	gatewayBaseURL  string
 	timeout         time.Duration
 	logger          *slog.Logger
@@ -149,9 +149,11 @@ func (r *Resolver) SetGatewayAssetLoader(loader gatewayAssetLoader) {
 }
 
 // SetModelOverride registers a hook that can override the resolved model ID.
-// The hook receives (ctx, botID, currentModelID) and returns (newModelID, error).
-// Return an empty string to keep the original model.
-func (r *Resolver) SetModelOverride(fn func(ctx context.Context, botID, modelID string) (string, error)) {
+// The hook receives (ctx, botID, currentModelID, chatRequest) and returns
+// (newModelID, error). The ChatRequest gives access to query text and
+// ModelRouteTier for complexity-aware routing. Return empty string to keep
+// the original model.
+func (r *Resolver) SetModelOverride(fn func(ctx context.Context, botID, modelID string, req conversation.ChatRequest) (string, error)) {
 	if r != nil {
 		r.modelOverride = fn
 	}
@@ -1874,7 +1876,7 @@ func (r *Resolver) selectChatModel(ctx context.Context, req conversation.ChatReq
 
 	// Model override hook: allow enterprise / plugins to swap the resolved model.
 	if r.modelOverride != nil && strings.TrimSpace(req.Model) == "" {
-		if overrideID, err := r.modelOverride(ctx, req.BotID, modelID); err != nil {
+		if overrideID, err := r.modelOverride(ctx, req.BotID, modelID, req); err != nil {
 			r.logger.Warn("model override hook failed", slog.String("bot_id", req.BotID), slog.String("error", err.Error()))
 		} else if overrideID != "" {
 			r.logger.Debug("model override applied",
@@ -1940,8 +1942,10 @@ resolved:
 	return model, prov, nil
 }
 
-
-func resolvePreferredModelRouteTier(req conversation.ChatRequest) string {
+// ResolvePreferredModelRouteTier returns the preferred routing tier for a chat
+// request, using the explicit ModelRouteTier if set, or inferring from query
+// complexity.
+func ResolvePreferredModelRouteTier(req conversation.ChatRequest) string {
 	if tier := normalizeModelRouteTier(req.ModelRouteTier); tier != "" {
 		return tier
 	}

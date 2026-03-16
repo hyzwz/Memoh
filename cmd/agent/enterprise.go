@@ -10,6 +10,7 @@ import (
 	"go.uber.org/fx"
 
 	"github.com/memohai/memoh/internal/channel/inbound"
+	"github.com/memohai/memoh/internal/conversation"
 	"github.com/memohai/memoh/internal/conversation/flow"
 	"github.com/memohai/memoh/internal/enterprise"
 	"github.com/memohai/memoh/internal/handlers"
@@ -59,13 +60,25 @@ func injectBudgetChecker(processor *inbound.ChannelInboundProcessor, log *slog.L
 		if !result.Allowed {
 			return &inbound.ChatPreCheckDenied{Message: "⚠️ 预算已超限，请联系管理员。"}
 		}
+		// Warn/downgrade: allow request but route to cheaper tier.
+		switch result.Action {
+		case "downgrade":
+			return &inbound.ChatPreCheckDenied{
+				Message:        "预算接近上限，已切换为经济模型。",
+				ModelRouteTier: "fallback",
+			}
+		case "warn":
+			if result.Alert {
+				log.Warn("budget alert", slog.String("bot_id", botID), slog.String("user_id", userID))
+			}
+		}
 		return nil
 	})
 }
 
 func injectModelRouter(resolver *flow.Resolver, log *slog.Logger, queries *dbsqlc.Queries) {
 	adapter := enterprise.NewModelRouterAdapter(log, queries)
-	resolver.SetModelOverride(func(ctx context.Context, botID, modelID string) (string, error) {
+	resolver.SetModelOverride(func(ctx context.Context, botID, modelID string, req conversation.ChatRequest) (string, error) {
 		entRoutes, err := adapter.ListEnabledRoutes(ctx, botID)
 		if err != nil {
 			return "", err
@@ -80,7 +93,9 @@ func injectModelRouter(resolver *flow.Resolver, log *slog.Logger, queries *dbsql
 				IsEnabled:      r.IsEnabled,
 			}
 		}
-		if overrideID, ok := flow.SelectModelRoute(flowRoutes, ""); ok {
+		// Use request context (query text, ModelRouteTier) for complexity-aware tier selection.
+		preferredTier := flow.ResolvePreferredModelRouteTier(req)
+		if overrideID, ok := flow.SelectModelRoute(flowRoutes, preferredTier); ok {
 			return overrideID, nil
 		}
 		return "", nil // no override

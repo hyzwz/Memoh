@@ -61,8 +61,11 @@ type mediaIngestor interface {
 
 // ChatPreCheckDenied signals that a pre-chat check rejected the message.
 // Callers should display Message to the user and stop processing.
+// If ModelRouteTier is non-empty the request is allowed but downgraded to
+// that tier (e.g. "fallback"); set Allowed=true in that case.
 type ChatPreCheckDenied struct {
-	Message string
+	Message        string
+	ModelRouteTier string // optional: when non-empty, allow but downgrade
 }
 
 func (e *ChatPreCheckDenied) Error() string { return e.Message }
@@ -431,33 +434,47 @@ func (p *ChannelInboundProcessor) HandleInbound(ctx context.Context, cfg channel
 	}
 
 	// Pre-chat hook (e.g. budget enforcement). A *ChatPreCheckDenied error
-	// means the request is politely rejected; any other error is fail-closed.
+	// means the request is politely rejected (or downgraded); any other error
+	// is fail-closed.
+	modelRouteTier := ""
 	if p.chatPreCheck != nil {
 		if preErr := p.chatPreCheck(ctx, strings.TrimSpace(identity.BotID), strings.TrimSpace(identity.UserID)); preErr != nil {
 			var denied *ChatPreCheckDenied
 			if errors.As(preErr, &denied) {
-				_ = stream.Push(ctx, channel.StreamEvent{
-					Type:  channel.StreamEventFinal,
-					Final: &channel.StreamFinalizePayload{Message: channel.Message{Text: denied.Message}},
-				})
+				// Downgrade: allow the request but route to a cheaper tier.
+				if denied.ModelRouteTier != "" {
+					modelRouteTier = denied.ModelRouteTier
+					if denied.Message != "" {
+						p.logger.Info("chat pre-check downgrade",
+							slog.String("bot_id", identity.BotID),
+							slog.String("tier", denied.ModelRouteTier),
+							slog.String("message", denied.Message),
+						)
+					}
+				} else {
+					// Hard block: reject the message entirely.
+					_ = stream.Push(ctx, channel.StreamEvent{
+						Type:  channel.StreamEventFinal,
+						Final: &channel.StreamFinalizePayload{Message: channel.Message{Text: denied.Message}},
+					})
+					if statusNotifier != nil {
+						if notifyErr := p.notifyProcessingFailed(ctx, statusNotifier, cfg, msg, statusInfo, statusHandle, preErr); notifyErr != nil {
+							p.logProcessingStatusError("processing_failed", msg, identity, notifyErr)
+						}
+					}
+					return nil // not an error, just a rejection
+				}
+			} else {
+				p.logger.Error("chat pre-check failed", slog.String("error", preErr.Error()))
 				if statusNotifier != nil {
 					if notifyErr := p.notifyProcessingFailed(ctx, statusNotifier, cfg, msg, statusInfo, statusHandle, preErr); notifyErr != nil {
 						p.logProcessingStatusError("processing_failed", msg, identity, notifyErr)
 					}
 				}
-				return nil // not an error, just a rejection
+				return fmt.Errorf("chat pre-check failed: %w", preErr)
 			}
-			p.logger.Error("chat pre-check failed", slog.String("error", preErr.Error()))
-			if statusNotifier != nil {
-				if notifyErr := p.notifyProcessingFailed(ctx, statusNotifier, cfg, msg, statusInfo, statusHandle, preErr); notifyErr != nil {
-					p.logProcessingStatusError("processing_failed", msg, identity, notifyErr)
-				}
-			}
-			return fmt.Errorf("chat pre-check failed: %w", preErr)
 		}
 	}
-
-	modelRouteTier := ""
 
 	// Mutex-protected collector for outbound asset refs. The resolver's
 	// streaming goroutine calls OutboundAssetCollector at persist time.

@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
+	"net/url"
 	"strings"
 	"time"
 
@@ -247,8 +248,24 @@ func (h *LocalChannelHandler) PostMessage(c echo.Context) error {
 	return c.JSON(http.StatusOK, map[string]string{"status": "ok"})
 }
 
+// checkWSOrigin validates that the WebSocket Origin header matches the request
+// Host, or is absent (same-origin requests omit Origin). This prevents
+// cross-site WebSocket hijacking (CSWSH) while still allowing reverse-proxied
+// requests where Host is rewritten.
+func checkWSOrigin(r *http.Request) bool {
+	origin := r.Header.Get("Origin")
+	if origin == "" {
+		return true // same-origin or non-browser client
+	}
+	u, err := url.Parse(origin)
+	if err != nil {
+		return false
+	}
+	return strings.EqualFold(u.Host, r.Host)
+}
+
 var wsUpgrader = websocket.Upgrader{
-	CheckOrigin: func(_ *http.Request) bool { return true },
+	CheckOrigin: checkWSOrigin,
 }
 
 type wsClientMessage struct {
@@ -258,17 +275,20 @@ type wsClientMessage struct {
 }
 
 // wsWriter serialises all WebSocket writes through a single goroutine to
-// avoid concurrent write panics with gorilla/websocket.
+// avoid concurrent write panics with gorilla/websocket. Shutdown is
+// coordinated via a separate quit channel so Send never writes to a closed ch.
 type wsWriter struct {
 	conn *websocket.Conn
 	ch   chan []byte
-	done chan struct{}
+	quit chan struct{} // signals loop to stop
+	done chan struct{} // closed when loop exits
 }
 
 func newWSWriter(conn *websocket.Conn) *wsWriter {
 	w := &wsWriter{
 		conn: conn,
 		ch:   make(chan []byte, 128),
+		quit: make(chan struct{}),
 		done: make(chan struct{}),
 	}
 	go w.loop()
@@ -277,15 +297,29 @@ func newWSWriter(conn *websocket.Conn) *wsWriter {
 
 func (w *wsWriter) loop() {
 	defer close(w.done)
-	for data := range w.ch {
-		_ = w.conn.WriteMessage(websocket.TextMessage, data)
+	for {
+		select {
+		case data := <-w.ch:
+			_ = w.conn.WriteMessage(websocket.TextMessage, data)
+		case <-w.quit:
+			// Drain remaining buffered messages before exiting.
+			for {
+				select {
+				case data := <-w.ch:
+					_ = w.conn.WriteMessage(websocket.TextMessage, data)
+				default:
+					return
+				}
+			}
+		}
 	}
 }
 
+// Send enqueues data for writing. Safe to call concurrently and after Close.
 func (w *wsWriter) Send(data []byte) {
 	select {
 	case w.ch <- data:
-	case <-w.done:
+	case <-w.quit:
 	}
 }
 
@@ -298,7 +332,7 @@ func (w *wsWriter) SendJSON(v any) {
 }
 
 func (w *wsWriter) Close() {
-	close(w.ch)
+	close(w.quit)
 	<-w.done
 }
 
@@ -359,7 +393,6 @@ func (h *LocalChannelHandler) HandleWebSocket(c echo.Context) error {
 	defer cancel()
 
 	abortCh := make(chan struct{}, 1)
-	var activeCancel context.CancelFunc
 
 	for {
 		_, raw, readErr := conn.ReadMessage()
@@ -402,7 +435,6 @@ func (h *LocalChannelHandler) HandleWebSocket(c echo.Context) error {
 			}
 
 			streamCtx, streamCancel := context.WithCancel(ctx)
-			activeCancel = streamCancel
 			eventCh := make(chan flow.WSStreamEvent, 64)
 
 			go func() {
@@ -438,7 +470,6 @@ func (h *LocalChannelHandler) HandleWebSocket(c echo.Context) error {
 			writer.SendJSON(map[string]string{"type": "error", "message": "unknown message type: " + msg.Type})
 		}
 	}
-	_ = activeCancel
 	return nil
 }
 

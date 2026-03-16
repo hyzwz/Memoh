@@ -13,7 +13,7 @@ import (
 )
 
 var terminalUpgrader = websocket.Upgrader{
-	CheckOrigin: func(_ *http.Request) bool { return true },
+	CheckOrigin: checkWSOrigin, // defined in local_channel.go
 }
 
 type terminalInfoResponse struct {
