@@ -9,6 +9,7 @@ import (
 
 	"github.com/memohai/memoh/internal/conversation"
 	"github.com/memohai/memoh/internal/mcp"
+	"github.com/memohai/memoh/internal/textutil"
 )
 
 const (
@@ -405,11 +406,11 @@ func (p *BuiltinProvider) Usage(ctx context.Context, filters map[string]any) (Us
 
 func truncateSnippet(s string, n int) string {
 	trimmed := strings.TrimSpace(s)
-	runes := []rune(trimmed)
-	if len(runes) <= n {
+	truncated := textutil.TruncateRunes(trimmed, n)
+	if truncated == trimmed {
 		return trimmed
 	}
-	return strings.TrimSpace(string(runes[:n])) + "..."
+	return strings.TrimSpace(truncated) + "..."
 }
 
 func deduplicateItems(items []MemoryItem) []MemoryItem {
