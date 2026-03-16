@@ -182,6 +182,7 @@ type gatewayIdentity struct {
 	ChannelIdentityID string `json:"channelIdentityId"`
 	DisplayName       string `json:"displayName"`
 	CurrentPlatform   string `json:"currentPlatform,omitempty"`
+	ReplyTarget       string `json:"replyTarget,omitempty"`
 	ConversationType  string `json:"conversationType,omitempty"`
 	SessionToken      string `json:"sessionToken,omitempty"` //nolint:gosec // intentional: session token forwarded to agent gateway for channel reply routing
 }
@@ -492,6 +493,7 @@ func (r *Resolver) resolve(ctx context.Context, req conversation.ChatRequest) (r
 			ChannelIdentityID: strings.TrimSpace(req.SourceChannelIdentityID),
 			DisplayName:       displayName,
 			CurrentPlatform:   req.CurrentChannel,
+			ReplyTarget:       strings.TrimSpace(req.ReplyTarget),
 			ConversationType:  strings.TrimSpace(req.ConversationType),
 			SessionToken:      req.ChatToken,
 		},

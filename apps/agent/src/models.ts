@@ -32,6 +32,7 @@ export const IdentityContextModel = z.object({
   channelIdentityId: z.string().min(1, 'Channel identity ID is required'),
   displayName: z.string().min(1, 'Display name is required'),
   currentPlatform: z.string().optional(),
+  replyTarget: z.string().optional(),
   conversationType: z.string().optional(),
   sessionToken: z.string().optional(),
 })
