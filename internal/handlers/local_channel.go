@@ -252,6 +252,8 @@ func (h *LocalChannelHandler) PostMessage(c echo.Context) error {
 // Host, or is absent (same-origin requests omit Origin). This prevents
 // cross-site WebSocket hijacking (CSWSH) while still allowing reverse-proxied
 // requests where Host is rewritten.
+// Comparison uses hostname only (ignoring port) because reverse proxies like
+// nginx may strip the port from the Host header ($host vs $http_host).
 func checkWSOrigin(r *http.Request) bool {
 	origin := r.Header.Get("Origin")
 	if origin == "" {
@@ -261,7 +263,25 @@ func checkWSOrigin(r *http.Request) bool {
 	if err != nil {
 		return false
 	}
-	return strings.EqualFold(u.Host, r.Host)
+	// Compare hostnames only — the port may differ when a reverse proxy
+	// rewrites the Host header (e.g. nginx $host strips port).
+	return strings.EqualFold(u.Hostname(), hostOnly(r.Host))
+}
+
+// hostOnly strips the optional port from a host or host:port string.
+func hostOnly(h string) string {
+	if i := strings.LastIndex(h, ":"); i != -1 {
+		// Avoid splitting on colons in IPv6 addresses like [::1]:8080.
+		if strings.Contains(h, "]") {
+			// IPv6 with brackets — port is after the last ']:'
+			if j := strings.LastIndex(h, "]:"); j != -1 {
+				return h[:j+1]
+			}
+			return h
+		}
+		return h[:i]
+	}
+	return h
 }
 
 var wsUpgrader = websocket.Upgrader{

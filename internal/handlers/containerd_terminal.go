@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"context"
 	"encoding/json"
 	"log/slog"
 	"net/http"
@@ -72,13 +73,13 @@ func (h *ContainerdHandler) HandleTerminalWS(c echo.Context) error {
 	if err != nil {
 		return err
 	}
-	ctx := c.Request().Context()
+	reqCtx := c.Request().Context()
 
 	if h.manager == nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, "manager not configured")
 	}
 
-	client, err := h.manager.MCPClient(ctx, botID)
+	client, err := h.manager.MCPClient(reqCtx, botID)
 	if err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, "container not reachable: "+err.Error())
 	}
@@ -92,13 +93,27 @@ func (h *ContainerdHandler) HandleTerminalWS(c echo.Context) error {
 	}
 	defer func() { _ = conn.Close() }()
 
-	execStream, err := client.ExecStreamPTY(ctx, "/bin/sh", "/data", cols, rows)
+	h.logger.Info("terminal ws: upgraded",
+		slog.String("bot_id", botID), slog.Uint64("cols", uint64(cols)), slog.Uint64("rows", uint64(rows)))
+
+	// Use a detached context for the gRPC stream. After the WebSocket
+	// upgrade the HTTP request context may be cancelled (depending on
+	// framework / reverse-proxy behaviour), which would kill the gRPC
+	// stream. The WebSocket's own lifecycle manages the stream instead.
+	execCtx, execCancel := context.WithCancel(context.Background())
+	defer execCancel()
+
+	execStream, err := client.ExecStreamPTY(execCtx, "/bin/sh", "/data", cols, rows)
 	if err != nil {
+		h.logger.Error("terminal ws: exec failed",
+			slog.String("bot_id", botID), slog.Any("error", err))
 		_ = conn.WriteMessage(websocket.CloseMessage,
 			websocket.FormatCloseMessage(websocket.CloseInternalServerErr, "exec failed"))
 		return nil
 	}
 	defer func() { _ = execStream.Close() }()
+
+	h.logger.Info("terminal ws: exec stream opened", slog.String("bot_id", botID))
 
 	done := make(chan struct{})
 
@@ -108,16 +123,22 @@ func (h *ContainerdHandler) HandleTerminalWS(c echo.Context) error {
 		for {
 			output, recvErr := execStream.Recv()
 			if recvErr != nil {
+				h.logger.Warn("terminal ws: recv ended",
+					slog.String("bot_id", botID), slog.Any("error", recvErr))
 				return
 			}
 			switch output.GetStream() {
 			case pb.ExecOutput_STDOUT, pb.ExecOutput_STDERR:
 				if data := output.GetData(); len(data) > 0 {
 					if writeErr := conn.WriteMessage(websocket.BinaryMessage, data); writeErr != nil {
+						h.logger.Warn("terminal ws: write to ws failed",
+							slog.String("bot_id", botID), slog.Any("error", writeErr))
 						return
 					}
 				}
 			case pb.ExecOutput_EXIT:
+				h.logger.Info("terminal ws: process exited",
+					slog.String("bot_id", botID), slog.Int("exit_code", int(output.GetExitCode())))
 				return
 			}
 		}
@@ -128,6 +149,9 @@ func (h *ContainerdHandler) HandleTerminalWS(c echo.Context) error {
 		for {
 			msgType, data, readErr := conn.ReadMessage()
 			if readErr != nil {
+				h.logger.Debug("terminal ws: ws read ended",
+					slog.String("bot_id", botID), slog.Any("error", readErr))
+				execCancel()
 				_ = execStream.Close()
 				return
 			}
@@ -135,6 +159,8 @@ func (h *ContainerdHandler) HandleTerminalWS(c echo.Context) error {
 			case websocket.BinaryMessage:
 				if len(data) > 0 {
 					if sendErr := execStream.SendStdin(data); sendErr != nil {
+						h.logger.Warn("terminal ws: stdin send failed",
+							slog.String("bot_id", botID), slog.Any("error", sendErr))
 						return
 					}
 				}
@@ -142,7 +168,7 @@ func (h *ContainerdHandler) HandleTerminalWS(c echo.Context) error {
 				var ctrl terminalControlMessage
 				if json.Unmarshal(data, &ctrl) == nil && ctrl.Type == "resize" && ctrl.Cols > 0 && ctrl.Rows > 0 {
 					if resizeErr := execStream.Resize(ctrl.Cols, ctrl.Rows); resizeErr != nil {
-						h.logger.Warn("terminal resize failed",
+						h.logger.Warn("terminal ws: resize failed",
 							slog.String("bot_id", botID), slog.Any("error", resizeErr))
 					}
 				}
@@ -151,6 +177,7 @@ func (h *ContainerdHandler) HandleTerminalWS(c echo.Context) error {
 	}()
 
 	<-done
+	h.logger.Info("terminal ws: session ended", slog.String("bot_id", botID))
 	return nil
 }
 

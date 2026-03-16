@@ -9,8 +9,10 @@ import (
 	"os/signal"
 	"path/filepath"
 	"syscall"
+	"time"
 
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/keepalive"
 	"google.golang.org/grpc/reflection"
 
 	"github.com/memohai/memoh/internal/logger"
@@ -71,7 +73,18 @@ func main() {
 		return
 	}
 
-	srv := grpc.NewServer()
+	srv := grpc.NewServer(
+		grpc.KeepaliveParams(keepalive.ServerParameters{
+			MaxConnectionIdle: 0, // no limit
+			MaxConnectionAge:  0, // no limit
+			Time:              30 * time.Second,
+			Timeout:           10 * time.Second,
+		}),
+		grpc.KeepaliveEnforcementPolicy(keepalive.EnforcementPolicy{
+			MinTime:             5 * time.Second,
+			PermitWithoutStream: true,
+		}),
+	)
 	pb.RegisterContainerServiceServer(srv, &containerServer{})
 	reflection.Register(srv)
 

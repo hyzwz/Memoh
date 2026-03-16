@@ -16,6 +16,7 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/connectivity"
 	"google.golang.org/grpc/credentials/insecure"
+	"google.golang.org/grpc/keepalive"
 
 	"github.com/memohai/memoh/internal/config"
 	pb "github.com/memohai/memoh/internal/mcp/mcpcontainer"
@@ -46,6 +47,11 @@ func Dial(_ context.Context, ip string) (*Client, error) {
 	target := fmt.Sprintf("%s:%d", ip, config.MCPGRPCPort)
 	conn, err := grpc.NewClient(target,
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
+		grpc.WithKeepaliveParams(keepalive.ClientParameters{
+			Time:                10 * time.Second,
+			Timeout:             5 * time.Second,
+			PermitWithoutStream: true,
+		}),
 	)
 	if err != nil {
 		return nil, fmt.Errorf("grpc dial %s: %w", target, err)
