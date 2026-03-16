@@ -62,7 +62,20 @@
     "mcp": "MCP",
     "platform": "接入平台",
     "usage": "用量统计",
-    "browserContexts": "浏览器"
+    "browserContexts": "浏览器",
+    "groupMain": "主菜单",
+    "groupBotsAi": "AI 助手",
+    "groupProviders": "服务提供方",
+    "groupAnalytics": "数据分析",
+    "groupEnterprise": "企业管理",
+    "virtualOffice": "虚拟办公室",
+    "skillTemplates": "技能模板",
+    "cockpit": "驾驶舱",
+    "audit": "审计日志",
+    "modelRouting": "模型路由",
+    "budgets": "预算管理",
+    "hands": "自动执行",
+    "departments": "部门管理"
   },
   "breadcrumb": {
     "main": "主页"

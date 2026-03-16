@@ -62,7 +62,20 @@
     "mcp": "MCP",
     "platform": "Platform",
     "usage": "Usage",
-    "browserContexts": "Browser"
+    "browserContexts": "Browser",
+    "groupMain": "Main",
+    "groupBotsAi": "AI Bots",
+    "groupProviders": "Providers",
+    "groupAnalytics": "Analytics",
+    "groupEnterprise": "Enterprise",
+    "virtualOffice": "Virtual Office",
+    "skillTemplates": "Skill Templates",
+    "cockpit": "Cockpit",
+    "audit": "Audit Log",
+    "modelRouting": "Model Routing",
+    "budgets": "Budgets",
+    "hands": "Automation",
+    "departments": "Departments"
   },
   "breadcrumb": {
     "main": "Home"
