@@ -591,8 +591,8 @@ func provideAuthHandler(log *slog.Logger, accountService *accounts.Service, rc *
 	return handlers.NewAuthHandler(log, accountService, rc.JwtSecret, rc.JwtExpiresIn)
 }
 
-func provideDesktopAuthHandler(log *slog.Logger, accountService *accounts.Service, botService *bots.Service, queries *dbsqlc.Queries, rc *boot.RuntimeConfig) *handlers.DesktopAuthHandler {
-	return handlers.NewDesktopAuthHandler(log, accountService, botService, queries, rc.JwtSecret, rc.JwtExpiresIn)
+func provideDesktopAuthHandler(log *slog.Logger, accountService *accounts.Service, botService *bots.Service, pool *pgxpool.Pool, rc *boot.RuntimeConfig) *handlers.DesktopAuthHandler {
+	return handlers.NewDesktopAuthHandler(log, accountService, botService, pool, rc.JwtSecret, rc.JwtExpiresIn)
 }
 
 func provideMessageHandler(log *slog.Logger, chatService *conversation.Service, msgService *message.DBService, mediaService *media.Service, botService *bots.Service, accountService *accounts.Service, hub *event.Hub) *handlers.MessageHandler {

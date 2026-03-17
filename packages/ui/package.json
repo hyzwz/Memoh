@@ -25,6 +25,7 @@
     "@vueuse/core": "^14.1.0",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
+    "dompurify": "^3.3.3",
     "lucide-vue-next": "^0.562.0",
     "reka-ui": "^2.7.0",
     "tailwind-merge": "^3.4.0",
@@ -39,6 +40,7 @@
   "devDependencies": {
     "@microsoft/api-extractor": "^7.55.2",
     "@tsconfig/node24": "^24.0.3",
+    "@types/dompurify": "^3.2.0",
     "@types/node": "^24.10.4",
     "@vitejs/plugin-vue": "^6.0.3",
     "@vue/language-core": "^3.2.1",

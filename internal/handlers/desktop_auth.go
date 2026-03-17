@@ -9,20 +9,20 @@ import (
 	"strings"
 	"time"
 
+	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/labstack/echo/v4"
 	"golang.org/x/crypto/bcrypt"
 
 	"github.com/memohai/memoh/internal/accounts"
 	"github.com/memohai/memoh/internal/auth"
 	"github.com/memohai/memoh/internal/bots"
-	dbsqlc "github.com/memohai/memoh/internal/db/sqlc"
 )
 
 // DesktopAuthHandler handles authentication for desktop clients.
 type DesktopAuthHandler struct {
 	accountService *accounts.Service
 	botService     *bots.Service
-	queries        *dbsqlc.Queries
+	pool           *pgxpool.Pool
 	jwtSecret      string
 	expiresIn      time.Duration
 	logger         *slog.Logger
@@ -55,14 +55,14 @@ func NewDesktopAuthHandler(
 	log *slog.Logger,
 	accountService *accounts.Service,
 	botService *bots.Service,
-	queries *dbsqlc.Queries,
+	pool *pgxpool.Pool,
 	jwtSecret string,
 	expiresIn time.Duration,
 ) *DesktopAuthHandler {
 	return &DesktopAuthHandler{
 		accountService: accountService,
 		botService:     botService,
-		queries:        queries,
+		pool:           pool,
 		jwtSecret:      jwtSecret,
 		expiresIn:      expiresIn,
 		logger:         log.With(slog.String("handler", "desktop_auth")),
@@ -142,22 +142,31 @@ func (h *DesktopAuthHandler) Login(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusInternalServerError, "failed to hash token")
 	}
 
-	// Upsert the remote device
+	// Upsert the remote device using raw SQL (sqlc types not yet generated)
 	tokenExpiry := time.Now().Add(24 * time.Hour)
-	device, err := h.queries.UpsertDevice(ctx, dbsqlc.UpsertDeviceParams{
-		UserID:         account.ID,
-		Hostname:       req.Hostname,
-		TsIp:          toInet(req.TsIP),
-		TsNodeKey:     toText(req.TsNodeKey),
-		Platform:       req.Platform,
-		ClientVersion:  toText(""),
-		ApiTokenHash:   toText(string(tokenHash)),
-		TokenExpiresAt: toTimestamp(tokenExpiry),
-	})
+	var deviceID string
+	err = h.pool.QueryRow(ctx, `
+		INSERT INTO remote_devices (
+			user_id, hostname, ts_ip, ts_node_key, platform, client_version,
+			status, api_token_hash, token_issued_at, token_expires_at, paired_at, last_seen_at
+		) VALUES ($1, $2, $3, $4, $5, '', 'online', $6, now(), $7, now(), now())
+		ON CONFLICT (user_id, hostname) DO UPDATE SET
+			ts_ip = EXCLUDED.ts_ip,
+			ts_node_key = EXCLUDED.ts_node_key,
+			platform = EXCLUDED.platform,
+			status = 'online',
+			api_token_hash = EXCLUDED.api_token_hash,
+			token_issued_at = now(),
+			token_expires_at = EXCLUDED.token_expires_at,
+			last_seen_at = now()
+		RETURNING id`,
+		account.ID, req.Hostname, nilIfEmpty(req.TsIP), nilIfEmpty(req.TsNodeKey),
+		req.Platform, string(tokenHash), tokenExpiry,
+	).Scan(&deviceID)
 	if err != nil {
 		h.logger.Error("failed to upsert device",
 			slog.String("error", err.Error()),
-			slog.String("user_id", account.ID.String()),
+			slog.String("user_id", account.ID),
 			slog.String("hostname", req.Hostname),
 		)
 		return echo.NewHTTPError(http.StatusInternalServerError, "failed to register device")
@@ -174,14 +183,14 @@ func (h *DesktopAuthHandler) Login(c echo.Context) error {
 	if h.botService != nil {
 		botList, err := h.botService.ListByOwner(ctx, account.ID)
 		if err == nil && len(botList) > 0 {
-			botID = botList[0].ID.String()
-			botName = botList[0].Name
+			botID = botList[0].ID
+			botName = botList[0].DisplayName
 		}
 	}
 
 	h.logger.Info("desktop login successful",
-		slog.String("user_id", account.ID.String()),
-		slog.String("device_id", device.ID.String()),
+		slog.String("user_id", account.ID),
+		slog.String("device_id", deviceID),
 		slog.String("hostname", req.Hostname),
 		slog.String("platform", req.Platform),
 	)
@@ -191,8 +200,8 @@ func (h *DesktopAuthHandler) Login(c echo.Context) error {
 		TokenType:   "Bearer",
 		ExpiresAt:   expiresAt.Format(time.RFC3339),
 		APIToken:    apiToken, // plaintext, shown once
-		DeviceID:    device.ID.String(),
-		UserID:      account.ID.String(),
+		DeviceID:    deviceID,
+		UserID:      account.ID,
 		BotID:       botID,
 		BotName:     botName,
 	})
@@ -207,25 +216,9 @@ func generateAPIToken() (string, error) {
 	return hex.EncodeToString(b), nil
 }
 
-// Helper functions for pgtype conversions
-// These will be updated after sqlc-generate produces proper types.
-func toInet(s string) any {
+func nilIfEmpty(s string) any {
 	if s == "" {
 		return nil
 	}
 	return s
-}
-
-func toText(s string) any {
-	if s == "" {
-		return nil
-	}
-	return s
-}
-
-func toTimestamp(t time.Time) any {
-	if t.IsZero() {
-		return nil
-	}
-	return t
 }
