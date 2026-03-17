@@ -27,6 +27,11 @@
     v-else-if="scheduleTools.has(block.toolName)"
     :block="block"
   />
+  <ToolCallWidget
+    v-else-if="block.toolName === 'show_widget'"
+    :block="block"
+    @send-prompt="$emit('send-prompt', $event)"
+  />
   <ToolCallGeneric
     v-else
     :block="block"
@@ -43,9 +48,14 @@ import ToolCallExec from './tool-call-exec.vue'
 import ToolCallWebSearch from './tool-call-web-search.vue'
 import ToolCallSchedule from './tool-call-schedule.vue'
 import ToolCallGeneric from './tool-call-generic.vue'
+import ToolCallWidget from './tool-call-widget.vue'
 
 defineProps<{
   block: ToolCallBlock
+}>()
+
+defineEmits<{
+  'send-prompt': [prompt: string]
 }>()
 
 const scheduleTools = new Set([

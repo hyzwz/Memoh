@@ -1,4 +1,4 @@
-name: "memoh"
+name: "greatclaw"
 services:
   migrate:
     build:

@@ -1,8 +1,8 @@
-name: "memoh"
+name: "greatclaw"
 services:
   postgres:
     image: postgres:18-alpine
-    container_name: memoh-postgres
+    container_name: greatclaw-postgres
     environment:
       POSTGRES_DB: memoh
       POSTGRES_USER: memoh
@@ -19,11 +19,11 @@ services:
       retries: 5
     restart: unless-stopped
     networks:
-      - memoh-network
+      - greatclaw-network
 
   migrate:
     image: memohai/server:latest
-    container_name: memoh-migrate
+    container_name: greatclaw-migrate
     entrypoint: ["/app/memoh-server", "migrate", "up"]
     volumes:
       - ${MEMOH_CONFIG:-./config.toml}:/app/config.toml:ro
@@ -32,18 +32,18 @@ services:
         condition: service_healthy
     restart: "no"
     networks:
-      - memoh-network
+      - greatclaw-network
 
   server:
     image: memohai/server:latest
-    container_name: memoh-server
+    container_name: greatclaw-server
     privileged: true
     pid: host
     volumes:
       - ${MEMOH_CONFIG:-./config.toml}:/app/config.toml:ro
       - containerd_data:/var/lib/containerd
       - server_cni_state:/var/lib/cni
-      - memoh_data:/opt/memoh/data
+      - greatclaw_data:/opt/memoh/data
       - /etc/localtime:/etc/localtime:ro
     ports:
       - "8080:8080"
@@ -52,11 +52,13 @@ services:
         condition: service_completed_successfully
     restart: unless-stopped
     networks:
-      - memoh-network
+      greatclaw-network:
+        aliases:
+          - memoh-server
 
   agent:
     image: memohai/agent:latest
-    container_name: memoh-agent
+    container_name: greatclaw-agent
     volumes:
       - ${MEMOH_CONFIG:-./config.toml}:/config.toml:ro
       - /etc/localtime:/etc/localtime:ro
@@ -66,11 +68,13 @@ services:
       - server
     restart: unless-stopped
     networks:
-      - memoh-network
+      greatclaw-network:
+        aliases:
+          - memoh-agent
 
   web:
     image: memohai/web:latest
-    container_name: memoh-web
+    container_name: greatclaw-web
     ports:
       - "8082:8082"
     depends_on:
@@ -78,11 +82,11 @@ services:
       - agent
     restart: unless-stopped
     networks:
-      - memoh-network
+      - greatclaw-network
 
   sparse:
     image: memohai/sparse:latest
-    container_name: memoh-sparse
+    container_name: greatclaw-sparse
     profiles: [sparse]
     volumes:
       - /etc/localtime:/etc/localtime:ro
@@ -96,11 +100,11 @@ services:
       retries: 3
     restart: unless-stopped
     networks:
-      - memoh-network
+      - greatclaw-network
 
   qdrant:
     image: qdrant/qdrant:latest
-    container_name: memoh-qdrant
+    container_name: greatclaw-qdrant
     profiles: [qdrant, sparse]
     volumes:
       - qdrant_data:/qdrant/storage
@@ -114,11 +118,11 @@ services:
       retries: 5
     restart: unless-stopped
     networks:
-      - memoh-network
+      - greatclaw-network
 
   browser:
     image: memohai/browser:latest
-    container_name: memoh-browser
+    container_name: greatclaw-browser
     profiles: [browser]
     volumes:
       - ${MEMOH_CONFIG:-./config.toml}:/config.toml:ro
@@ -128,11 +132,11 @@ services:
       - server
     restart: unless-stopped
     networks:
-      - memoh-network
+      - greatclaw-network
 
   openviking:
     image: volcengine/openviking:latest
-    container_name: memoh-openviking
+    container_name: greatclaw-openviking
     profiles: [openviking]
     env_file:
       - path: ${OPENVIKING_ENV_FILE:-.env.openviking}
@@ -143,14 +147,14 @@ services:
       - "8088"
     restart: unless-stopped
     networks:
-      - memoh-network
+      - greatclaw-network
 
 volumes:
   postgres_data:
     driver: local
   containerd_data:
     driver: local
-  memoh_data:
+  greatclaw_data:
     driver: local
   server_cni_state:
     driver: local
@@ -160,5 +164,5 @@ volumes:
     driver: local
 
 networks:
-  memoh-network:
+  greatclaw-network:
     driver: bridge

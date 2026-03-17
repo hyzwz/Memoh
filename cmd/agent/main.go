@@ -32,6 +32,7 @@ import (
 	"github.com/memohai/memoh/internal/channel/adapters/qq"
 	"github.com/memohai/memoh/internal/channel/adapters/telegram"
 	"github.com/memohai/memoh/internal/channel/adapters/wecom"
+	"github.com/memohai/memoh/internal/channel/adapters/desktop"
 	"github.com/memohai/memoh/internal/channel/adapters/wecombot"
 	"github.com/memohai/memoh/internal/channel/identities"
 	"github.com/memohai/memoh/internal/channel/inbound"
@@ -67,6 +68,8 @@ import (
 	mcpsubagent "github.com/memohai/memoh/internal/mcp/providers/subagent"
 	mcpweb "github.com/memohai/memoh/internal/mcp/providers/web"
 	mcpwebfetch "github.com/memohai/memoh/internal/mcp/providers/webfetch"
+	mcpremotefs "github.com/memohai/memoh/internal/mcp/providers/remotefs"
+	mcpwidget "github.com/memohai/memoh/internal/mcp/providers/widget"
 	mcpfederation "github.com/memohai/memoh/internal/mcp/sources/federation"
 	"github.com/memohai/memoh/internal/media"
 	memprovider "github.com/memohai/memoh/internal/memory/adapters"
@@ -247,6 +250,7 @@ func runServe() {
 			provideServerHandler(handlers.NewSkillTemplateHandler),
 			provideServerHandler(provideCLIHandler),
 			provideServerHandler(provideWebHandler),
+			provideServerHandler(provideDesktopAuthHandler),
 
 			provideServer,
 		),
@@ -424,6 +428,7 @@ func provideChannelRegistry(log *slog.Logger, hub *local.RouteHub, mediaService 
 	registry.MustRegister(feishuAdapter)
 	registry.MustRegister(wecom.NewWeComAdapter(log))
 	registry.MustRegister(wecombot.NewWeComBotAdapter(log))
+	registry.MustRegister(desktop.NewDesktopAdapter(log))
 	registry.MustRegister(local.NewCLIAdapter(hub))
 	registry.MustRegister(local.NewWebAdapter(hub))
 	return registry
@@ -555,10 +560,15 @@ func provideToolGatewayService(log *slog.Logger, cfg config.Config, channelManag
 	subagentExec := mcpsubagent.NewExecutor(log, subagentService, settingsService, modelsService, queries, cfg.AgentGateway.BaseURL())
 	skillExec := mcpskill.NewExecutor(log)
 	browserExec := mcpbrowser.NewExecutor(log, settingsService, browserContextService, manager, cfg.BrowserGateway)
+	widgetExec := mcpwidget.NewExecutor(log)
+	// remotefs: file access on desktop clients via Tailscale
+	// TODO: wire DBDeviceResolver + DBAuditLogger when device registration is complete
+	var remotefsExec mcp.ToolExecutor // = mcpremotefs.NewExecutor(log, resolver, auditLogger)
+	_ = mcpremotefs.NewClient // suppress unused import until wired
 
 	svc := mcp.NewToolGatewayService(
 		log,
-		[]mcp.ToolExecutor{messageExec, contactsExec, scheduleExec, memoryExec, webExec, fsExec, inboxExec, emailExec, webFetchExec, subagentExec, skillExec, browserExec},
+		[]mcp.ToolExecutor{messageExec, contactsExec, scheduleExec, memoryExec, webExec, fsExec, inboxExec, emailExec, webFetchExec, subagentExec, skillExec, browserExec, widgetExec, remotefsExec},
 		[]mcp.ToolSource{fedSource},
 	)
 	containerdHandler.SetToolGatewayService(svc)
@@ -579,6 +589,10 @@ func provideMemoryHandler(log *slog.Logger, botService *bots.Service, accountSer
 
 func provideAuthHandler(log *slog.Logger, accountService *accounts.Service, rc *boot.RuntimeConfig) *handlers.AuthHandler {
 	return handlers.NewAuthHandler(log, accountService, rc.JwtSecret, rc.JwtExpiresIn)
+}
+
+func provideDesktopAuthHandler(log *slog.Logger, accountService *accounts.Service, botService *bots.Service, queries *dbsqlc.Queries, rc *boot.RuntimeConfig) *handlers.DesktopAuthHandler {
+	return handlers.NewDesktopAuthHandler(log, accountService, botService, queries, rc.JwtSecret, rc.JwtExpiresIn)
 }
 
 func provideMessageHandler(log *slog.Logger, chatService *conversation.Service, msgService *message.DBService, mediaService *media.Service, botService *bots.Service, accountService *accounts.Service, hub *event.Hub) *handlers.MessageHandler {

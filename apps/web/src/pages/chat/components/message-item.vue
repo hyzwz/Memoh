@@ -122,6 +122,17 @@
           <ToolCallBlock
             v-else-if="block.type === 'tool_call'"
             :block="(block as ToolCallBlockType)"
+            @send-prompt="$emit('send-prompt', $event)"
+          />
+
+          <!-- Widget block -->
+          <GenerativeWidget
+            v-else-if="block.type === 'widget'"
+            :html="(block as WidgetBlockType).html"
+            :title="(block as WidgetBlockType).title"
+            :height="(block as WidgetBlockType).height"
+            :streaming="message.streaming && !(block as WidgetBlockType).done"
+            @send-prompt="$emit('send-prompt', $event)"
           />
 
           <!-- Text block -->
@@ -199,11 +210,13 @@ import { useUserStore } from '@/store/user'
 import { useChatStore } from '@/store/chat-list'
 import { storeToRefs } from 'pinia'
 import { useI18n } from 'vue-i18n'
+import { GenerativeWidget } from '@memoh/ui'
 import type {
   ChatMessage,
   ThinkingBlock as ThinkingBlockType,
   ToolCallBlock as ToolCallBlockType,
   AttachmentBlock as AttachmentBlockType,
+  WidgetBlock as WidgetBlockType,
 } from '@/store/chat-list'
 
 enableKatex()
@@ -212,6 +225,10 @@ enableMermaid()
 const props = defineProps<{
   message: ChatMessage
   onOpenMedia?: (src: string) => void
+}>()
+
+defineEmits<{
+  'send-prompt': [prompt: string]
 }>()
 
 const userStore = useUserStore()

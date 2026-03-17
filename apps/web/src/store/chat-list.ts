@@ -48,6 +48,15 @@ export interface ToolCallBlock {
   done: boolean
 }
 
+export interface WidgetBlock {
+  type: 'widget'
+  toolCallId: string
+  html: string
+  title?: string
+  height?: number
+  done: boolean
+}
+
 export interface AttachmentItem {
   type: string
   content_hash: string
@@ -62,7 +71,7 @@ export interface AttachmentBlock {
   attachments: AttachmentItem[]
 }
 
-export type ContentBlock = TextBlock | ThinkingBlock | ToolCallBlock | AttachmentBlock
+export type ContentBlock = TextBlock | ThinkingBlock | ToolCallBlock | AttachmentBlock | WidgetBlock
 
 export interface ChatMessage {
   id: string
@@ -539,22 +548,52 @@ export const useChatStore = defineStore('chat', () => {
         session.thinkingBlockIdx = -1
         break
       case 'tool_call_start':
-        pushAssistantBlock(session, {
-          type: 'tool_call',
-          toolCallId: (event.toolCallId as string) ?? '',
-          toolName: (event.toolName as string) ?? 'unknown',
-          input: event.input ?? null,
-          result: null,
-          done: false,
-        })
+        if ((event.toolName as string) === 'show_widget') {
+          pushAssistantBlock(session, {
+            type: 'widget',
+            toolCallId: (event.toolCallId as string) ?? '',
+            html: '',
+            title: undefined,
+            height: undefined,
+            done: false,
+          })
+        } else {
+          pushAssistantBlock(session, {
+            type: 'tool_call',
+            toolCallId: (event.toolCallId as string) ?? '',
+            toolName: (event.toolName as string) ?? 'unknown',
+            input: event.input ?? null,
+            result: null,
+            done: false,
+          })
+        }
         session.textBlockIdx = -1
         break
+      case 'tool_call_delta': {
+        const deltaCallId = (event.toolCallId as string) ?? ''
+        if (deltaCallId) {
+          for (const block of session.assistantMsg.blocks) {
+            if (block.type === 'widget' && block.toolCallId === deltaCallId && !block.done) {
+              if (typeof event.delta === 'string') {
+                block.html += event.delta
+              }
+              break
+            }
+          }
+        }
+        break
+      }
       case 'tool_call_end': {
         const callId = (event.toolCallId as string) ?? ''
         let matched = false
         if (callId) {
           for (let i = 0; i < session.assistantMsg.blocks.length; i++) {
             const block = session.assistantMsg.blocks[i]
+            if (block && block.type === 'widget' && block.toolCallId === callId && !block.done) {
+              block.done = true
+              matched = true
+              break
+            }
             if (block && block.type === 'tool_call' && block.toolCallId === callId && !block.done) {
               block.result = event.result ?? null
               block.input = event.input ?? block.input

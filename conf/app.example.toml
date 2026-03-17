@@ -1,4 +1,4 @@
-# Memoh configuration template
+# GreatClaw configuration template
 # Copy to config.toml and adjust values for your environment.
 # For local development, use: cp devenv/app.dev.toml config.toml
 

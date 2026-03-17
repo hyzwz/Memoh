@@ -1,8 +1,8 @@
-name: "memoh-dev"
+name: "greatclaw-dev"
 services:
   postgres:
     image: postgres:18-alpine
-    container_name: memoh-dev-postgres
+    container_name: greatclaw-dev-postgres
     environment:
       POSTGRES_DB: memoh
       POSTGRES_USER: memoh
@@ -21,7 +21,7 @@ services:
 
   qdrant:
     image: qdrant/qdrant:latest
-    container_name: memoh-dev-qdrant
+    container_name: greatclaw-dev-qdrant
     volumes:
       - qdrant_data:/qdrant/storage
     ports:
@@ -38,7 +38,7 @@ services:
     build:
       context: ..
       dockerfile: devenv/Dockerfile.web
-    container_name: memoh-dev-deps
+    container_name: greatclaw-dev-deps
     working_dir: /workspace
     command: ["pnpm", "install"]
     volumes:
@@ -51,7 +51,7 @@ services:
     build:
       context: ..
       dockerfile: devenv/Dockerfile.server
-    container_name: memoh-dev-migrate
+    container_name: greatclaw-dev-migrate
     working_dir: /workspace
     entrypoint: []
     command: ["go", "run", "./cmd/agent/main.go", "migrate", "up"]
@@ -72,7 +72,7 @@ services:
     build:
       context: ..
       dockerfile: devenv/Dockerfile.server
-    container_name: memoh-dev-server
+    container_name: greatclaw-dev-server
     working_dir: /workspace
     privileged: true
     pid: host
@@ -85,7 +85,7 @@ services:
       - go_build_cache:/root/.cache/go-build
       - containerd_data:/var/lib/containerd
       - server_cni_state:/var/lib/cni
-      - memoh_data:/opt/memoh/data
+      - greatclaw_data:/opt/memoh/data
       - /etc/localtime:/etc/localtime:ro
     ports:
       - "8080:8080"
@@ -103,7 +103,7 @@ services:
 
   agent:
     image: oven/bun:1-alpine
-    container_name: memoh-dev-agent
+    container_name: greatclaw-dev-agent
     working_dir: /workspace/apps/agent
     command: ["bun", "run", "--watch", "src/index.ts"]
     volumes:
@@ -122,7 +122,7 @@ services:
     build:
       context: ..
       dockerfile: devenv/Dockerfile.web
-    container_name: memoh-dev-web
+    container_name: greatclaw-dev-web
     working_dir: /workspace/apps/web
     command: ["pnpm", "dev"]
     volumes:
@@ -141,7 +141,7 @@ services:
     build:
       context: ..
       dockerfile: devenv/Dockerfile.browser
-    container_name: memoh-dev-browser
+    container_name: greatclaw-dev-browser
     working_dir: /workspace/apps/browser
     command: ["bun", "run", "--watch", "src/index.ts"]
     volumes:
@@ -160,7 +160,7 @@ services:
     build:
       context: ..
       dockerfile: docker/Dockerfile.sparse
-    container_name: memoh-dev-sparse
+    container_name: greatclaw-dev-sparse
     ports:
       - "8085:8085"
     healthcheck:
@@ -182,7 +182,7 @@ volumes:
     driver: local
   containerd_data:
     driver: local
-  memoh_data:
+  greatclaw_data:
     driver: local
   server_cni_state:
     driver: local

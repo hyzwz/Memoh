@@ -72,7 +72,7 @@ func (s *Server) Stop(ctx context.Context) error {
 }
 
 func shouldSkipJWT(path string) bool {
-	if path == "/" || path == "/ping" || path == "/health" || path == "/api/swagger.json" || path == "/auth/login" {
+	if path == "/" || path == "/ping" || path == "/health" || path == "/api/swagger.json" || path == "/auth/login" || path == "/api/v1/auth/desktop/login" {
 		return true
 	}
 	if strings.HasPrefix(path, "/assets/") {

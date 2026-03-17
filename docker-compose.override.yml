@@ -27,16 +27,16 @@ services:
     build:
       context: .
       dockerfile: docker/Dockerfile.containerd
-    container_name: memoh-containerd2
+    container_name: greatclaw-containerd2
     privileged: true
     pid: host
     volumes:
       - containerd2_sock:/run/containerd
       - containerd2_data:/var/lib/containerd
-      - memoh2_data:/opt/memoh/data
+      - greatclaw2_data:/opt/memoh/data
     restart: unless-stopped
     networks:
-      - memoh-network
+      - greatclaw-network
     healthcheck:
       test: ["CMD", "test", "-S", "/run/containerd/containerd.sock"]
       interval: 5s
@@ -49,5 +49,5 @@ volumes:
     driver: local
   containerd2_data:
     driver: local
-  memoh2_data:
+  greatclaw2_data:
     driver: local

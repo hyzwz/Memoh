@@ -56,6 +56,7 @@
             :key="msg.id"
             :message="msg"
             :on-open-media="galleryOpenBySrc"
+            @send-prompt="handleSendPrompt"
           />
         </div>
       </div>
@@ -361,6 +362,12 @@ async function fileToAttachment(file: File): Promise<ChatAttachment> {
     reader.onerror = () => reject(new Error('Failed to read file'))
     reader.readAsDataURL(file)
   })
+}
+
+function handleSendPrompt(prompt: string) {
+  const text = prompt.trim()
+  if (!text || streaming.value || activeChatReadOnly.value) return
+  chatStore.sendMessage(text)
 }
 
 async function handleSend() {

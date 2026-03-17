@@ -1,4 +1,4 @@
-# Memoh Apple Container configuration (macOS / Darwin)
+# GreatClaw Apple Container configuration (macOS / Darwin)
 # Uses socktainer + Apple Containerization framework instead of containerd.
 
 [log]

@@ -1,0 +1,11 @@
+# Default share policy for greatClaw desktop client
+# Deny by default — only listed directories are accessible
+
+share_roots:
+  - ~/Documents
+  - ~/Desktop
+
+# These patterns are ALWAYS blocked regardless of share_roots
+# (hardcoded in policy/defaults.go, listed here for reference only)
+# never_share:
+#   - .env, *.pem, *.key, .ssh, .git, node_modules, etc.
