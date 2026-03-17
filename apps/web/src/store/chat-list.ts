@@ -549,12 +549,24 @@ export const useChatStore = defineStore('chat', () => {
         break
       case 'tool_call_start':
         if ((event.toolName as string) === 'show_widget') {
+          // Extract html/title/height from input — available at start time
+          let startHtml = ''
+          let startTitle: string | undefined
+          let startHeight: number | undefined
+          if (event.input) {
+            try {
+              const input = typeof event.input === 'string' ? JSON.parse(event.input) : event.input
+              startHtml = input?.html ?? ''
+              startTitle = input?.title
+              startHeight = input?.height
+            } catch { /* ignore */ }
+          }
           pushAssistantBlock(session, {
             type: 'widget',
             toolCallId: (event.toolCallId as string) ?? '',
-            html: '',
-            title: undefined,
-            height: undefined,
+            html: startHtml,
+            title: startTitle,
+            height: startHeight,
             done: false,
           })
         } else {
@@ -590,6 +602,31 @@ export const useChatStore = defineStore('chat', () => {
           for (let i = 0; i < session.assistantMsg.blocks.length; i++) {
             const block = session.assistantMsg.blocks[i]
             if (block && block.type === 'widget' && block.toolCallId === callId && !block.done) {
+              // Update HTML from tool result (overrides input-based html if available)
+              if (event.result) {
+                try {
+                  const result = typeof event.result === 'string' ? JSON.parse(event.result) : event.result
+                  const isError = result?.isError === true
+                  if (isError) {
+                    // Error: convert widget block to tool_call block for error display
+                    session.assistantMsg.blocks[i] = {
+                      type: 'tool_call',
+                      toolCallId: callId,
+                      toolName: 'show_widget',
+                      input: event.input ?? null,
+                      result: event.result ?? null,
+                      done: true,
+                    }
+                    matched = true
+                    break
+                  }
+                  // Result format: { structuredContent: { ok, html, title, height }, content: [...] }
+                  const sc = result?.structuredContent ?? result
+                  if (sc?.html) block.html = sc.html
+                  if (sc?.title) block.title = sc.title
+                  if (sc?.height) block.height = sc.height
+                } catch { /* keep html from start */ }
+              }
               block.done = true
               matched = true
               break

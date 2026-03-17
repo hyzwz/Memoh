@@ -125,16 +125,53 @@ function renderToShadow(html: string) {
   bridgeScript.textContent = `window.sendPrompt = window.__widgetSendPrompt_${shadowHostId.value};`
   shadowRoot.appendChild(bridgeScript)
 
-  // Execute scripts in shadow context with sendPrompt available
-  for (const script of scriptContents) {
-    const el = document.createElement('script')
-    if (script.src) {
-      el.src = script.src
-    } else if (script.text) {
-      // Wrap script to provide sendPrompt in scope
-      el.textContent = `(function(sendPrompt) { ${script.text} })(window.__widgetSendPrompt_${shadowHostId.value});`
+  // Execute scripts: load CDN scripts first, then run inline scripts
+  const cdnScripts = scriptContents.filter(s => s.src)
+  const inlineScripts = scriptContents.filter(s => s.text)
+
+  // Store shadow root reference on window so inline scripts can access it
+  const srKey = `__widgetShadowRoot_${shadowHostId.value}`
+  ;(window as any)[srKey] = shadowRoot
+
+  // Shadow-root-aware DOM query shim — uses stored shadowRoot reference, not document.currentScript
+  const shimCode = [
+    `var __sr = window['${srKey}'];`,
+    `var document_getElementById = function(id) { return __sr.getElementById(id); };`,
+    `var document_querySelector = function(sel) { return __sr.querySelector(sel); };`,
+    `var document_querySelectorAll = function(sel) { return __sr.querySelectorAll(sel); };`,
+  ].join('\n')
+
+  function runInlineScripts() {
+    if (!shadowRoot) return
+    for (const script of inlineScripts) {
+      const el = document.createElement('script')
+      // Rewrite document.getElementById/querySelector calls and provide sendPrompt
+      const rewritten = script.text!
+        .replace(/\bdocument\.getElementById\b/g, 'document_getElementById')
+        .replace(/\bdocument\.querySelector\b(?!All)/g, 'document_querySelector')
+        .replace(/\bdocument\.querySelectorAll\b/g, 'document_querySelectorAll')
+      el.textContent = `(function(sendPrompt) { ${shimCode}\n${rewritten} })(window.__widgetSendPrompt_${shadowHostId.value});`
+      shadowRoot!.appendChild(el)
     }
-    shadowRoot.appendChild(el)
+  }
+
+  if (cdnScripts.length > 0) {
+    let loaded = 0
+    for (const script of cdnScripts) {
+      const el = document.createElement('script')
+      el.src = script.src!
+      el.onload = () => {
+        loaded++
+        if (loaded >= cdnScripts.length) runInlineScripts()
+      }
+      el.onerror = () => {
+        loaded++
+        if (loaded >= cdnScripts.length) runInlineScripts()
+      }
+      shadowRoot.appendChild(el)
+    }
+  } else {
+    runInlineScripts()
   }
 }
 
@@ -157,6 +194,7 @@ onMounted(() => {
 onBeforeUnmount(() => {
   // Cleanup global bridges
   delete (window as any)[`__widgetSendPrompt_${shadowHostId.value}`]
+  delete (window as any)[`__widgetShadowRoot_${shadowHostId.value}`]
   delete (window as any).sendPrompt
 })
 
