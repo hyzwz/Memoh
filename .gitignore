@@ -106,3 +106,5 @@ config.toml
 .workdocs/
 data
 _main-ref/
+.playwright-mcp/
+echarts-rendered.png
