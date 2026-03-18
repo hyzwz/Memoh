@@ -178,13 +178,31 @@ func (h *DesktopAuthHandler) Login(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusInternalServerError, "failed to generate JWT")
 	}
 
-	// Find user's first bot (if any)
+	// Find the bot that has a desktop channel configured; fall back to first bot.
 	var botID, botName string
 	if h.botService != nil {
 		botList, err := h.botService.ListByOwner(ctx, account.ID)
 		if err == nil && len(botList) > 0 {
-			botID = botList[0].ID
-			botName = botList[0].DisplayName
+			// Check which bot has a desktop channel config
+			desktopBotFound := false
+			for _, bot := range botList {
+				var exists bool
+				_ = h.pool.QueryRow(ctx,
+					`SELECT EXISTS(SELECT 1 FROM bot_channel_configs WHERE bot_id = $1 AND channel_type = 'desktop' AND NOT disabled)`,
+					bot.ID,
+				).Scan(&exists)
+				if exists {
+					botID = bot.ID
+					botName = bot.DisplayName
+					desktopBotFound = true
+					break
+				}
+			}
+			if !desktopBotFound {
+				// Fallback: use first bot
+				botID = botList[0].ID
+				botName = botList[0].DisplayName
+			}
 		}
 	}
 

@@ -47,8 +47,14 @@ Rules:
 ## CDN Allowlist
 
 Only these CDN sources are permitted:
-- `https://cdn.jsdelivr.net/npm/chart.js` — Chart.js
-- `https://cdn.jsdelivr.net/npm/d3` — D3.js
+- `https://cdn.jsdelivr.net/npm/chart.js` — Chart.js (pie, bar, line, radar, doughnut, polarArea)
+- `https://cdn.jsdelivr.net/npm/echarts/dist/echarts.min.js` — ECharts (Gantt, heatmap, treemap, sankey, gauge, map, funnel, sunburst, and 30+ chart types)
+- `https://cdn.jsdelivr.net/npm/d3` — D3.js (custom SVG visualizations)
+
+### When to use which library
+- **Chart.js**: Simple charts (pie, bar, line, radar). Lightweight, easy config.
+- **ECharts**: Complex/advanced visualizations (Gantt, heatmap, treemap, sankey, funnel, gauge, geographic maps, parallel coordinates, sunburst). Use ECharts when Chart.js doesn't support the chart type.
+- **D3.js**: Only for highly custom SVG layouts that neither Chart.js nor ECharts can handle.
 
 ## Security
 
@@ -68,5 +74,5 @@ Only these CDN sources are permitted:
 Your HTML will be rendered incrementally via morphdom as tokens arrive. To ensure visual stability:
 - Put `<style>` first so styles apply before content renders
 - Only use DOM manipulation methods (createElement, appendChild) — never inject HTML via string methods
-- Chart.js initialization should be in a `<script>` at the end
+- Chart.js / ECharts initialization should be in a `<script>` at the end
 - Use `requestAnimationFrame` or `setTimeout(fn, 0)` for DOM-dependent initialization

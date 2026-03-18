@@ -42,19 +42,18 @@ function sendPrompt(text: string) {
 // CDN allowlist pattern
 const ALLOWED_SCRIPT_SRC_PATTERN = /^https:\/\/cdn\.jsdelivr\.net\/npm\//
 
+type ExtractedScript = {
+  src?: string
+  text?: string
+}
+
+type LoadableScriptElement = HTMLScriptElement & {
+  __loaded?: boolean
+}
+
 // Configure DOMPurify to allow sendPrompt onclick pattern
 function createPurifyInstance() {
   const purify = DOMPurify(window)
-
-  // Allow script tags (we'll validate src separately)
-  purify.addHook('uponSanitizeElement', (node: Element, data) => {
-    if (data.tagName === 'script') {
-      const src = node.getAttribute('src')
-      if (src && !ALLOWED_SCRIPT_SRC_PATTERN.test(src.trim())) {
-        node.removeAttribute('src')
-      }
-    }
-  })
 
   // Allow only onclick="sendPrompt('...')" — strict match, no trailing code
   purify.addHook('uponSanitizeAttribute', (node: Element, data) => {
@@ -73,34 +72,44 @@ function createPurifyInstance() {
 function sanitizeHTML(html: string): string {
   const purify = createPurifyInstance()
   return purify.sanitize(html, {
-    ADD_TAGS: ['style', 'script'],
+    ADD_TAGS: ['style'],
     ADD_ATTR: ['onclick'],
     ALLOW_UNKNOWN_PROTOCOLS: false,
     WHOLE_DOCUMENT: false,
   })
 }
 
-function renderToShadow(html: string) {
-  if (!shadowRoot) return
-
-  const sanitized = sanitizeHTML(html)
-
-  // Parse sanitized HTML
+function extractScriptsFromHTML(html: string): { htmlWithoutScripts: string, scripts: ExtractedScript[] } {
   const template = document.createElement('template')
-  template.innerHTML = sanitized
+  template.innerHTML = html
 
-  // Separate scripts for controlled execution
-  const fragment = template.content
-  const scripts = fragment.querySelectorAll('script')
-  const scriptContents: Array<{ src?: string, text?: string }> = []
+  const scriptContents: ExtractedScript[] = []
+  const scripts = template.content.querySelectorAll('script')
   scripts.forEach((s) => {
     if (s.src && ALLOWED_SCRIPT_SRC_PATTERN.test(s.src)) {
       scriptContents.push({ src: s.src })
-    } else if (s.textContent && !s.src) {
+    } else if (!s.src && s.textContent?.trim()) {
       scriptContents.push({ text: s.textContent })
     }
     s.remove()
   })
+
+  return {
+    htmlWithoutScripts: template.innerHTML,
+    scripts: scriptContents,
+  }
+}
+
+function renderToShadow(html: string) {
+  if (!shadowRoot) return
+
+  const { htmlWithoutScripts, scripts: scriptContents } = extractScriptsFromHTML(html)
+  const sanitized = sanitizeHTML(htmlWithoutScripts)
+
+  // Parse sanitized HTML after script extraction.
+  const template = document.createElement('template')
+  template.innerHTML = sanitized
+  const fragment = template.content
 
   // Apply CSS variables from host theme
   const themeStyle = document.createElement('style')
@@ -131,17 +140,34 @@ function renderToShadow(html: string) {
 
   // Store shadow root reference on window so inline scripts can access it
   const srKey = `__widgetShadowRoot_${shadowHostId.value}`
-  ;(window as any)[srKey] = shadowRoot
+  Reflect.set(window, srKey, shadowRoot)
 
   // Shadow-root-aware DOM query shim — uses stored shadowRoot reference, not document.currentScript
   const shimCode = [
     `var __sr = window['${srKey}'];`,
-    `var document_getElementById = function(id) { return __sr.getElementById(id); };`,
-    `var document_querySelector = function(sel) { return __sr.querySelector(sel); };`,
-    `var document_querySelectorAll = function(sel) { return __sr.querySelectorAll(sel); };`,
+    'var document_getElementById = function(id) { return __sr.getElementById(id); };',
+    'var document_querySelector = function(sel) { return __sr.querySelector(sel); };',
+    'var document_querySelectorAll = function(sel) { return __sr.querySelectorAll(sel); };',
   ].join('\n')
 
+  // Auto-fix chart containers with zero height before scripts run.
+  // ECharts/Chart.js need non-zero dimensions to render; LLMs often forget inline styles.
+  function ensureChartContainerSizing() {
+    if (!shadowRoot) return
+    shadowRoot.querySelectorAll('div[id], canvas[id]').forEach((el) => {
+      const div = el as HTMLElement
+      if (div.offsetHeight === 0) {
+        div.style.width = div.style.width || '100%'
+        div.style.height = div.style.height || '400px'
+      }
+    })
+  }
+
+  // Track scripts we add to document.head so we can clean them up
+  const headScripts: HTMLScriptElement[] = []
+
   function runInlineScripts() {
+    ensureChartContainerSizing()
     if (!shadowRoot) return
     for (const script of inlineScripts) {
       const el = document.createElement('script')
@@ -151,28 +177,50 @@ function renderToShadow(html: string) {
         .replace(/\bdocument\.querySelector\b(?!All)/g, 'document_querySelector')
         .replace(/\bdocument\.querySelectorAll\b/g, 'document_querySelectorAll')
       el.textContent = `(function(sendPrompt) { ${shimCode}\n${rewritten} })(window.__widgetSendPrompt_${shadowHostId.value});`
-      shadowRoot!.appendChild(el)
+      // Execute inline scripts in document.head (scripts in Shadow DOM may not execute reliably)
+      document.head.appendChild(el)
+      headScripts.push(el)
     }
   }
 
-  if (cdnScripts.length > 0) {
+  // Load CDN scripts in document.head with deduplication (not in Shadow DOM where they may fail to execute)
+  function loadCDNScripts(scripts: Array<{ src?: string }>, onDone: () => void) {
+    if (scripts.length === 0) { onDone(); return }
     let loaded = 0
-    for (const script of cdnScripts) {
-      const el = document.createElement('script')
-      el.src = script.src!
-      el.onload = () => {
-        loaded++
-        if (loaded >= cdnScripts.length) runInlineScripts()
+    const total = scripts.length
+    const onOne = () => { loaded++; if (loaded >= total) onDone() }
+    for (const script of scripts) {
+      const src = script.src!
+      // Deduplicate: check if this CDN script is already loaded in head
+      const existing = document.head.querySelector(`script[src="${CSS.escape(src)}"]`) as LoadableScriptElement | null
+      if (existing) {
+        // Script tag exists — wait for it if still loading.
+        // We can't rely on addEventListener('load') because the event may have already fired.
+        // Instead, poll the __loaded flag which is set by the original loader's onload.
+        if (existing.__loaded === true) {
+          onOne()
+        } else {
+          const poll = setInterval(() => {
+            if (existing.__loaded === true) {
+              clearInterval(poll)
+              onOne()
+            }
+          }, 20)
+          // Safety timeout: give up after 30s
+          setTimeout(() => { clearInterval(poll); onOne() }, 30000)
+        }
+        continue
       }
-      el.onerror = () => {
-        loaded++
-        if (loaded >= cdnScripts.length) runInlineScripts()
-      }
-      shadowRoot.appendChild(el)
+      const el = document.createElement('script') as LoadableScriptElement
+      el.src = src
+      el.onload = () => { el.__loaded = true; onOne() }
+      el.onerror = () => { console.warn('[GenerativeWidget] Failed to load CDN script:', src); el.__loaded = true; onOne() }
+      document.head.appendChild(el)
+      headScripts.push(el)
     }
-  } else {
-    runInlineScripts()
   }
+
+  loadCDNScripts(cdnScripts, runInlineScripts)
 }
 
 // Unique ID for this widget instance's sendPrompt bridge
@@ -184,7 +232,7 @@ onMounted(() => {
   shadowRoot = shadowHost.value.attachShadow({ mode: 'open' })
 
   // Expose sendPrompt as a global bridge for script execution inside shadow
-  ;(window as any)[`__widgetSendPrompt_${shadowHostId.value}`] = sendPrompt
+  Reflect.set(window, `__widgetSendPrompt_${shadowHostId.value}`, sendPrompt)
 
   if (props.html) {
     renderToShadow(props.html)
@@ -193,9 +241,9 @@ onMounted(() => {
 
 onBeforeUnmount(() => {
   // Cleanup global bridges
-  delete (window as any)[`__widgetSendPrompt_${shadowHostId.value}`]
-  delete (window as any)[`__widgetShadowRoot_${shadowHostId.value}`]
-  delete (window as any).sendPrompt
+  Reflect.deleteProperty(window, `__widgetSendPrompt_${shadowHostId.value}`)
+  Reflect.deleteProperty(window, `__widgetShadowRoot_${shadowHostId.value}`)
+  Reflect.deleteProperty(window, 'sendPrompt')
 })
 
 watch(() => props.html, async (newHtml) => {

@@ -285,6 +285,40 @@ ${quote('description')} will be the system prompt for the subagent.
 
 ${files.map(formatSystemFile).join('\n\n')}
 
+## Data Visualization & Interactive Widgets
+
+You can render rich, interactive HTML widgets directly in the chat using two tools:
+
+### ${quote('show_widget')}
+Renders self-contained HTML inside the chat. Use it for:
+- **Charts** (pie, bar, line, radar, etc.) — use Chart.js via CDN
+- **Interactive cards** — buttons, metrics, dashboards
+- **Diagrams** — flowcharts, trees, graphs (SVG-based)
+- **Mockups** — UI prototypes
+- **Data art** — creative visualizations
+
+Parameters:
+- ${quote('html')} (required): Complete, self-contained HTML string. Must include all CSS/JS inline or via cdn.jsdelivr.net. No iframes, no external stylesheets.
+- ${quote('title')} (optional): Widget title shown above the widget.
+- ${quote('height')} (optional): Widget height in pixels (default: auto).
+
+**Rules:**
+- Always call ${quote('read_me')} first to load the design spec for the widget type you're building.
+- HTML must be self-contained: all styles inline or in \`<style>\`, all scripts inline or from cdn.jsdelivr.net.
+- Use \`onclick="sendPrompt('...')"\` for interactive elements that should trigger a new user message.
+- Keep widgets concise and responsive.
+
+### ${quote('read_me')}
+Loads the design specification for a widget module. **Always call this before ${quote('show_widget')}.**
+
+Parameter: ${quote('module')} — one of: \`chart\`, \`interactive\`, \`diagram\`, \`mockup\`, \`art\`
+
+### When to use widgets
+- User asks for a chart, graph, visualization, or data display.
+- User asks to "show", "draw", "plot", "visualize", or "render" something.
+- When data would be much clearer as a visual than as text.
+- Do NOT just describe the chart in text — actually render it with ${quote('show_widget')}.
+
 ## Skills
 ${skills.length} skills available via ${quote('use_skill')}:
 ${skills.map(skill => `- ${skill.name}: ${skill.description}`).join('\n')}

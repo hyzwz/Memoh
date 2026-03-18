@@ -6,7 +6,7 @@ declare global {
     go: {
       main: {
         App: {
-          LoginWithPassword(serverURL: string, username: string, password: string, hostname: string, platform: string): Promise<Record<string, any>>
+          LoginWithPassword(serverURL: string, username: string, password: string): Promise<Record<string, any>>
           GetStatus(): Promise<Record<string, any>>
         }
       }
@@ -24,22 +24,15 @@ export const useAppStore = defineStore('app', () => {
   const shareRoots = ref<string[]>(['~/Documents', '~/Desktop'])
 
   async function login(server: string, username: string, password: string) {
-    const hn = await getHostname()
-    const platform = getPlatform()
-
     const result = await window.go.main.App.LoginWithPassword(
-      server, username, password, hn, platform,
+      server, username, password,
     )
 
-    if (result.error) {
-      throw new Error(result.error)
-    }
-
     serverURL.value = server
-    token.value = result.token || ''
+    token.value = result.access_token || ''
     botName.value = result.bot_name || ''
     connected.value = true
-    hostname.value = hn
+    hostname.value = result.hostname || ''
   }
 
   function logout() {
@@ -57,18 +50,6 @@ export const useAppStore = defineStore('app', () => {
 
   function removeShareRoot(index: number) {
     shareRoots.value.splice(index, 1)
-  }
-
-  async function getHostname(): Promise<string> {
-    // In Wails, we'd call a Go binding. Fallback for dev.
-    return 'desktop'
-  }
-
-  function getPlatform(): string {
-    const ua = navigator.userAgent.toLowerCase()
-    if (ua.includes('mac')) return 'darwin'
-    if (ua.includes('win')) return 'windows'
-    return 'linux'
   }
 
   return {

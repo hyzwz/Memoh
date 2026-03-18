@@ -8,8 +8,8 @@ import (
 )
 
 // DesktopAdapter implements channel.Adapter, channel.ConfigNormalizer,
-// channel.BindingMatcher, channel.TargetResolver, channel.Sender, and channel.StreamSender
-// for desktop clients connected via Tailscale.
+// channel.BindingMatcher, channel.TargetResolver, channel.Sender, channel.StreamSender,
+// and channel.Receiver for desktop clients connected via Tailscale.
 type DesktopAdapter struct {
 	logger *slog.Logger
 }
@@ -122,4 +122,18 @@ func (a *DesktopAdapter) OpenStream(ctx context.Context, cfg channel.ChannelConf
 		slog.String("target", target),
 	)
 	return &desktopStream{logger: a.logger}, nil
+}
+
+// Connect implements channel.Receiver. Desktop clients connect via HTTP API
+// (not a persistent server-initiated connection like Telegram/Feishu), so this
+// returns a passive connection that stays "running" until explicitly stopped.
+func (a *DesktopAdapter) Connect(_ context.Context, cfg channel.ChannelConfig, _ channel.InboundHandler) (channel.Connection, error) {
+	a.logger.Info("desktop channel connected",
+		slog.String("config_id", cfg.ID),
+		slog.String("bot_id", cfg.BotID),
+	)
+	return channel.NewConnection(cfg, func(_ context.Context) error {
+		a.logger.Info("desktop channel disconnected", slog.String("config_id", cfg.ID))
+		return nil
+	}), nil
 }

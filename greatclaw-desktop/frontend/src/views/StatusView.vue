@@ -19,7 +19,9 @@ function handleLogout() {
   <div class="min-h-screen bg-gray-50 p-4">
     <div class="mx-auto max-w-sm space-y-4">
       <div class="rounded-lg border bg-white p-4 shadow-sm">
-        <h2 class="text-lg font-semibold text-gray-900">Connection Status</h2>
+        <h2 class="text-lg font-semibold text-gray-900">
+          Connection Status
+        </h2>
         <div class="mt-3 space-y-2 text-sm">
           <div class="flex justify-between">
             <span class="text-gray-500">Status</span>

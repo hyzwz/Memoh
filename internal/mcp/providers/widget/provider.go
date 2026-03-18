@@ -49,12 +49,16 @@ func (*Executor) ListTools(_ context.Context, session mcpgw.ToolSessionContext) 
 	return []mcpgw.ToolDescriptor{
 		{
 			Name: toolShowWidget,
-			Description: `Render an interactive HTML widget directly in the chat UI. The HTML is displayed inside a Shadow DOM with theme-aware CSS variables. Use this for charts (Chart.js), interactive cards, diagrams (SVG), mockups, and data visualizations.
+			Description: `Render an interactive HTML widget directly in the chat UI. The HTML is displayed inside a Shadow DOM with theme-aware CSS variables. Use this for charts, interactive cards, diagrams, mockups, and data visualizations.
 
 IMPORTANT RULES:
 - Output a SINGLE self-contained HTML fragment: <style>...</style> then HTML then <script>...</script>
 - For interactivity, use onclick="sendPrompt('...')" — this is the ONLY way to trigger follow-up actions
-- External scripts: only cdn.jsdelivr.net is allowed (Chart.js, D3.js)
+- External scripts: only cdn.jsdelivr.net is allowed. Available libraries:
+  * Chart.js (pie, bar, line, radar, doughnut): https://cdn.jsdelivr.net/npm/chart.js
+  * ECharts (Gantt, heatmap, treemap, sankey, funnel, gauge, sunburst, 30+ types): https://cdn.jsdelivr.net/npm/echarts/dist/echarts.min.js
+  * D3.js (custom SVG): https://cdn.jsdelivr.net/npm/d3
+- Use Chart.js for simple charts, ECharts for advanced/complex visualizations (especially Gantt charts)
 - NO iframes, NO external stylesheets, NO dynamic code generation
 - Before your first use, call read_me to load the design spec for the module you need`,
 			InputSchema: map[string]any{
@@ -81,7 +85,7 @@ IMPORTANT RULES:
 			Description: `Load design specification for a widget module. Call this BEFORE using show_widget to understand the design rules for the type of widget you want to create.
 
 Available modules:
-- chart: Chart.js configuration rules, color palettes, responsive sizing
+- chart: Chart.js (simple charts) + ECharts (Gantt, heatmap, treemap, sankey, funnel, gauge, etc.), color palettes, responsive sizing
 - interactive: Card, button, metric, form components
 - diagram: SVG flowchart, tree, and graph rules
 - mockup: UI prototype guidelines and layout patterns
