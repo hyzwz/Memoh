@@ -22,6 +22,14 @@
       "timestamp": "2026-03-25T10:00:05Z"
     },
     {
+      "message_id": "msg-system-1",
+      "author_id": "system-1",
+      "author_name": "System",
+      "author_role": "system",
+      "text": "Ticket status updated",
+      "timestamp": "2026-03-25T10:00:07Z"
+    },
+    {
       "message_id": "msg-customer-2",
       "author_id": "customer-1001",
       "author_name": "Alice",

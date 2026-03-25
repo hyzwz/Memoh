@@ -55,11 +55,12 @@ func ParseInboxSnapshot(raw []byte, cfg Config) (InboxSnapshot, []channel.Inboun
 	replyTarget := BuildReplyTarget(snapshot)
 	messages := make([]channel.InboundMessage, 0, len(snapshot.Messages))
 	for _, msg := range snapshot.Messages {
-		if isAgentAuthoredMessage(msg, snapshot.AccountLabel) {
+		if !isCustomerAuthoredMessage(msg) {
 			continue
 		}
 
-		messageID := strings.TrimSpace(msg.MessageID)
+		rawMessageID := strings.TrimSpace(msg.MessageID)
+		messageID := rawMessageID
 		if messageID == "" {
 			messageID = stableMessageID(snapshot.ConversationID, msg)
 		}
@@ -73,12 +74,14 @@ func ParseInboxSnapshot(raw []byte, cfg Config) (InboxSnapshot, []channel.Inboun
 			"page_url":            snapshot.PageURL,
 			"account_label":       snapshot.AccountLabel,
 			"raw_conversation_id": snapshot.ConversationID,
-			"raw_message_id":      messageID,
 			"source_transport":    sourceTransportDOMPoll,
 			"message_timestamp":   strings.TrimSpace(msg.Timestamp),
 			"message_author_role": strings.TrimSpace(msg.AuthorRole),
 			"message_author_name": strings.TrimSpace(msg.AuthorName),
 			"conversation_type":   snapshot.ConversationType,
+		}
+		if rawMessageID != "" {
+			metadata["raw_message_id"] = rawMessageID
 		}
 
 		messages = append(messages, channel.InboundMessage{
@@ -115,10 +118,13 @@ func ParseInboxSnapshot(raw []byte, cfg Config) (InboxSnapshot, []channel.Inboun
 				"page_url":            snapshot.PageURL,
 				"account_label":       snapshot.AccountLabel,
 				"raw_conversation_id": snapshot.ConversationID,
-				"raw_message_id":      messageID,
 				"source_transport":    sourceTransportDOMPoll,
 			},
 		})
+		if rawMessageID != "" {
+			messages[len(messages)-1].Metadata["raw_message_id"] = rawMessageID
+			messages[len(messages)-1].Message.Metadata["raw_message_id"] = rawMessageID
+		}
 	}
 
 	return snapshot, messages, nil
@@ -135,17 +141,14 @@ func BuildReplyTarget(snapshot InboxSnapshot) string {
 	return "session:" + handle
 }
 
-func isAgentAuthoredMessage(msg SnapshotMessage, accountLabel string) bool {
+func isCustomerAuthoredMessage(msg SnapshotMessage) bool {
 	role := strings.ToLower(strings.TrimSpace(msg.AuthorRole))
 	switch role {
-	case "agent", "assistant", "bot", "self", "operator":
+	case "customer", "user", "visitor", "client", "guest":
 		return true
-	}
-	if strings.TrimSpace(accountLabel) == "" {
+	default:
 		return false
 	}
-	authorName := strings.TrimSpace(msg.AuthorName)
-	return strings.EqualFold(strings.TrimSpace(msg.AuthorID), accountLabel) || strings.EqualFold(authorName, accountLabel)
 }
 
 func normalizeConversationType(raw string) string {

@@ -69,6 +69,9 @@ func TestParseInboxSnapshotBuildsInboundMessages(t *testing.T) {
 	if got := first.Metadata["source_transport"]; got != "dom_poll" {
 		t.Fatalf("unexpected source_transport metadata: %#v", got)
 	}
+	if _, ok := first.Metadata["raw_message_id"]; !ok {
+		t.Fatal("expected raw_message_id metadata to preserve raw platform message id")
+	}
 }
 
 func TestParseInboxSnapshotSkipsAgentAuthoredMessages(t *testing.T) {
@@ -84,6 +87,44 @@ func TestParseInboxSnapshotSkipsAgentAuthoredMessages(t *testing.T) {
 		if msg.Sender.SubjectID == "agent-2001" {
 			t.Fatalf("unexpected agent-authored message: %#v", msg)
 		}
+	}
+}
+
+func TestParseInboxSnapshotSkipsUnknownAuthoredMessages(t *testing.T) {
+	t.Parallel()
+
+	raw := mustReadTestdata(t, "ctrip_inbox_snapshot.json")
+
+	_, messages, err := ParseInboxSnapshot(raw, Config{AccountLabel: "Ctrip Support A"})
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+	for _, msg := range messages {
+		if msg.Sender.Attribute("author_role") == "system" {
+			t.Fatalf("unexpected system-authored message: %#v", msg)
+		}
+	}
+}
+
+func TestParseInboxSnapshotDoesNotPromoteSynthesizedRawMessageID(t *testing.T) {
+	t.Parallel()
+
+	raw := mustReadTestdata(t, "ctrip_missing_message_id_snapshot.json")
+
+	_, messages, err := ParseInboxSnapshot(raw, Config{AccountLabel: "Ctrip Support A"})
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+	if len(messages) != 1 {
+		t.Fatalf("unexpected inbound message count: %d", len(messages))
+	}
+
+	msg := messages[0]
+	if msg.Message.ID == "" {
+		t.Fatal("expected synthesized message id")
+	}
+	if rawID, ok := msg.Metadata["raw_message_id"]; ok && rawID != "" {
+		t.Fatalf("expected empty raw_message_id metadata, got %#v", rawID)
 	}
 }
 

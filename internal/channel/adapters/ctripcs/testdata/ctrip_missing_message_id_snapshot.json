@@ -1,0 +1,16 @@
+{
+  "page_url": "https://m.ctrip.com/customer-service/inbox",
+  "account_label": "Ctrip Support A",
+  "conversation_id": "ctrip-session-789",
+  "conversation_type": "direct",
+  "login_state": "ok",
+  "messages": [
+    {
+      "author_id": "customer-3001",
+      "author_name": "Eve",
+      "author_role": "customer",
+      "text": "My order never arrived",
+      "timestamp": "2026-03-25T12:00:00Z"
+    }
+  ]
+}
