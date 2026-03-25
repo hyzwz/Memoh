@@ -1,0 +1,17 @@
+{
+  "page_url": "https://m.ctrip.com/customer-service/inbox",
+  "account_label": "Ctrip Support A",
+  "conversation_id": "ctrip-session-901",
+  "conversation_type": "direct",
+  "login_state": "ok",
+  "messages": [
+    {
+      "message_id": "msg-invalid-ts",
+      "author_id": "customer-4001",
+      "author_name": "Dora",
+      "author_role": "customer",
+      "text": "I need help now",
+      "timestamp": "not-a-timestamp"
+    }
+  ]
+}

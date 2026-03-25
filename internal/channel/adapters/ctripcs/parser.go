@@ -62,24 +62,23 @@ func ParseInboxSnapshot(raw []byte, cfg Config) (InboxSnapshot, []channel.Inboun
 		rawMessageID := strings.TrimSpace(msg.MessageID)
 		messageID := rawMessageID
 		if messageID == "" {
-			messageID = stableMessageID(snapshot.ConversationID, msg)
+			fallbackID, err := stableMessageID(snapshot.ConversationID, msg)
+			if err != nil {
+				return InboxSnapshot{}, nil, err
+			}
+			messageID = fallbackID
 		}
 		senderID := strings.TrimSpace(msg.AuthorID)
 		if senderID == "" {
-			senderID = messageID
+			return InboxSnapshot{}, nil, errors.New("ctrip_cs customer row missing author_id")
 		}
 
-		receivedAt, _ := parseSnapshotTime(msg.Timestamp)
-		metadata := map[string]any{
-			"page_url":            snapshot.PageURL,
-			"account_label":       snapshot.AccountLabel,
-			"raw_conversation_id": snapshot.ConversationID,
-			"source_transport":    sourceTransportDOMPoll,
-			"message_timestamp":   strings.TrimSpace(msg.Timestamp),
-			"message_author_role": strings.TrimSpace(msg.AuthorRole),
-			"message_author_name": strings.TrimSpace(msg.AuthorName),
-			"conversation_type":   snapshot.ConversationType,
+		receivedAt, err := parseSnapshotTime(msg.Timestamp)
+		if err != nil {
+			return InboxSnapshot{}, nil, fmt.Errorf("ctrip_cs customer row invalid timestamp: %w", err)
 		}
+
+		metadata := buildInboundMetadata(snapshot, msg)
 		if rawMessageID != "" {
 			metadata["raw_message_id"] = rawMessageID
 		}
@@ -123,7 +122,6 @@ func ParseInboxSnapshot(raw []byte, cfg Config) (InboxSnapshot, []channel.Inboun
 		})
 		if rawMessageID != "" {
 			messages[len(messages)-1].Metadata["raw_message_id"] = rawMessageID
-			messages[len(messages)-1].Message.Metadata["raw_message_id"] = rawMessageID
 		}
 	}
 
@@ -171,6 +169,23 @@ func normalizeSnapshotText(raw string) string {
 	return strings.TrimSpace(raw)
 }
 
+func buildInboundMetadata(snapshot InboxSnapshot, msg SnapshotMessage) map[string]any {
+	metadata := map[string]any{
+		"page_url":            snapshot.PageURL,
+		"account_label":       snapshot.AccountLabel,
+		"raw_conversation_id": snapshot.ConversationID,
+		"source_transport":    sourceTransportDOMPoll,
+		"message_timestamp":   strings.TrimSpace(msg.Timestamp),
+		"message_author_role": strings.TrimSpace(msg.AuthorRole),
+		"message_author_name": strings.TrimSpace(msg.AuthorName),
+		"conversation_type":   snapshot.ConversationType,
+	}
+	if rawMessageID := strings.TrimSpace(msg.MessageID); rawMessageID != "" {
+		metadata["raw_message_id"] = rawMessageID
+	}
+	return metadata
+}
+
 func parseSnapshotTime(raw string) (time.Time, error) {
 	value := strings.TrimSpace(raw)
 	if value == "" {
@@ -183,12 +198,24 @@ func parseSnapshotTime(raw string) (time.Time, error) {
 	return t, nil
 }
 
-func stableMessageID(conversationID string, msg SnapshotMessage) string {
+func stableMessageID(conversationID string, msg SnapshotMessage) (string, error) {
+	if strings.TrimSpace(conversationID) == "" {
+		return "", errors.New("ctrip_cs customer row missing conversation_id")
+	}
+	if strings.TrimSpace(msg.AuthorID) == "" {
+		return "", errors.New("ctrip_cs customer row missing author_id")
+	}
+	if strings.TrimSpace(msg.Timestamp) == "" {
+		return "", errors.New("ctrip_cs customer row missing timestamp")
+	}
+	if strings.TrimSpace(msg.Text) == "" {
+		return "", errors.New("ctrip_cs customer row missing text for synthesized message id")
+	}
 	parts := []string{
 		strings.TrimSpace(conversationID),
 		strings.TrimSpace(msg.AuthorID),
 		strings.TrimSpace(msg.Timestamp),
 		strings.TrimSpace(msg.Text),
 	}
-	return strings.Join(parts, ":")
+	return strings.Join(parts, ":"), nil
 }

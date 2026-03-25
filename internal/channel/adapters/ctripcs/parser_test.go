@@ -54,6 +54,12 @@ func TestParseInboxSnapshotBuildsInboundMessages(t *testing.T) {
 	if first.Message.Text != "I need help with my booking" {
 		t.Fatalf("unexpected text: %q", first.Message.Text)
 	}
+	if first.ReceivedAt.IsZero() {
+		t.Fatal("expected ReceivedAt to be populated from a valid timestamp")
+	}
+	if got := first.ReceivedAt.UTC().Format("2006-01-02T15:04:05Z07:00"); got != "2026-03-25T10:00:00Z" {
+		t.Fatalf("unexpected received_at: %s", got)
+	}
 	if got := first.Metadata["page_url"]; got != "https://m.ctrip.com/customer-service/inbox" {
 		t.Fatalf("unexpected page_url metadata: %#v", got)
 	}
@@ -125,6 +131,28 @@ func TestParseInboxSnapshotDoesNotPromoteSynthesizedRawMessageID(t *testing.T) {
 	}
 	if rawID, ok := msg.Metadata["raw_message_id"]; ok && rawID != "" {
 		t.Fatalf("expected empty raw_message_id metadata, got %#v", rawID)
+	}
+}
+
+func TestParseInboxSnapshotRejectsInvalidCustomerTimestamp(t *testing.T) {
+	t.Parallel()
+
+	raw := mustReadTestdata(t, "ctrip_invalid_timestamp_snapshot.json")
+
+	_, _, err := ParseInboxSnapshot(raw, Config{AccountLabel: "Ctrip Support A"})
+	if err == nil {
+		t.Fatal("expected invalid timestamp error")
+	}
+}
+
+func TestParseInboxSnapshotRejectsMalformedSynthesizedFallback(t *testing.T) {
+	t.Parallel()
+
+	raw := mustReadTestdata(t, "ctrip_malformed_fallback_snapshot.json")
+
+	_, _, err := ParseInboxSnapshot(raw, Config{AccountLabel: "Ctrip Support A"})
+	if err == nil {
+		t.Fatal("expected malformed synthesized fallback error")
 	}
 }
 

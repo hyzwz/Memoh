@@ -1,0 +1,16 @@
+{
+  "page_url": "https://m.ctrip.com/customer-service/inbox",
+  "account_label": "Ctrip Support A",
+  "conversation_id": "ctrip-session-902",
+  "conversation_type": "direct",
+  "login_state": "ok",
+  "messages": [
+    {
+      "author_id": "customer-4002",
+      "author_name": "Nina",
+      "author_role": "customer",
+      "text": "",
+      "timestamp": "2026-03-25T12:30:00Z"
+    }
+  ]
+}
