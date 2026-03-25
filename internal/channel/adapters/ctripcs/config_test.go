@@ -2,6 +2,7 @@ package ctripcs
 
 import (
 	"context"
+	"encoding/json"
 	"testing"
 
 	"github.com/memohai/memoh/internal/config"
@@ -20,11 +21,12 @@ func TestNormalizeConfigDefaults(t *testing.T) {
 			raw: map[string]any{
 				"browser_context_id": "  ctx-123  ",
 				"entry_url":          "  https://m.ctrip.com/customer-service/inbox  ",
+				"account_label":      "  Agent A  ",
 			},
 			want: map[string]any{
 				"browserContextId": "ctx-123",
 				"entryUrl":         "https://m.ctrip.com/customer-service/inbox",
-				"accountLabel":     "",
+				"accountLabel":     "Agent A",
 				"pollIntervalMs":   1500,
 				"inboxPageUrl":     "https://m.ctrip.com/customer-service/inbox",
 			},
@@ -75,6 +77,18 @@ func TestNormalizeConfigRequiresBrowserContextID(t *testing.T) {
 	}
 }
 
+func TestNormalizeConfigRequiresAccountLabel(t *testing.T) {
+	t.Parallel()
+
+	_, err := normalizeConfig(map[string]any{
+		"browserContextId": "ctx-123",
+		"entryUrl":         "https://m.ctrip.com/customer-service/inbox",
+	})
+	if err == nil {
+		t.Fatal("expected accountLabel validation error")
+	}
+}
+
 func TestNormalizeConfigRejectsNonCtripEntryURL(t *testing.T) {
 	t.Parallel()
 
@@ -96,6 +110,7 @@ func TestNormalizeConfigRejectsNonCtripEntryURL(t *testing.T) {
 			raw: map[string]any{
 				"browserContextId": "ctx-123",
 				"entryUrl":         "https://m.ctrip.com/customer-service/inbox",
+				"accountLabel":     "Agent",
 				"inboxPageUrl":     "https://example.com/inbox",
 			},
 			want: "ctrip_cs inboxPageUrl must be under a ctrip host",
@@ -180,6 +195,9 @@ func TestAdapterDescriptor(t *testing.T) {
 			t.Fatalf("missing config field %q", field)
 		}
 	}
+	if !desc.ConfigSchema.Fields["accountLabel"].Required {
+		t.Fatal("expected accountLabel to be required")
+	}
 	if desc.TargetSpec.Format != "session:<opaque-session-id>" {
 		t.Fatalf("unexpected target format: %q", desc.TargetSpec.Format)
 	}
@@ -225,6 +243,46 @@ func TestNormalizeConfigPollIntervalValidationRejectsStringAndFractionalAndNonPo
 			_, err := normalizeConfig(tt.raw)
 			if err == nil {
 				t.Fatal("expected pollIntervalMs validation error")
+			}
+		})
+	}
+}
+
+func TestNormalizeConfigPollIntervalRejectsOutOfRangeValues(t *testing.T) {
+	t.Parallel()
+
+	tooLarge := "999999999999999999999999999999999999"
+	tests := []struct {
+		name string
+		raw  map[string]any
+	}{
+		{
+			name: "large string",
+			raw: map[string]any{
+				"browserContextId": "ctx-123",
+				"entryUrl":         "https://m.ctrip.com/customer-service/inbox",
+				"accountLabel":     "Agent",
+				"pollIntervalMs":   tooLarge,
+			},
+		},
+		{
+			name: "large json number",
+			raw: map[string]any{
+				"browserContextId": "ctx-123",
+				"entryUrl":         "https://m.ctrip.com/customer-service/inbox",
+				"accountLabel":     "Agent",
+				"pollIntervalMs":   json.Number(tooLarge),
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			_, err := normalizeConfig(tt.raw)
+			if err == nil {
+				t.Fatal("expected out-of-range pollIntervalMs error")
 			}
 		})
 	}

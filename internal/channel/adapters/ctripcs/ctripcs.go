@@ -61,6 +61,7 @@ func (*Adapter) Descriptor() channel.Descriptor {
 				},
 				"accountLabel": {
 					Type:        channel.FieldString,
+					Required:    true,
 					Title:       "Account Label",
 					Description: "Human-readable label used as the adapter self identity.",
 				},

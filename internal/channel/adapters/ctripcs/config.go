@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"net/url"
+	"strconv"
 	"strings"
 
 	"github.com/memohai/memoh/internal/channel"
@@ -54,6 +55,9 @@ func parseConfig(raw map[string]any) (Config, error) {
 	}
 
 	accountLabel := strings.TrimSpace(channel.ReadString(raw, "accountLabel", "account_label"))
+	if accountLabel == "" {
+		return Config{}, errors.New("ctrip_cs accountLabel is required")
+	}
 	pollIntervalMS, err := parsePollIntervalMS(raw)
 	if err != nil {
 		return Config{}, err
@@ -135,65 +139,53 @@ func lookupRawValue(raw map[string]any, keys ...string) (any, bool) {
 func strictInt(value any) (int, error) {
 	switch v := value.(type) {
 	case int:
-		return v, nil
+		return intFromInt64(int64(v))
 	case int8:
-		return int(v), nil
+		return intFromInt64(int64(v))
 	case int16:
-		return int(v), nil
+		return intFromInt64(int64(v))
 	case int32:
-		return int(v), nil
+		return intFromInt64(int64(v))
 	case int64:
-		return int(v), nil
+		return intFromInt64(v)
 	case float32:
 		if float32(int(v)) != v {
 			return 0, errors.New("fractional value is not allowed")
 		}
-		return int(v), nil
+		return intFromInt64(int64(v))
 	case float64:
 		if float64(int(v)) != v {
 			return 0, errors.New("fractional value is not allowed")
 		}
-		return int(v), nil
+		return intFromInt64(int64(v))
 	case json.Number:
-		if strings.Contains(v.String(), ".") {
-			return 0, errors.New("fractional value is not allowed")
-		}
-		return strictInt(v.String())
+		return parseStrictIntString(v.String())
 	case string:
-		value := strings.TrimSpace(v)
-		if value == "" {
-			return 0, errors.New("empty value is not allowed")
-		}
-		if strings.Contains(value, ".") {
-			return 0, errors.New("fractional value is not allowed")
-		}
-		return parseDecimalInt(value)
+		return parseStrictIntString(v)
 	default:
 		return 0, fmt.Errorf("unsupported type %T", value)
 	}
 }
 
-func parseDecimalInt(raw string) (int, error) {
-	if raw == "" {
+func parseStrictIntString(raw string) (int, error) {
+	value := strings.TrimSpace(raw)
+	if value == "" {
 		return 0, errors.New("empty value is not allowed")
 	}
-
-	sign := 1
-	start := 0
-	if raw[0] == '-' {
-		sign = -1
-		start = 1
-		if len(raw) == 1 {
-			return 0, errors.New("invalid integer value")
-		}
+	if strings.Contains(value, ".") {
+		return 0, errors.New("fractional value is not allowed")
 	}
-
-	n := 0
-	for _, r := range raw[start:] {
-		if r < '0' || r > '9' {
-			return 0, errors.New("invalid integer value")
-		}
-		n = n*10 + int(r-'0')
+	n, err := strconv.ParseInt(value, 10, strconv.IntSize)
+	if err != nil {
+		return 0, err
 	}
-	return sign * n, nil
+	return intFromInt64(n)
+}
+
+func intFromInt64(v int64) (int, error) {
+	result := int(v)
+	if int64(result) != v {
+		return 0, errors.New("integer value is out of range")
+	}
+	return result, nil
 }
