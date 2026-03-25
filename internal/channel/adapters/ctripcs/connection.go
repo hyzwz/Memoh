@@ -70,7 +70,7 @@ func (a *Adapter) Connect(ctx context.Context, cfg channel.ChannelConfig, handle
 		logger:     a.logger,
 	}
 
-	if err := p.bootstrap(ctx); err != nil {
+	if err := p.ensureBrowserContext(ctx); err != nil {
 		return nil, err
 	}
 
@@ -90,9 +90,7 @@ func (a *Adapter) Connect(ctx context.Context, cfg channel.ChannelConfig, handle
 	go func() {
 		defer close(done)
 		if err := p.run(connCtx); err != nil {
-			if errors.Is(err, context.Canceled) || errors.Is(err, ErrLoginExpired) || errors.Is(err, errMissingBrowserContext) {
-				p.logWarn("receiver stopped", err)
-			} else if !errors.Is(err, context.Canceled) {
+			if !errors.Is(err, context.Canceled) {
 				p.logWarn("receiver stopped", err)
 			}
 			if !errors.Is(err, context.Canceled) {
@@ -106,23 +104,25 @@ func (a *Adapter) Connect(ctx context.Context, cfg channel.ChannelConfig, handle
 	return conn, nil
 }
 
-func (p *poller) bootstrap(ctx context.Context) error {
-	for attempt := 0; ; attempt++ {
-		if err := p.pollOnce(ctx); err != nil {
-			if isHardConnectionError(err) {
-				return err
-			}
-			if ctx.Err() != nil {
-				return ctx.Err()
-			}
-			p.logWarn("initial poll failed, retrying", err)
-			if !sleepContext(ctx, ctripBackoffDelay(attempt)) {
-				return ctx.Err()
-			}
-			continue
-		}
-		return nil
+func (p *poller) ensureBrowserContext(ctx context.Context) error {
+	if p == nil {
+		return errors.New("ctrip_cs poller is not configured")
 	}
+	if p.gateway == nil {
+		return errors.New("ctrip_cs browser gateway is not configured")
+	}
+	contextID := strings.TrimSpace(p.cfg.BrowserContextID)
+	if contextID == "" {
+		return errors.New("ctrip_cs browserContextId is required")
+	}
+	exists, err := p.gateway.Exists(ctx, contextID)
+	if err != nil {
+		return fmt.Errorf("check browser context: %w", err)
+	}
+	if !exists {
+		return errMissingBrowserContext
+	}
+	return nil
 }
 
 func (p *poller) run(ctx context.Context) error {
@@ -132,9 +132,6 @@ func (p *poller) run(ctx context.Context) error {
 	}
 
 	for {
-		if !sleepContext(ctx, interval) {
-			return ctx.Err()
-		}
 		if err := p.pollOnce(ctx); err != nil {
 			if isHardConnectionError(err) {
 				return err
@@ -159,6 +156,9 @@ func (p *poller) run(ctx context.Context) error {
 				}
 				break
 			}
+		}
+		if !sleepContext(ctx, interval) {
+			return ctx.Err()
 		}
 	}
 }
@@ -210,17 +210,21 @@ func (p *poller) pollOnce(ctx context.Context) error {
 		if seenAt, ok := p.seen[id]; ok && now.Sub(seenAt) <= ctripSeenTTL {
 			continue
 		}
-		p.seen[id] = now
 		if p.handler == nil {
+			p.seen[id] = now
 			continue
 		}
-		if err := p.handler(ctx, p.channelCfg, msg); err != nil && p.logger != nil {
-			p.logger.Warn("ctrip_cs inbound handler failed",
-				slog.String("config_id", strings.TrimSpace(p.channelCfg.ID)),
-				slog.String("message_id", id),
-				slog.Any("error", err),
-			)
+		if err := p.handler(ctx, p.channelCfg, msg); err != nil {
+			if p.logger != nil {
+				p.logger.Warn("ctrip_cs inbound handler failed",
+					slog.String("config_id", strings.TrimSpace(p.channelCfg.ID)),
+					slog.String("message_id", id),
+					slog.Any("error", err),
+				)
+			}
+			continue
 		}
+		p.seen[id] = now
 	}
 
 	return nil

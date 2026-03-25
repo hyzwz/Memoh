@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -45,6 +46,53 @@ func TestConnectPollsAndDispatchesNewMessages(t *testing.T) {
 	}
 	if got := runner.evaluateCalls(); got < 1 {
 		t.Fatalf("unexpected evaluate call count: %d", got)
+	}
+}
+
+func TestConnectReturnsPromptlyWhenStartupEvaluateFails(t *testing.T) {
+	t.Parallel()
+
+	runner := &fakeBrowserActionRunner{
+		exists: true,
+		evaluateResponses: []fakeEvaluateResponse{
+			{err: errors.New("transient evaluate failure")},
+		},
+	}
+	adapter := &Adapter{browserGateway: runner}
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+
+	done := make(chan struct {
+		conn channel.Connection
+		err  error
+	}, 1)
+	start := time.Now()
+	go func() {
+		conn, err := adapter.Connect(ctx, testChannelConfig(), func(context.Context, channel.ChannelConfig, channel.InboundMessage) error {
+			return nil
+		})
+		done <- struct {
+			conn channel.Connection
+			err  error
+		}{conn: conn, err: err}
+	}()
+
+	select {
+	case result := <-done:
+		if result.err != nil {
+			t.Fatalf("Connect() error = %v", result.err)
+		}
+		if result.conn == nil {
+			t.Fatal("expected connection, got nil")
+		}
+		if elapsed := time.Since(start); elapsed > 250*time.Millisecond {
+			t.Fatalf("Connect() took too long: %v", elapsed)
+		}
+		if err := result.conn.Stop(context.Background()); err != nil {
+			t.Fatalf("Stop() error = %v", err)
+		}
+	case <-time.After(400 * time.Millisecond):
+		t.Fatal("Connect() did not return promptly")
 	}
 }
 
@@ -122,6 +170,74 @@ func TestConnectDeduplicatesMessageIDsAcrossPollingRounds(t *testing.T) {
 	}
 }
 
+func TestConnectRetriesSameMessageAfterHandlerFailure(t *testing.T) {
+	t.Parallel()
+
+	firstRaw := []byte(`{
+		"page_url": "https://m.ctrip.com/customer-service/inbox",
+		"account_label": "Ctrip Support A",
+		"conversation_id": "ctrip-session-456",
+		"conversation_type": "direct",
+		"login_state": "ok",
+		"messages": [{
+			"message_id": "msg-customer-9",
+			"author_id": "customer-9001",
+			"author_name": "Bob",
+			"author_role": "customer",
+			"text": "Need to change my flight",
+			"timestamp": "2026-03-25T11:00:00Z"
+		}]
+	}`)
+	secondRaw := []byte(`{
+		"page_url": "https://m.ctrip.com/customer-service/inbox",
+		"account_label": "Ctrip Support A",
+		"conversation_id": "ctrip-session-456",
+		"conversation_type": "direct",
+		"login_state": "ok",
+		"messages": [{
+			"message_id": "msg-customer-9",
+			"author_id": "customer-9001",
+			"author_name": "Bob",
+			"author_role": "customer",
+			"text": "Need to change my flight",
+			"timestamp": "2026-03-25T11:00:00Z"
+		}]
+	}`)
+
+	runner := &fakeBrowserActionRunner{
+		exists: true,
+		evaluateResponses: []fakeEvaluateResponse{
+			{raw: firstRaw},
+			{raw: secondRaw},
+		},
+	}
+	adapter := &Adapter{browserGateway: runner}
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+
+	calls := make(chan string, 4)
+	var attempts atomic.Int32
+	handler := func(_ context.Context, _ channel.ChannelConfig, msg channel.InboundMessage) error {
+		calls <- msg.Message.ID
+		if attempts.Add(1) == 1 {
+			return errors.New("downstream failure")
+		}
+		return nil
+	}
+
+	conn, err := adapter.Connect(ctx, testChannelConfig(), handler)
+	if err != nil {
+		t.Fatalf("Connect() error = %v", err)
+	}
+	defer func() { _ = conn.Stop(context.Background()) }()
+
+	first := waitForCall(t, calls, 2*time.Second)
+	second := waitForCall(t, calls, 2*time.Second)
+	if first != "msg-customer-9" || second != "msg-customer-9" {
+		t.Fatalf("unexpected message ids: %q, %q", first, second)
+	}
+}
+
 func TestConnectStopsOnMissingBrowserContext(t *testing.T) {
 	t.Parallel()
 
@@ -147,7 +263,40 @@ func TestConnectStopsOnMissingBrowserContext(t *testing.T) {
 	}
 }
 
-func TestConnectReturnsLoginExpiredAsConnectionError(t *testing.T) {
+func TestConnectStopsWhileEvaluateIsBlocked(t *testing.T) {
+	t.Parallel()
+
+	runner := &fakeBrowserActionRunner{
+		exists:      true,
+		evalStarted: make(chan struct{}),
+	}
+	adapter := &Adapter{browserGateway: runner}
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+
+	conn, err := adapter.Connect(ctx, testChannelConfig(), func(context.Context, channel.ChannelConfig, channel.InboundMessage) error {
+		return nil
+	})
+	if err != nil {
+		t.Fatalf("Connect() error = %v", err)
+	}
+	select {
+	case <-runner.evalStarted:
+	case <-time.After(500 * time.Millisecond):
+		t.Fatal("expected evaluate to start")
+	}
+
+	stopCtx, stopCancel := context.WithTimeout(context.Background(), time.Second)
+	defer stopCancel()
+	if err := conn.Stop(stopCtx); err != nil {
+		t.Fatalf("Stop() error = %v", err)
+	}
+	if conn.Running() {
+		t.Fatal("expected connection to stop running")
+	}
+}
+
+func TestConnectStopsOnLoginExpiredSnapshot(t *testing.T) {
 	t.Parallel()
 
 	runner := &fakeBrowserActionRunner{
@@ -161,14 +310,19 @@ func TestConnectReturnsLoginExpiredAsConnectionError(t *testing.T) {
 	conn, err := adapter.Connect(context.Background(), testChannelConfig(), func(context.Context, channel.ChannelConfig, channel.InboundMessage) error {
 		return nil
 	})
-	if err == nil {
-		t.Fatal("expected error, got nil")
+	if err != nil {
+		t.Fatalf("Connect() error = %v", err)
 	}
-	if !errors.Is(err, ErrLoginExpired) {
-		t.Fatalf("expected ErrLoginExpired, got %v", err)
+	if conn == nil {
+		t.Fatal("expected connection, got nil")
 	}
-	if conn != nil {
-		t.Fatalf("expected nil connection, got %#v", conn)
+	defer func() { _ = conn.Stop(context.Background()) }()
+
+	waitUntil(t, 2*time.Second, func() bool {
+		return !conn.Running()
+	})
+	if got := runner.evaluateCalls(); got < 1 {
+		t.Fatalf("unexpected evaluate call count: %d", got)
 	}
 }
 
@@ -180,28 +334,38 @@ type fakeEvaluateResponse struct {
 type fakeBrowserActionRunner struct {
 	mu sync.Mutex
 
-	exists bool
-	err    error
+	exists    bool
+	existsErr error
+
+	navigateErr error
 
 	navigateURLs      []string
 	evaluateScripts   []string
 	evaluateResponses []fakeEvaluateResponse
+
+	evalStarted     chan struct{}
+	evalStartedOnce sync.Once
 }
 
 func (f *fakeBrowserActionRunner) Exists(context.Context, string) (bool, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
-	return f.exists, f.err
+	return f.exists, f.existsErr
 }
 
 func (f *fakeBrowserActionRunner) Navigate(_ context.Context, _ string, url string) error {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	f.navigateURLs = append(f.navigateURLs, url)
-	return f.err
+	return f.navigateErr
 }
 
 func (f *fakeBrowserActionRunner) Evaluate(ctx context.Context, _ string, script string) ([]byte, error) {
+	if f.evalStarted != nil {
+		f.evalStartedOnce.Do(func() {
+			close(f.evalStarted)
+		})
+	}
 	f.mu.Lock()
 	f.evaluateScripts = append(f.evaluateScripts, script)
 	idx := len(f.evaluateScripts) - 1
@@ -257,6 +421,31 @@ func collectIDs(t *testing.T, ch <-chan string, quiet time.Duration, timeout tim
 			t.Fatalf("timed out waiting for message ids, got %v", ids)
 		}
 	}
+}
+
+func waitForCall(t *testing.T, ch <-chan string, timeout time.Duration) string {
+	t.Helper()
+
+	select {
+	case value := <-ch:
+		return value
+	case <-time.After(timeout):
+		t.Fatal("timed out waiting for handler call")
+		return ""
+	}
+}
+
+func waitUntil(t *testing.T, timeout time.Duration, condition func() bool) {
+	t.Helper()
+
+	deadline := time.Now().Add(timeout)
+	for time.Now().Before(deadline) {
+		if condition() {
+			return
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+	t.Fatal("condition was not met before timeout")
 }
 
 func testChannelConfig() channel.ChannelConfig {
