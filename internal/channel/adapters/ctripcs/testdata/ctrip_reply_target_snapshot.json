@@ -1,0 +1,17 @@
+{
+  "page_url": "https://m.ctrip.com/customer-service/inbox",
+  "account_label": "Ctrip Support A",
+  "conversation_id": "ctrip-session-456",
+  "conversation_type": "direct",
+  "login_state": "ok",
+  "messages": [
+    {
+      "message_id": "msg-customer-9",
+      "author_id": "customer-9001",
+      "author_name": "Bob",
+      "author_role": "customer",
+      "text": "Need to change my flight",
+      "timestamp": "2026-03-25T11:00:00Z"
+    }
+  ]
+}

@@ -1,0 +1,33 @@
+{
+  "page_url": "https://m.ctrip.com/customer-service/inbox",
+  "account_label": "Ctrip Support A",
+  "conversation_id": "ctrip-session-123",
+  "conversation_type": "direct",
+  "login_state": "ok",
+  "messages": [
+    {
+      "message_id": "msg-customer-1",
+      "author_id": "customer-1001",
+      "author_name": "Alice",
+      "author_role": "customer",
+      "text": "I need help with my booking",
+      "timestamp": "2026-03-25T10:00:00Z"
+    },
+    {
+      "message_id": "msg-agent-1",
+      "author_id": "agent-2001",
+      "author_name": "Ctrip Support A",
+      "author_role": "agent",
+      "text": "I can help with that.",
+      "timestamp": "2026-03-25T10:00:05Z"
+    },
+    {
+      "message_id": "msg-customer-2",
+      "author_id": "customer-1001",
+      "author_name": "Alice",
+      "author_role": "customer",
+      "text": "Please check booking #12345",
+      "timestamp": "2026-03-25T10:00:10Z"
+    }
+  ]
+}
