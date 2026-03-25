@@ -2,6 +2,7 @@ package ctripcs
 
 import (
 	"context"
+	"errors"
 	"log/slog"
 	"net/http"
 	"strings"
@@ -97,7 +98,7 @@ func (a *Adapter) DiscoverSelf(_ context.Context, credentials map[string]any) (m
 	}
 	label := strings.TrimSpace(cfg.AccountLabel)
 	if label == "" {
-		label = cfg.BrowserContextID
+		return nil, "", errors.New("ctrip_cs accountLabel is required for self discovery")
 	}
 	identity := map[string]any{
 		"accountLabel": label,
