@@ -3,6 +3,7 @@ package ctripcs
 import (
 	"context"
 	"encoding/json"
+	"strings"
 	"testing"
 
 	"github.com/memohai/memoh/internal/config"
@@ -215,6 +216,7 @@ func TestNormalizeConfigPollIntervalValidationRejectsStringAndFractionalAndNonPo
 			raw: map[string]any{
 				"browserContextId": "ctx-123",
 				"entryUrl":         "https://m.ctrip.com/customer-service/inbox",
+				"accountLabel":     "Agent",
 				"pollIntervalMs":   "1500ms",
 			},
 		},
@@ -223,6 +225,7 @@ func TestNormalizeConfigPollIntervalValidationRejectsStringAndFractionalAndNonPo
 			raw: map[string]any{
 				"browserContextId": "ctx-123",
 				"entryUrl":         "https://m.ctrip.com/customer-service/inbox",
+				"accountLabel":     "Agent",
 				"pollIntervalMs":   1500.5,
 			},
 		},
@@ -231,6 +234,7 @@ func TestNormalizeConfigPollIntervalValidationRejectsStringAndFractionalAndNonPo
 			raw: map[string]any{
 				"browserContextId": "ctx-123",
 				"entryUrl":         "https://m.ctrip.com/customer-service/inbox",
+				"accountLabel":     "Agent",
 				"pollIntervalMs":   0,
 			},
 		},
@@ -243,6 +247,9 @@ func TestNormalizeConfigPollIntervalValidationRejectsStringAndFractionalAndNonPo
 			_, err := normalizeConfig(tt.raw)
 			if err == nil {
 				t.Fatal("expected pollIntervalMs validation error")
+			}
+			if !strings.Contains(err.Error(), "pollIntervalMs") {
+				t.Fatalf("expected pollIntervalMs error, got %v", err)
 			}
 		})
 	}
@@ -283,6 +290,9 @@ func TestNormalizeConfigPollIntervalRejectsOutOfRangeValues(t *testing.T) {
 			_, err := normalizeConfig(tt.raw)
 			if err == nil {
 				t.Fatal("expected out-of-range pollIntervalMs error")
+			}
+			if !strings.Contains(err.Error(), "pollIntervalMs") {
+				t.Fatalf("expected pollIntervalMs error, got %v", err)
 			}
 		})
 	}
