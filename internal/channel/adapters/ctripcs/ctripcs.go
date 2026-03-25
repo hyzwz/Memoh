@@ -16,7 +16,7 @@ const Type channel.ChannelType = "ctrip_cs"
 
 type Adapter struct {
 	logger         *slog.Logger
-	browserGateway *browserGatewayClient
+	browserGateway browserActionRunner
 }
 
 func NewAdapter(log *slog.Logger, gatewayCfg config.BrowserGatewayConfig) *Adapter {
