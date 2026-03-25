@@ -14,7 +14,7 @@ func TestSendUsesReplyTargetToFocusConversationAndSubmit(t *testing.T) {
 
 	gateway := &testOutboundGateway{
 		exists:         true,
-		evaluateResult: []byte(`{"success":true,"focused":true,"cleared":true,"confirmed":true}`),
+		evaluateResult: []byte(`{"success":true,"focused":true,"cleared":true,"echoed":false}`),
 	}
 	adapter := &Adapter{browserGateway: gateway}
 
@@ -55,11 +55,14 @@ func TestSendUsesReplyTargetToFocusConversationAndSubmit(t *testing.T) {
 	if !strings.Contains(gateway.evaluateScripts[0], "Hello from Ctrip") {
 		t.Fatalf("expected evaluate script to include outbound text, got %q", gateway.evaluateScripts[0])
 	}
-	if !strings.Contains(gateway.evaluateScripts[0], "waitForTargetSession") {
-		t.Fatalf("expected evaluate script to verify the intended session, got %q", gateway.evaluateScripts[0])
+	if !strings.HasPrefix(strings.TrimSpace(gateway.evaluateScripts[0]), "(async () => {") {
+		t.Fatalf("expected async IIFE script shape, got %q", gateway.evaluateScripts[0])
 	}
-	if !strings.Contains(gateway.evaluateScripts[0], "waitForSendConfirmation") {
-		t.Fatalf("expected evaluate script to wait for send confirmation, got %q", gateway.evaluateScripts[0])
+	if !strings.Contains(gateway.evaluateScripts[0], "await waitForTargetSession();") {
+		t.Fatalf("expected evaluate script to await target-session focus, got %q", gateway.evaluateScripts[0])
+	}
+	if !strings.Contains(gateway.evaluateScripts[0], "return await waitForSendConfirmation(composer);") {
+		t.Fatalf("expected evaluate script to await send confirmation, got %q", gateway.evaluateScripts[0])
 	}
 }
 
@@ -95,7 +98,7 @@ func TestOpenStreamBuffersChunksAndSendsFinalMessageOnClose(t *testing.T) {
 
 	gateway := &testOutboundGateway{
 		exists:         true,
-		evaluateResult: []byte(`{"success":true,"focused":true,"cleared":true,"confirmed":true}`),
+		evaluateResult: []byte(`{"success":true,"focused":true,"cleared":true,"echoed":false}`),
 	}
 	adapter := &Adapter{browserGateway: gateway}
 
@@ -216,7 +219,7 @@ func TestSendRejectsNonConfirmedResult(t *testing.T) {
 
 	gateway := &testOutboundGateway{
 		exists:         true,
-		evaluateResult: []byte(`{"success":true,"focused":true,"cleared":true,"confirmed":false}`),
+		evaluateResult: []byte(`{"success":true,"focused":true,"cleared":false,"echoed":false}`),
 	}
 	adapter := &Adapter{browserGateway: gateway}
 
@@ -240,6 +243,25 @@ func TestSendRejectsNonConfirmedResult(t *testing.T) {
 	}
 	if !strings.Contains(err.Error(), "confirmed") && !strings.Contains(err.Error(), "failed") {
 		t.Fatalf("expected a send failure error, got %v", err)
+	}
+}
+
+func TestBuildOutboundSendScriptUsesAsyncIIFEAndWaitsForPostSubmitConfirmation(t *testing.T) {
+	t.Parallel()
+
+	script := buildOutboundSendScript("ctrip-session-123", "Hello from Ctrip")
+
+	if !strings.HasPrefix(strings.TrimSpace(script), "(async () => {") {
+		t.Fatalf("expected async IIFE script, got %q", script)
+	}
+	if !strings.Contains(script, "await waitForTargetSession();") {
+		t.Fatalf("expected target-session wait in script, got %q", script)
+	}
+	if !strings.Contains(script, "sawClear || bubble") {
+		t.Fatalf("expected post-submit confirmation to depend on clear/bubble evidence, got %q", script)
+	}
+	if strings.Contains(script, "sessionActive || bubble") || strings.Contains(script, "confirmed: sessionActive") {
+		t.Fatalf("expected script to avoid treating session focus as confirmation, got %q", script)
 	}
 }
 

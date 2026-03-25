@@ -241,7 +241,7 @@ func parseSessionTarget(raw string) (string, error) {
 }
 
 func buildOutboundSendScript(sessionID, text string) string {
-	return fmt.Sprintf(`(() => {
+	return fmt.Sprintf(`(async () => {
   const sessionId = %s;
   const messageText = %s;
   const sessionWaitMs = 1600;
@@ -382,14 +382,12 @@ func buildOutboundSendScript(sessionID, text string) string {
       if (textOf(currentValue) === '') {
         sawClear = true;
       }
-      const sessionActive = isTargetSessionActive();
       const bubble = findOutboundBubble();
-      if (sessionActive || bubble) {
+      if (sawClear || bubble) {
         return {
           success: true,
           focused: true,
           cleared: sawClear,
-          confirmed: sessionActive,
           echoed: !!bubble,
         };
       }
@@ -446,5 +444,5 @@ func (r ctripOutboundSendResult) isConfirmed() bool {
 	if !r.Success {
 		return false
 	}
-	return r.Confirmed || r.Echoed
+	return r.Cleared || r.Echoed
 }
