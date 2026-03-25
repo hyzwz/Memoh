@@ -42,8 +42,9 @@ func (*Adapter) Descriptor() channel.Descriptor {
 		Type:        Type,
 		DisplayName: "Ctrip Customer Service",
 		Capabilities: channel.ChannelCapabilities{
-			Text:  true,
-			Reply: true,
+			Text:      true,
+			Reply:     true,
+			Streaming: true,
 		},
 		ConfigSchema: channel.ConfigSchema{
 			Version: 1,
