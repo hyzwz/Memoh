@@ -79,9 +79,6 @@ func ParseInboxSnapshot(raw []byte, cfg Config) (InboxSnapshot, []channel.Inboun
 		}
 
 		metadata := buildInboundMetadata(snapshot, msg)
-		if rawMessageID != "" {
-			metadata["raw_message_id"] = rawMessageID
-		}
 
 		messages = append(messages, channel.InboundMessage{
 			Channel: Type,
