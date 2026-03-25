@@ -20,10 +20,12 @@ var (
 )
 
 type ctripOutboundSendResult struct {
-	Success bool   `json:"success"`
-	Focused bool   `json:"focused,omitempty"`
-	Cleared bool   `json:"cleared,omitempty"`
-	Error   string `json:"error,omitempty"`
+	Success   bool   `json:"success"`
+	Focused   bool   `json:"focused,omitempty"`
+	Cleared   bool   `json:"cleared,omitempty"`
+	Confirmed bool   `json:"confirmed,omitempty"`
+	Echoed    bool   `json:"echoed,omitempty"`
+	Error     string `json:"error,omitempty"`
 }
 
 type ctripOutboundStream struct {
@@ -94,6 +96,9 @@ func (a *Adapter) Send(ctx context.Context, cfg channel.ChannelConfig, msg chann
 		}
 		return errors.New("ctrip_cs outbound send failed")
 	}
+	if !result.isConfirmed() {
+		return errors.New("ctrip_cs outbound send was not confirmed")
+	}
 	return nil
 }
 
@@ -106,6 +111,9 @@ func (a *Adapter) OpenStream(ctx context.Context, cfg channel.ChannelConfig, tar
 	}
 	resolvedTarget, err := resolveStreamTarget(target, opts.Reply)
 	if err != nil {
+		return nil, err
+	}
+	if _, err := parseSessionTarget(resolvedTarget); err != nil {
 		return nil, err
 	}
 	_ = ctx
@@ -236,6 +244,9 @@ func buildOutboundSendScript(sessionID, text string) string {
 	return fmt.Sprintf(`(() => {
   const sessionId = %s;
   const messageText = %s;
+  const sessionWaitMs = 1600;
+  const confirmationWaitMs = 1500;
+  const pollIntervalMs = 75;
 
   const isVisible = (el) => {
     if (!el || typeof el !== 'object') return false;
@@ -250,23 +261,68 @@ func buildOutboundSendScript(sessionID, text string) string {
     return value.trim();
   };
 
-  const findSession = () => {
-    const selectors = [
-      '[data-session-id="' + sessionId + '"]',
-      '[data-conversation-id="' + sessionId + '"]',
-      '[data-thread-id="' + sessionId + '"]',
-      '[href*="' + sessionId + '"]',
-    ];
+  const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+  const sessionSelectors = [
+    '[data-session-id="' + sessionId + '"]',
+    '[data-conversation-id="' + sessionId + '"]',
+    '[data-thread-id="' + sessionId + '"]',
+    '[aria-label*="' + sessionId + '"]',
+    '[href*="' + sessionId + '"]',
+  ];
+
+  const activeSelectors = [
+    '[data-session-id="' + sessionId + '"][aria-selected="true"]',
+    '[data-conversation-id="' + sessionId + '"][aria-selected="true"]',
+    '[data-thread-id="' + sessionId + '"][aria-selected="true"]',
+    '[data-session-id="' + sessionId + '"][aria-current="true"]',
+    '[data-conversation-id="' + sessionId + '"][aria-current="true"]',
+    '[data-thread-id="' + sessionId + '"][aria-current="true"]',
+    '[data-session-id="' + sessionId + '"][data-active="true"]',
+    '[data-conversation-id="' + sessionId + '"][data-active="true"]',
+    '[data-thread-id="' + sessionId + '"][data-active="true"]',
+  ];
+
+  const confirmationSelectors = [
+    '[data-session-id="' + sessionId + '"] .outbound',
+    '[data-session-id="' + sessionId + '"] .message--outbound',
+    '[data-session-id="' + sessionId + '"] .bubble--outbound',
+    '[data-conversation-id="' + sessionId + '"] .outbound',
+    '[data-conversation-id="' + sessionId + '"] .message--outbound',
+    '[data-conversation-id="' + sessionId + '"] .bubble--outbound',
+    '[data-thread-id="' + sessionId + '"] .outbound',
+    '[data-thread-id="' + sessionId + '"] .message--outbound',
+    '[data-thread-id="' + sessionId + '"] .bubble--outbound',
+  ];
+
+  const findVisibleElement = (selectors) => {
     for (const selector of selectors) {
-      const el = document.querySelector(selector);
-      if (el && isVisible(el)) return el;
-    }
-    const candidates = document.querySelectorAll('button,a,[role="button"],[role="link"],li,div,span');
-    for (const el of candidates) {
-      if (!isVisible(el)) continue;
-      if (textOf(el.textContent).includes(sessionId)) return el;
+      const element = document.querySelector(selector);
+      if (element && isVisible(element)) return element;
     }
     return null;
+  };
+
+  const findSessionCandidate = () => {
+    const direct = findVisibleElement(sessionSelectors);
+    if (direct) return direct;
+    const candidates = document.querySelectorAll('button,a,[role="button"],[role="link"],li,div,span');
+    for (const element of candidates) {
+      if (!isVisible(element)) continue;
+      if (textOf(element.textContent).includes(sessionId)) return element;
+    }
+    return null;
+  };
+
+  const isTargetSessionActive = () => {
+    if (findVisibleElement(activeSelectors)) {
+      return true;
+    }
+    const selected = document.querySelector('[aria-selected="true"], [aria-current="true"], [data-active="true"]');
+    if (selected && isVisible(selected) && textOf(selected.textContent).includes(sessionId)) {
+      return true;
+    }
+    return false;
   };
 
   const findComposer = () => {
@@ -283,12 +339,77 @@ func buildOutboundSendScript(sessionID, text string) string {
     return null;
   };
 
-  const sessionEl = findSession();
+  const findOutboundBubble = () => {
+    for (const selector of confirmationSelectors) {
+      const element = document.querySelector(selector);
+      if (element && isVisible(element) && textOf(element.textContent).includes(messageText)) {
+        return element;
+      }
+    }
+    const candidates = document.querySelectorAll('[data-role="outbound"], [data-message-type="outbound"], .outbound, .message--outbound, .bubble--outbound');
+    for (const element of candidates) {
+      if (!isVisible(element)) continue;
+      if (textOf(element.textContent).includes(messageText)) return element;
+    }
+    return null;
+  };
+
+  const waitForTargetSession = async () => {
+    const deadline = Date.now() + sessionWaitMs;
+    let attempts = 0;
+    while (Date.now() < deadline) {
+      attempts += 1;
+      const candidate = findSessionCandidate();
+      if (candidate && typeof candidate.click === 'function') {
+        candidate.click();
+      }
+      if (isTargetSessionActive()) {
+        return true;
+      }
+      if (candidate && typeof candidate.scrollIntoView === 'function') {
+        candidate.scrollIntoView({ block: 'center', inline: 'center' });
+      }
+      await sleep(pollIntervalMs);
+    }
+    throw new Error('ctrip_cs session not focused for ' + sessionId + ' after ' + attempts + ' attempts');
+  };
+
+  const waitForSendConfirmation = async (composer) => {
+    const deadline = Date.now() + confirmationWaitMs;
+    let sawClear = false;
+    while (Date.now() < deadline) {
+      const currentValue = composer ? ('value' in composer ? composer.value : composer.textContent) : '';
+      if (textOf(currentValue) === '') {
+        sawClear = true;
+      }
+      const sessionActive = isTargetSessionActive();
+      const bubble = findOutboundBubble();
+      if (sessionActive || bubble) {
+        return {
+          success: true,
+          focused: true,
+          cleared: sawClear,
+          confirmed: sessionActive,
+          echoed: !!bubble,
+        };
+      }
+      await sleep(pollIntervalMs);
+    }
+    return {
+      success: false,
+      focused: true,
+      cleared: sawClear,
+      confirmed: false,
+      echoed: false,
+      error: 'ctrip_cs outbound send was not confirmed',
+    };
+  };
+
+  await waitForTargetSession();
+
+  const sessionEl = findSessionCandidate();
   if (!sessionEl) {
     throw new Error('ctrip_cs session not found for ' + sessionId);
-  }
-  if (typeof sessionEl.click === 'function') {
-    sessionEl.click();
   }
 
   const composer = findComposer();
@@ -312,17 +433,18 @@ func buildOutboundSendScript(sessionID, text string) string {
   composer.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', code: 'Enter', bubbles: true, cancelable: true }));
   composer.dispatchEvent(new KeyboardEvent('keyup', { key: 'Enter', code: 'Enter', bubbles: true, cancelable: true }));
 
-  const currentValue = isInput ? composer.value : composer.textContent;
-  const cleared = textOf(currentValue) === '';
-  return {
-    success: cleared,
-    focused: true,
-    cleared,
-  };
+  return await waitForSendConfirmation(composer);
 })()`, jsString(sessionID), jsString(text))
 }
 
 func jsString(value string) string {
 	raw, _ := json.Marshal(value)
 	return string(raw)
+}
+
+func (r ctripOutboundSendResult) isConfirmed() bool {
+	if !r.Success {
+		return false
+	}
+	return r.Confirmed || r.Echoed
 }

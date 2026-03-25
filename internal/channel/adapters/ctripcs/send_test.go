@@ -14,7 +14,7 @@ func TestSendUsesReplyTargetToFocusConversationAndSubmit(t *testing.T) {
 
 	gateway := &testOutboundGateway{
 		exists:         true,
-		evaluateResult: []byte(`{"success":true,"focused":true,"submitted":true}`),
+		evaluateResult: []byte(`{"success":true,"focused":true,"cleared":true,"confirmed":true}`),
 	}
 	adapter := &Adapter{browserGateway: gateway}
 
@@ -55,6 +55,12 @@ func TestSendUsesReplyTargetToFocusConversationAndSubmit(t *testing.T) {
 	if !strings.Contains(gateway.evaluateScripts[0], "Hello from Ctrip") {
 		t.Fatalf("expected evaluate script to include outbound text, got %q", gateway.evaluateScripts[0])
 	}
+	if !strings.Contains(gateway.evaluateScripts[0], "waitForTargetSession") {
+		t.Fatalf("expected evaluate script to verify the intended session, got %q", gateway.evaluateScripts[0])
+	}
+	if !strings.Contains(gateway.evaluateScripts[0], "waitForSendConfirmation") {
+		t.Fatalf("expected evaluate script to wait for send confirmation, got %q", gateway.evaluateScripts[0])
+	}
 }
 
 func TestSendRejectsEmptyText(t *testing.T) {
@@ -89,7 +95,7 @@ func TestOpenStreamBuffersChunksAndSendsFinalMessageOnClose(t *testing.T) {
 
 	gateway := &testOutboundGateway{
 		exists:         true,
-		evaluateResult: []byte(`{"success":true,"focused":true,"submitted":true}`),
+		evaluateResult: []byte(`{"success":true,"focused":true,"cleared":true,"confirmed":true}`),
 	}
 	adapter := &Adapter{browserGateway: gateway}
 
@@ -170,6 +176,91 @@ func TestOpenStreamPropagatesSendFailureOnClose(t *testing.T) {
 	}
 	if !errors.Is(err, wantErr) && !strings.Contains(err.Error(), wantErr.Error()) {
 		t.Fatalf("expected close error to include underlying send error, got %v", err)
+	}
+}
+
+func TestSendSurfacesBrowserErrorResult(t *testing.T) {
+	t.Parallel()
+
+	gateway := &testOutboundGateway{
+		exists:         true,
+		evaluateResult: []byte(`{"success":false,"error":"browser rejected send"}`),
+	}
+	adapter := &Adapter{browserGateway: gateway}
+
+	err := adapter.Send(context.Background(), channel.ChannelConfig{
+		Credentials: map[string]any{
+			"browserContextId": "ctx-123",
+			"entryUrl":         "https://m.ctrip.com/",
+			"inboxPageUrl":     "https://m.ctrip.com/customer-service/inbox",
+			"accountLabel":     "Ctrip Support A",
+		},
+	}, channel.OutboundMessage{
+		Message: channel.Message{
+			Text: "Hello from Ctrip",
+			Reply: &channel.ReplyRef{
+				Target: "session:ctrip-session-123",
+			},
+		},
+	})
+	if err == nil {
+		t.Fatal("expected browser error")
+	}
+	if !strings.Contains(err.Error(), "browser rejected send") {
+		t.Fatalf("expected browser error to surface, got %v", err)
+	}
+}
+
+func TestSendRejectsNonConfirmedResult(t *testing.T) {
+	t.Parallel()
+
+	gateway := &testOutboundGateway{
+		exists:         true,
+		evaluateResult: []byte(`{"success":true,"focused":true,"cleared":true,"confirmed":false}`),
+	}
+	adapter := &Adapter{browserGateway: gateway}
+
+	err := adapter.Send(context.Background(), channel.ChannelConfig{
+		Credentials: map[string]any{
+			"browserContextId": "ctx-123",
+			"entryUrl":         "https://m.ctrip.com/",
+			"inboxPageUrl":     "https://m.ctrip.com/customer-service/inbox",
+			"accountLabel":     "Ctrip Support A",
+		},
+	}, channel.OutboundMessage{
+		Message: channel.Message{
+			Text: "Hello from Ctrip",
+			Reply: &channel.ReplyRef{
+				Target: "session:ctrip-session-123",
+			},
+		},
+	})
+	if err == nil {
+		t.Fatal("expected send failure for non-confirmed result")
+	}
+	if !strings.Contains(err.Error(), "confirmed") && !strings.Contains(err.Error(), "failed") {
+		t.Fatalf("expected a send failure error, got %v", err)
+	}
+}
+
+func TestOpenStreamRejectsInvalidTargetImmediately(t *testing.T) {
+	t.Parallel()
+
+	gateway := &testOutboundGateway{exists: true}
+	adapter := &Adapter{browserGateway: gateway}
+
+	_, err := adapter.OpenStream(context.Background(), channel.ChannelConfig{
+		Credentials: map[string]any{
+			"browserContextId": "ctx-123",
+			"entryUrl":         "https://m.ctrip.com/",
+			"accountLabel":     "Ctrip Support A",
+		},
+	}, "conversation-123", channel.StreamOptions{})
+	if err == nil {
+		t.Fatal("expected invalid target error")
+	}
+	if len(gateway.calls) != 0 {
+		t.Fatalf("expected no gateway calls on invalid target, got %v", gateway.calls)
 	}
 }
 
