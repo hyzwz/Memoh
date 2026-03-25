@@ -296,7 +296,7 @@ func TestConnectStopsWhileEvaluateIsBlocked(t *testing.T) {
 	}
 }
 
-func TestConnectStopsOnLoginExpiredSnapshot(t *testing.T) {
+func TestConnectReturnsLoginExpiredAsConnectionError(t *testing.T) {
 	t.Parallel()
 
 	runner := &fakeBrowserActionRunner{
@@ -310,19 +310,11 @@ func TestConnectStopsOnLoginExpiredSnapshot(t *testing.T) {
 	conn, err := adapter.Connect(context.Background(), testChannelConfig(), func(context.Context, channel.ChannelConfig, channel.InboundMessage) error {
 		return nil
 	})
-	if err != nil {
-		t.Fatalf("Connect() error = %v", err)
+	if !errors.Is(err, ErrLoginExpired) {
+		t.Fatalf("expected ErrLoginExpired, got %v", err)
 	}
-	if conn == nil {
-		t.Fatal("expected connection, got nil")
-	}
-	defer func() { _ = conn.Stop(context.Background()) }()
-
-	waitUntil(t, 2*time.Second, func() bool {
-		return !conn.Running()
-	})
-	if got := runner.evaluateCalls(); got < 1 {
-		t.Fatalf("unexpected evaluate call count: %d", got)
+	if conn != nil {
+		t.Fatalf("expected nil connection, got %#v", conn)
 	}
 }
 

@@ -16,6 +16,7 @@ const (
 	ctripSeenTTL           = 30 * time.Minute
 	ctripSeenTrimInterval  = 5 * time.Minute
 	ctripTransientMaxDelay = 5 * time.Second
+	ctripStartupProbeDelay = 300 * time.Millisecond
 )
 
 var ctripTransientBackoffs = []time.Duration{
@@ -70,8 +71,28 @@ func (a *Adapter) Connect(ctx context.Context, cfg channel.ChannelConfig, handle
 		logger:     a.logger,
 	}
 
-	if err := p.ensureBrowserContext(ctx); err != nil {
-		return nil, err
+	startupCtx, cancelStartup := context.WithTimeout(ctx, ctripStartupProbeDelay)
+	startupErr := p.pollOnce(startupCtx)
+	cancelStartup()
+	if startupErr != nil {
+		switch {
+		case errors.Is(startupErr, ErrLoginExpired), errors.Is(startupErr, errMissingBrowserContext):
+			return nil, startupErr
+		case errors.Is(startupErr, context.Canceled), errors.Is(startupErr, context.DeadlineExceeded):
+			if a.logger != nil {
+				a.logger.Warn("ctrip_cs startup probe timed out or was canceled",
+					slog.String("config_id", strings.TrimSpace(cfg.ID)),
+					slog.Any("error", startupErr),
+				)
+			}
+		default:
+			if a.logger != nil {
+				a.logger.Warn("ctrip_cs startup probe failed, continuing in background",
+					slog.String("config_id", strings.TrimSpace(cfg.ID)),
+					slog.Any("error", startupErr),
+				)
+			}
+		}
 	}
 
 	connCtx, cancel := context.WithCancel(ctx)
@@ -102,27 +123,6 @@ func (a *Adapter) Connect(ctx context.Context, cfg channel.ChannelConfig, handle
 	}()
 
 	return conn, nil
-}
-
-func (p *poller) ensureBrowserContext(ctx context.Context) error {
-	if p == nil {
-		return errors.New("ctrip_cs poller is not configured")
-	}
-	if p.gateway == nil {
-		return errors.New("ctrip_cs browser gateway is not configured")
-	}
-	contextID := strings.TrimSpace(p.cfg.BrowserContextID)
-	if contextID == "" {
-		return errors.New("ctrip_cs browserContextId is required")
-	}
-	exists, err := p.gateway.Exists(ctx, contextID)
-	if err != nil {
-		return fmt.Errorf("check browser context: %w", err)
-	}
-	if !exists {
-		return errMissingBrowserContext
-	}
-	return nil
 }
 
 func (p *poller) run(ctx context.Context) error {
