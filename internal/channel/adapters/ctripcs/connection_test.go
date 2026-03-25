@@ -9,7 +9,53 @@ import (
 	"time"
 
 	"github.com/memohai/memoh/internal/channel"
+	"github.com/memohai/memoh/internal/config"
 )
+
+func TestAdapterDescriptorExposesExpectedCapabilities(t *testing.T) {
+	t.Parallel()
+
+	desc := NewAdapter(nil, config.BrowserGatewayConfig{}).Descriptor()
+	if desc.Type != Type {
+		t.Fatalf("unexpected type: %q", desc.Type)
+	}
+	if desc.DisplayName != "Ctrip Customer Service" {
+		t.Fatalf("unexpected display name: %q", desc.DisplayName)
+	}
+	if !desc.Capabilities.Text {
+		t.Fatal("expected text capability")
+	}
+	if !desc.Capabilities.Reply {
+		t.Fatal("expected reply capability")
+	}
+	if !desc.Capabilities.Streaming {
+		t.Fatal("expected streaming capability")
+	}
+}
+
+func TestAdapterImplementsReceiverAndSender(t *testing.T) {
+	t.Parallel()
+
+	adapter := NewAdapter(nil, config.BrowserGatewayConfig{})
+
+	var _ channel.Adapter = adapter
+	var _ channel.Receiver = adapter
+	var _ channel.Sender = adapter
+	var _ channel.StreamSender = adapter
+
+	if _, ok := any(adapter).(channel.Adapter); !ok {
+		t.Fatal("adapter does not implement channel.Adapter")
+	}
+	if _, ok := any(adapter).(channel.Receiver); !ok {
+		t.Fatal("adapter does not implement channel.Receiver")
+	}
+	if _, ok := any(adapter).(channel.Sender); !ok {
+		t.Fatal("adapter does not implement channel.Sender")
+	}
+	if _, ok := any(adapter).(channel.StreamSender); !ok {
+		t.Fatal("adapter does not implement channel.StreamSender")
+	}
+}
 
 func TestConnectPollsAndDispatchesNewMessages(t *testing.T) {
 	t.Parallel()

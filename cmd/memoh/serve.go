@@ -28,6 +28,8 @@ import (
 	"github.com/memohai/memoh/internal/browsercontexts"
 	agentruntime "github.com/memohai/memoh/internal/bun/runtime"
 	"github.com/memohai/memoh/internal/channel"
+	"github.com/memohai/memoh/internal/channel/adapters/ctripcs"
+	"github.com/memohai/memoh/internal/channel/adapters/dingtalk"
 	"github.com/memohai/memoh/internal/channel/adapters/discord"
 	"github.com/memohai/memoh/internal/channel/adapters/feishu"
 	"github.com/memohai/memoh/internal/channel/adapters/local"
@@ -310,12 +312,24 @@ func provideChannelRegistry(log *slog.Logger, hub *local.RouteHub, mediaService 
 	feishuAdapter := feishu.NewFeishuAdapter(log)
 	feishuAdapter.SetAssetOpener(mediaService)
 	registry.MustRegister(feishuAdapter)
+	registry.MustRegister(ctripcs.NewAdapter(log, cfg.BrowserGateway))
+	registry.MustRegister(dingtalk.NewDingTalkAdapter(log))
 	registry.MustRegister(local.NewCLIAdapter(hub))
 	registry.MustRegister(local.NewWebAdapter(hub))
 	return registry
 }
 
 func provideChannelRouter(log *slog.Logger, registry *channel.Registry, hub *local.RouteHub, routeService *route.DBService, msgService *message.DBService, resolver *flow.Resolver, identityService *identities.Service, botService *bots.Service, policyService *policy.Service, preauthService *preauth.Service, bindService *bind.Service, mediaService *media.Service, inboxService *inbox.Service, subagentService *subagent.Service, scheduleService *schedule.Service, settingsService *settings.Service, mcpConnService *mcp.ConnectionService, modelsService *models.Service, providersService *providers.Service, memProvService *memprovider.Service, searchProvService *searchproviders.Service, browserCtxService *browsercontexts.Service, emailService *emailpkg.Service, emailOutboxService *emailpkg.OutboxService, heartbeatService *heartbeat.Service, queries *dbsqlc.Queries, containerdHandler *handlers.ContainerdHandler, manager *mcp.Manager, rc *boot.RuntimeConfig) *inbound.ChannelInboundProcessor {
+	dingtalkAdapterRaw, ok := registry.Get(dingtalk.Type)
+	if !ok {
+		panic("dingtalk adapter not registered")
+	}
+	dingtalkAdapter, ok := dingtalkAdapterRaw.(*dingtalk.Adapter)
+	if !ok {
+		panic("dingtalk adapter has unexpected type")
+	}
+	dingtalkAdapter.SetSessionCommandHandler(dingtalk.NewRouteResetHandler(routeService))
+
 	processor := inbound.NewChannelInboundProcessor(log, registry, routeService, msgService, resolver, identityService, botService, policyService, preauthService, bindService, rc.JwtSecret, 5*time.Minute)
 	processor.SetMediaService(mediaService)
 	processor.SetStreamObserver(local.NewRouteHubBroadcaster(hub))

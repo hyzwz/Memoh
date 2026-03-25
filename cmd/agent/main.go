@@ -26,13 +26,15 @@ import (
 	"github.com/memohai/memoh/internal/bots"
 	"github.com/memohai/memoh/internal/browsercontexts"
 	"github.com/memohai/memoh/internal/channel"
+	"github.com/memohai/memoh/internal/channel/adapters/ctripcs"
+	"github.com/memohai/memoh/internal/channel/adapters/desktop"
+	"github.com/memohai/memoh/internal/channel/adapters/dingtalk"
 	"github.com/memohai/memoh/internal/channel/adapters/discord"
 	"github.com/memohai/memoh/internal/channel/adapters/feishu"
 	"github.com/memohai/memoh/internal/channel/adapters/local"
 	"github.com/memohai/memoh/internal/channel/adapters/qq"
 	"github.com/memohai/memoh/internal/channel/adapters/telegram"
 	"github.com/memohai/memoh/internal/channel/adapters/wecom"
-	"github.com/memohai/memoh/internal/channel/adapters/desktop"
 	"github.com/memohai/memoh/internal/channel/adapters/wecombot"
 	"github.com/memohai/memoh/internal/channel/identities"
 	"github.com/memohai/memoh/internal/channel/inbound"
@@ -63,12 +65,12 @@ import (
 	mcpinbox "github.com/memohai/memoh/internal/mcp/providers/inbox"
 	mcpmemory "github.com/memohai/memoh/internal/mcp/providers/memory"
 	mcpmessage "github.com/memohai/memoh/internal/mcp/providers/message"
+	mcpremotefs "github.com/memohai/memoh/internal/mcp/providers/remotefs"
 	mcpschedule "github.com/memohai/memoh/internal/mcp/providers/schedule"
 	mcpskill "github.com/memohai/memoh/internal/mcp/providers/skill"
 	mcpsubagent "github.com/memohai/memoh/internal/mcp/providers/subagent"
 	mcpweb "github.com/memohai/memoh/internal/mcp/providers/web"
 	mcpwebfetch "github.com/memohai/memoh/internal/mcp/providers/webfetch"
-	mcpremotefs "github.com/memohai/memoh/internal/mcp/providers/remotefs"
 	mcpwidget "github.com/memohai/memoh/internal/mcp/providers/widget"
 	mcpfederation "github.com/memohai/memoh/internal/mcp/sources/federation"
 	"github.com/memohai/memoh/internal/media"
@@ -426,6 +428,8 @@ func provideChannelRegistry(log *slog.Logger, hub *local.RouteHub, mediaService 
 	feishuAdapter := feishu.NewFeishuAdapter(log)
 	feishuAdapter.SetAssetOpener(mediaService)
 	registry.MustRegister(feishuAdapter)
+	registry.MustRegister(ctripcs.NewAdapter(log, cfg.BrowserGateway))
+	registry.MustRegister(dingtalk.NewDingTalkAdapter(log))
 	registry.MustRegister(wecom.NewWeComAdapter(log))
 	registry.MustRegister(wecombot.NewWeComBotAdapter(log))
 	registry.MustRegister(desktop.NewDesktopAdapter(log))
@@ -475,6 +479,16 @@ func provideChannelRouter(
 	}
 	qqAdapter.SetChannelIdentityResolver(identityService)
 	qqAdapter.SetRouteResolver(routeService)
+
+	dingtalkAdapterRaw, ok := registry.Get(dingtalk.Type)
+	if !ok {
+		panic("dingtalk adapter not registered")
+	}
+	dingtalkAdapter, ok := dingtalkAdapterRaw.(*dingtalk.Adapter)
+	if !ok {
+		panic("dingtalk adapter has unexpected type")
+	}
+	dingtalkAdapter.SetSessionCommandHandler(dingtalk.NewRouteResetHandler(routeService))
 
 	processor := inbound.NewChannelInboundProcessor(log, registry, routeService, msgService, resolver, identityService, botService, policyService, preauthService, bindService, rc.JwtSecret, 5*time.Minute)
 	processor.SetMediaService(mediaService)
@@ -564,7 +578,7 @@ func provideToolGatewayService(log *slog.Logger, cfg config.Config, channelManag
 	// remotefs: file access on desktop clients via Tailscale
 	// TODO: wire DBDeviceResolver + DBAuditLogger when device registration is complete
 	var remotefsExec mcp.ToolExecutor // = mcpremotefs.NewExecutor(log, resolver, auditLogger)
-	_ = mcpremotefs.NewClient // suppress unused import until wired
+	_ = mcpremotefs.NewClient         // suppress unused import until wired
 
 	svc := mcp.NewToolGatewayService(
 		log,
