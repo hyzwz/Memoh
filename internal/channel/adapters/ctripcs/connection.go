@@ -72,7 +72,7 @@ func (a *Adapter) Connect(ctx context.Context, cfg channel.ChannelConfig, handle
 	}
 
 	startupCtx, cancelStartup := context.WithTimeout(ctx, ctripStartupProbeDelay)
-	startupErr := p.pollOnce(startupCtx)
+	startupErr := p.startupProbe(startupCtx)
 	cancelStartup()
 	if startupErr != nil {
 		switch {
@@ -125,6 +125,16 @@ func (a *Adapter) Connect(ctx context.Context, cfg channel.ChannelConfig, handle
 	return conn, nil
 }
 
+func (p *poller) startupProbe(ctx context.Context) error {
+	if p == nil {
+		return errors.New("ctrip_cs poller is not configured")
+	}
+	if _, _, err := p.fetchMessages(ctx); err != nil {
+		return err
+	}
+	return nil
+}
+
 func (p *poller) run(ctx context.Context) error {
 	interval := time.Duration(p.cfg.PollIntervalMS) * time.Millisecond
 	if interval <= 0 {
@@ -164,38 +174,7 @@ func (p *poller) run(ctx context.Context) error {
 }
 
 func (p *poller) pollOnce(ctx context.Context) error {
-	if p == nil {
-		return errors.New("ctrip_cs poller is not configured")
-	}
-	if p.gateway == nil {
-		return errors.New("ctrip_cs browser gateway is not configured")
-	}
-	contextID := strings.TrimSpace(p.cfg.BrowserContextID)
-	if contextID == "" {
-		return errors.New("ctrip_cs browserContextId is required")
-	}
-
-	exists, err := p.gateway.Exists(ctx, contextID)
-	if err != nil {
-		return fmt.Errorf("check browser context: %w", err)
-	}
-	if !exists {
-		return errMissingBrowserContext
-	}
-
-	if !p.started {
-		if err := p.gateway.Navigate(ctx, contextID, p.cfg.EntryURL); err != nil {
-			return fmt.Errorf("navigate entry url: %w", err)
-		}
-		p.started = true
-	}
-
-	raw, err := p.gateway.Evaluate(ctx, contextID, ctripInboxSnapshotScript)
-	if err != nil {
-		return fmt.Errorf("evaluate inbox snapshot: %w", err)
-	}
-
-	_, messages, err := ParseInboxSnapshot(raw, p.cfg)
+	_, messages, err := p.fetchMessages(ctx)
 	if err != nil {
 		return err
 	}
@@ -228,6 +207,45 @@ func (p *poller) pollOnce(ctx context.Context) error {
 	}
 
 	return nil
+}
+
+func (p *poller) fetchMessages(ctx context.Context) (InboxSnapshot, []channel.InboundMessage, error) {
+	if p == nil {
+		return InboxSnapshot{}, nil, errors.New("ctrip_cs poller is not configured")
+	}
+	if p.gateway == nil {
+		return InboxSnapshot{}, nil, errors.New("ctrip_cs browser gateway is not configured")
+	}
+	contextID := strings.TrimSpace(p.cfg.BrowserContextID)
+	if contextID == "" {
+		return InboxSnapshot{}, nil, errors.New("ctrip_cs browserContextId is required")
+	}
+
+	exists, err := p.gateway.Exists(ctx, contextID)
+	if err != nil {
+		return InboxSnapshot{}, nil, fmt.Errorf("check browser context: %w", err)
+	}
+	if !exists {
+		return InboxSnapshot{}, nil, errMissingBrowserContext
+	}
+
+	if !p.started {
+		if err := p.gateway.Navigate(ctx, contextID, p.cfg.EntryURL); err != nil {
+			return InboxSnapshot{}, nil, fmt.Errorf("navigate entry url: %w", err)
+		}
+		p.started = true
+	}
+
+	raw, err := p.gateway.Evaluate(ctx, contextID, ctripInboxSnapshotScript)
+	if err != nil {
+		return InboxSnapshot{}, nil, fmt.Errorf("evaluate inbox snapshot: %w", err)
+	}
+
+	snapshot, messages, err := ParseInboxSnapshot(raw, p.cfg)
+	if err != nil {
+		return InboxSnapshot{}, nil, err
+	}
+	return snapshot, messages, nil
 }
 
 func (p *poller) trimSeen(now time.Time) {

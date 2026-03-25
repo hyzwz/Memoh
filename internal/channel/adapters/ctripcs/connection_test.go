@@ -18,6 +18,7 @@ func TestConnectPollsAndDispatchesNewMessages(t *testing.T) {
 		exists: true,
 		evaluateResponses: []fakeEvaluateResponse{
 			{raw: mustReadTestdata(t, "ctrip_inbox_snapshot.json")},
+			{raw: mustReadTestdata(t, "ctrip_inbox_snapshot.json")},
 		},
 	}
 	adapter := &Adapter{browserGateway: runner}
@@ -96,6 +97,64 @@ func TestConnectReturnsPromptlyWhenStartupEvaluateFails(t *testing.T) {
 	}
 }
 
+func TestConnectStartupProbeDoesNotInvokeHandlerBeforeReturn(t *testing.T) {
+	t.Parallel()
+
+	runner := &fakeBrowserActionRunner{
+		exists: true,
+		evaluateResponses: []fakeEvaluateResponse{
+			{raw: mustReadTestdata(t, "ctrip_inbox_snapshot.json")},
+		},
+	}
+	adapter := &Adapter{browserGateway: runner}
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+
+	handlerCalled := make(chan struct{}, 1)
+	done := make(chan struct {
+		conn channel.Connection
+		err  error
+	}, 1)
+
+	go func() {
+		conn, err := adapter.Connect(ctx, testChannelConfig(), func(_ context.Context, _ channel.ChannelConfig, _ channel.InboundMessage) error {
+			select {
+			case handlerCalled <- struct{}{}:
+			default:
+			}
+			return nil
+		})
+		done <- struct {
+			conn channel.Connection
+			err  error
+		}{conn: conn, err: err}
+	}()
+
+	var result struct {
+		conn channel.Connection
+		err  error
+	}
+	select {
+	case result = <-done:
+	case <-time.After(2 * time.Second):
+		t.Fatal("Connect() did not return")
+	}
+	if result.err != nil {
+		t.Fatalf("Connect() error = %v", result.err)
+	}
+	select {
+	case <-handlerCalled:
+		t.Fatal("startup probe invoked handler before Connect() returned")
+	default:
+	}
+	if result.conn == nil {
+		t.Fatal("expected connection, got nil")
+	}
+	if err := result.conn.Stop(context.Background()); err != nil {
+		t.Fatalf("Stop() error = %v", err)
+	}
+}
+
 func TestConnectDeduplicatesMessageIDsAcrossPollingRounds(t *testing.T) {
 	t.Parallel()
 
@@ -144,6 +203,7 @@ func TestConnectDeduplicatesMessageIDsAcrossPollingRounds(t *testing.T) {
 		exists: true,
 		evaluateResponses: []fakeEvaluateResponse{
 			{raw: firstRaw},
+			{raw: secondRaw},
 			{raw: secondRaw},
 		},
 	}
@@ -208,6 +268,7 @@ func TestConnectRetriesSameMessageAfterHandlerFailure(t *testing.T) {
 		exists: true,
 		evaluateResponses: []fakeEvaluateResponse{
 			{raw: firstRaw},
+			{raw: secondRaw},
 			{raw: secondRaw},
 		},
 	}
@@ -293,6 +354,55 @@ func TestConnectStopsWhileEvaluateIsBlocked(t *testing.T) {
 	}
 	if conn.Running() {
 		t.Fatal("expected connection to stop running")
+	}
+}
+
+func TestConnectReturnsPromptlyWhenParentContextCanceledDuringStartupEvaluate(t *testing.T) {
+	t.Parallel()
+
+	runner := &fakeBrowserActionRunner{
+		exists:      true,
+		evalStarted: make(chan struct{}),
+	}
+	adapter := &Adapter{browserGateway: runner}
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	done := make(chan struct {
+		conn channel.Connection
+		err  error
+	}, 1)
+	go func() {
+		conn, err := adapter.Connect(ctx, testChannelConfig(), func(context.Context, channel.ChannelConfig, channel.InboundMessage) error {
+			return nil
+		})
+		done <- struct {
+			conn channel.Connection
+			err  error
+		}{conn: conn, err: err}
+	}()
+
+	select {
+	case <-runner.evalStarted:
+	case <-time.After(500 * time.Millisecond):
+		t.Fatal("expected evaluate to start")
+	}
+
+	cancel()
+
+	select {
+	case result := <-done:
+		if result.err != nil {
+			t.Fatalf("Connect() error = %v", result.err)
+		}
+		if result.conn == nil {
+			t.Fatal("expected connection, got nil")
+		}
+		if err := result.conn.Stop(context.Background()); err != nil {
+			t.Fatalf("Stop() error = %v", err)
+		}
+	case <-time.After(500 * time.Millisecond):
+		t.Fatal("Connect() did not return after parent cancellation")
 	}
 }
 
