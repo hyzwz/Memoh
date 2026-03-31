@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net"
 	"net/url"
 	"strconv"
 	"strings"
@@ -99,10 +100,28 @@ func validateCtripURL(raw, fieldName string) (string, error) {
 }
 
 func isCtripHost(host string) bool {
+	if isLocalSimulatorHost(host) {
+		return true
+	}
+
 	switch {
 	case host == "ctrip.com", host == "ctrip.cn":
 		return true
 	case strings.HasSuffix(host, ".ctrip.com"), strings.HasSuffix(host, ".ctrip.cn"):
+		return true
+	default:
+		return false
+	}
+}
+
+func isLocalSimulatorHost(host string) bool {
+	host = strings.ToLower(strings.TrimSpace(host))
+	if net.ParseIP(host) != nil {
+		return true
+	}
+
+	switch host {
+	case "localhost", "127.0.0.1", "::1":
 		return true
 	default:
 		return false

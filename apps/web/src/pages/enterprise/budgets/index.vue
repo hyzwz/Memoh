@@ -312,7 +312,7 @@ const form = reactive({
 const { data: budgets, status, refetch } = useQuery({
   key: () => ['budgets'],
   query: async () => {
-    const res = await client.GET('/budgets', { params: { query: {} } })
+    const res = await client.get({ url: '/budgets', query: {} })
     if (res.error) throw new Error('Failed')
     return res.data ?? []
   },
@@ -349,7 +349,11 @@ async function handleCreate() {
   creating.value = true
   try {
     const scopeId = isScopeIdOptional(form.scope_type) ? 'system' : form.scope_id
-    const res = await client.POST('/budgets', { body: { ...form, scope_id: scopeId } })
+    const res = await client.post({
+      url: '/budgets',
+      body: { ...form, scope_id: scopeId },
+      headers: { 'Content-Type': 'application/json' },
+    })
     if (res.error) throw res.error
     showCreate.value = false
     form.scope_id = ''
@@ -365,7 +369,10 @@ async function handleCreate() {
 
 async function handleDelete(id: string) {
   try {
-    const res = await client.DELETE('/budgets/{budget_id}', { params: { path: { budget_id: id } } })
+    const res = await client.delete({
+      url: '/budgets/{budget_id}',
+      path: { budget_id: id },
+    })
     if (res.error) throw res.error
     refetch()
     toast.success('预算已删除')

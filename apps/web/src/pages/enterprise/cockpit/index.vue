@@ -207,11 +207,10 @@ watch(botList, (list) => {
 const { data: summary, status, refetch } = useQuery({
   key: () => ['cockpit-summary', selectedBotId.value, days.value],
   query: async () => {
-    const res = await client.GET('/bots/{bot_id}/cockpit/summary', {
-      params: {
-        path: { bot_id: selectedBotId.value },
-        query: { days: parseInt(days.value) },
-      },
+    const res = await client.get({
+      url: '/bots/{bot_id}/cockpit/summary',
+      path: { bot_id: selectedBotId.value },
+      query: { days: parseInt(days.value) },
     })
     if (res.error) throw new Error('Failed to load cockpit summary')
     return res.data

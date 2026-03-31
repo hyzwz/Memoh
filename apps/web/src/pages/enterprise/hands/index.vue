@@ -224,8 +224,9 @@ watch(botList, (list) => {
 const { data: hands, status, refetch } = useQuery({
   key: () => ['hands', selectedBotId.value],
   query: async () => {
-    const res = await client.GET('/bots/{bot_id}/hands', {
-      params: { path: { bot_id: selectedBotId.value } },
+    const res = await client.get({
+      url: '/bots/{bot_id}/hands',
+      path: { bot_id: selectedBotId.value },
     })
     if (res.error) throw new Error('Failed')
     return res.data ?? []
@@ -238,9 +239,11 @@ const isLoading = computed(() => status.value === 'loading')
 async function handleCreate() {
   creating.value = true
   try {
-    const res = await client.POST('/bots/{bot_id}/hands', {
-      params: { path: { bot_id: selectedBotId.value } },
+    const res = await client.post({
+      url: '/bots/{bot_id}/hands',
+      path: { bot_id: selectedBotId.value },
       body: { markdown: markdownInput.value },
+      headers: { 'Content-Type': 'application/json' },
     })
     if (res.error) throw res.error
     showCreate.value = false
@@ -253,8 +256,10 @@ async function handleCreate() {
 async function handleExecute(handId: string) {
   executing.value = handId
   try {
-    const res = await client.POST('/bots/{bot_id}/hands/{hand_id}/execute', {
-      params: { path: { bot_id: selectedBotId.value, hand_id: handId } },
+    const res = await client.post({
+      url: '/bots/{bot_id}/hands/{hand_id}/execute',
+      path: { bot_id: selectedBotId.value, hand_id: handId },
+      headers: { 'Content-Type': 'application/json' },
     })
     if (res.error) throw res.error
     toast.success('Hand执行成功')
@@ -263,8 +268,9 @@ async function handleExecute(handId: string) {
 
 async function handleDelete(handId: string) {
   try {
-    const res = await client.DELETE('/bots/{bot_id}/hands/{hand_id}', {
-      params: { path: { bot_id: selectedBotId.value, hand_id: handId } },
+    const res = await client.delete({
+      url: '/bots/{bot_id}/hands/{hand_id}',
+      path: { bot_id: selectedBotId.value, hand_id: handId },
     })
     if (res.error) throw res.error
     refetch()

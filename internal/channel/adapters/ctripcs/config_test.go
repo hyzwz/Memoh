@@ -133,6 +133,64 @@ func TestNormalizeConfigRejectsNonCtripEntryURL(t *testing.T) {
 	}
 }
 
+func TestNormalizeConfigAllowsLocalSimulatorURLs(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name string
+		raw  map[string]any
+	}{
+		{
+			name: "localhost entry url",
+			raw: map[string]any{
+				"browserContextId": "ctx-123",
+				"entryUrl":         "http://127.0.0.1:4173/",
+				"accountLabel":     "Agent",
+			},
+		},
+		{
+			name: "localhost inbox override",
+			raw: map[string]any{
+				"browserContextId": "ctx-123",
+				"entryUrl":         "http://localhost:4173/",
+				"accountLabel":     "Agent",
+				"inboxPageUrl":     "http://[::1]:4173/",
+			},
+		},
+		{
+			name: "lan ipv4 host",
+			raw: map[string]any{
+				"browserContextId": "ctx-123",
+				"entryUrl":         "http://192.168.0.108:4175/",
+				"accountLabel":     "Agent",
+				"inboxPageUrl":     "http://192.168.0.108:4175/",
+			},
+		},
+		{
+			name: "public ipv4 host",
+			raw: map[string]any{
+				"browserContextId": "ctx-123",
+				"entryUrl":         "http://100.84.18.125:4175/",
+				"accountLabel":     "Agent",
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			got, err := normalizeConfig(tt.raw)
+			if err != nil {
+				t.Fatalf("expected no error, got %v", err)
+			}
+			if got["browserContextId"] != "ctx-123" {
+				t.Fatalf("unexpected browserContextId: %#v", got["browserContextId"])
+			}
+		})
+	}
+}
+
 func TestDiscoverSelfUsesAccountLabel(t *testing.T) {
 	t.Parallel()
 

@@ -232,7 +232,7 @@ watch(botList, (list) => {
 const { data: modelData } = useQuery({
   key: () => ['models'],
   query: async () => {
-    const res = await client.GET('/models')
+    const res = await client.get({ url: '/models' })
     if (res.error) return []
     return res.data ?? []
   },
@@ -242,8 +242,9 @@ const modelList = computed(() => (modelData.value as Record<string, unknown>[]) 
 const { data: routes, status, refetch } = useQuery({
   key: () => ['model-routes', selectedBotId.value],
   query: async () => {
-    const res = await client.GET('/bots/{bot_id}/model-routes', {
-      params: { path: { bot_id: selectedBotId.value } },
+    const res = await client.get({
+      url: '/bots/{bot_id}/model-routes',
+      path: { bot_id: selectedBotId.value },
     })
     if (res.error) throw new Error('Failed to load model routes')
     return res.data ?? []
@@ -270,9 +271,11 @@ function shortId(id: string | undefined): string {
 async function handleCreate() {
   creating.value = true
   try {
-    const res = await client.POST('/bots/{bot_id}/model-routes', {
-      params: { path: { bot_id: selectedBotId.value } },
+    const res = await client.post({
+      url: '/bots/{bot_id}/model-routes',
+      path: { bot_id: selectedBotId.value },
       body: { ...form },
+      headers: { 'Content-Type': 'application/json' },
     })
     if (res.error) throw res.error
     showCreate.value = false
@@ -288,8 +291,9 @@ async function handleCreate() {
 
 async function handleDelete(id: string) {
   try {
-    const res = await client.DELETE('/bots/{bot_id}/model-routes/{route_id}', {
-      params: { path: { bot_id: selectedBotId.value, route_id: id } },
+    const res = await client.delete({
+      url: '/bots/{bot_id}/model-routes/{route_id}',
+      path: { bot_id: selectedBotId.value, route_id: id },
     })
     if (res.error) throw res.error
     refetch()

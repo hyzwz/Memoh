@@ -118,6 +118,7 @@ const routes = [
       {
         name: 'model-routing',
         path: '/model-routing',
+        alias: '/enterprise/model-routing',
         component: () => import('@/pages/enterprise/model-routing/index.vue'),
         meta: {
           breadcrumb: i18nRef('sidebar.modelRouting'),

@@ -237,15 +237,14 @@ watch(botList, (list) => {
 const { data: rawData, status, refetch } = useQuery({
   key: () => ['audit-logs', selectedBotId.value, filterUserId.value, filterAction.value],
   query: async () => {
-    const res = await client.GET('/bots/{bot_id}/audit-logs', {
-      params: {
-        path: { bot_id: selectedBotId.value },
-        query: {
-          limit: 100,
-          offset: 0,
-          user_id: filterUserId.value || undefined,
-          action: filterAction.value === '__all__' ? undefined : filterAction.value || undefined,
-        },
+    const res = await client.get({
+      url: '/bots/{bot_id}/audit-logs',
+      path: { bot_id: selectedBotId.value },
+      query: {
+        limit: 100,
+        offset: 0,
+        user_id: filterUserId.value || undefined,
+        action: filterAction.value === '__all__' ? undefined : filterAction.value || undefined,
       },
     })
     if (res.error) throw new Error('Failed to load audit logs')
