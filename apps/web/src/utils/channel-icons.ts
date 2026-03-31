@@ -10,6 +10,7 @@ const LOCAL_CHANNEL_IMAGES: Record<string, string> = {
 }
 
 const CHANNEL_ICONS: Record<string, [string, string]> = {
+  dingtalk: ['fas', 'comments'],
   qq: ['fab', 'qq'],
   telegram: ['fab', 'telegram'],
   feishu: ['fas', 'comment-dots'],
