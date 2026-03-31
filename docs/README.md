@@ -2,6 +2,16 @@
 
 这是 Memoh 项目的官方文档。
 
+## 架构专题
+
+当前这类架构设计稿主要放在 `docs/architecture/` 目录下，可直接阅读：
+
+- [智能客服方案总览](./architecture/智能客服方案总览.md)
+- [智能客服开发蓝图](./architecture/智能客服开发蓝图.md)
+- [智能客服实施路线与数据设计](./architecture/智能客服实施路线与数据设计.md)
+- [智能客服前端状态机与工作台设计](./architecture/智能客服前端状态机与工作台设计.md)
+- [智能客服系统架构方案（完整主文档）](./architecture/智能客服系统架构方案.md)
+
 ## 本地开发
 
 安装依赖：
@@ -41,4 +51,3 @@ pnpm preview
 ## 手动部署
 
 如果需要手动触发部署，可以在 GitHub Actions 页面选择 "Deploy Docs" workflow，然后点击 "Run workflow"。
-

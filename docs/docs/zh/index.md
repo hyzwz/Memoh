@@ -7,6 +7,13 @@ Memoh 是一个多成员、长记忆、容器化的 AI Agent 系统。
 - [快速开始](/getting-started.md)
 - [核心概念](/zh/concepts/index.md)
 
+## 架构专题
+
+- [智能客服方案总览](../../architecture/智能客服方案总览.md)
+- [智能客服实施路线与数据设计](../../architecture/智能客服实施路线与数据设计.md)
+- [智能客服前端状态机与工作台设计](../../architecture/智能客服前端状态机与工作台设计.md)
+- [智能客服系统架构方案（完整主文档）](../../architecture/智能客服系统架构方案.md)
+
 ## 面向文档贡献者
 
 - [术语规范](/zh/style/terminology.md)
