@@ -25,6 +25,7 @@ require (
 	github.com/mailgun/mailgun-go/v5 v5.14.0
 	github.com/memohai/acgo v0.0.0-20260221232113-babac0d6acd7
 	github.com/modelcontextprotocol/go-sdk v1.4.0
+	github.com/open-dingtalk/dingtalk-stream-sdk-go v0.9.1
 	github.com/opencontainers/image-spec v1.1.1
 	github.com/opencontainers/runtime-spec v1.3.0
 	github.com/qdrant/go-client v1.17.1
