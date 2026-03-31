@@ -1,0 +1,283 @@
+<template>
+  <div
+    class="flex gap-3 items-start"
+    :class="message.role === 'user' && isSelf ? 'justify-end' : ''"
+  >
+    <!-- Assistant avatar -->
+    <div
+      v-if="message.role === 'assistant'"
+      class="relative shrink-0"
+    >
+      <Avatar class="size-8">
+        <AvatarImage
+          v-if="botAvatarUrl"
+          :src="botAvatarUrl"
+          :alt="botName"
+        />
+        <AvatarFallback class="text-xs bg-primary/10 text-primary">
+          <FontAwesomeIcon
+            :icon="['fas', 'robot']"
+            class="size-4"
+          />
+        </AvatarFallback>
+      </Avatar>
+      <span
+        v-if="message.platform"
+        class="absolute -bottom-1 -right-1 text-[10px] bg-muted rounded-full px-1"
+      >{{ message.platform }}</span>
+    </div>
+
+    <!-- User avatar (other sender, left-aligned) -->
+    <div
+      v-if="message.role === 'user' && !isSelf"
+      class="relative shrink-0"
+    >
+      <Avatar class="size-8">
+        <AvatarImage
+          v-if="message.senderAvatarUrl"
+          :src="message.senderAvatarUrl"
+          :alt="message.senderDisplayName"
+        />
+        <AvatarFallback class="text-xs">
+          {{ senderFallback }}
+        </AvatarFallback>
+      </Avatar>
+      <span
+        v-if="message.platform"
+        class="absolute -bottom-1 -right-1 text-[10px] bg-muted rounded-full px-1"
+      >{{ message.platform }}</span>
+    </div>
+
+    <!-- Content -->
+    <div
+      class="min-w-0"
+      :class="contentClass"
+      data-chat-content
+    >
+      <!-- Sender name for non-self user messages -->
+      <p
+        v-if="message.role === 'user' && !isSelf"
+        class="text-xs text-muted-foreground mb-1"
+      >
+        {{ message.senderDisplayName || senderFallbackName }}
+      </p>
+
+      <!-- User message -->
+      <div
+        v-if="message.role === 'user'"
+        class="space-y-2"
+      >
+        <div
+          v-for="(block, i) in message.blocks"
+          :key="i"
+        >
+          <div
+            v-if="block.type === 'text' && cleanUserText(block.content)"
+            class="rounded-2xl px-4 py-2.5 text-sm whitespace-pre-wrap"
+            :class="isSelf
+              ? 'rounded-tr-sm bg-primary text-primary-foreground'
+              : 'rounded-tl-sm bg-accent/60 text-foreground'"
+          >
+            {{ cleanUserText(block.content) }}
+          </div>
+          <AttachmentBlock
+            v-else-if="block.type === 'attachment'"
+            :block="(block as AttachmentBlockType)"
+            :on-open-media="onOpenMedia"
+          />
+        </div>
+        <p
+          class="text-xs text-muted-foreground/80 mt-1"
+          :title="fullTimestamp"
+        >
+          {{ relativeTimestamp }}
+        </p>
+      </div>
+
+      <!-- Assistant message blocks -->
+      <div
+        v-else
+        class="space-y-3"
+      >
+        <!-- Bot name label -->
+        <p
+          v-if="botName"
+          class="text-xs text-muted-foreground"
+        >
+          {{ botName }}
+        </p>
+
+        <template
+          v-for="(block, i) in message.blocks"
+          :key="i"
+        >
+          <!-- Thinking block -->
+          <ThinkingBlock
+            v-if="block.type === 'thinking'"
+            :block="(block as ThinkingBlockType)"
+            :streaming="message.streaming && !block.done"
+          />
+
+          <!-- Tool call block -->
+          <ToolCallBlock
+            v-else-if="block.type === 'tool_call'"
+            :block="(block as ToolCallBlockType)"
+            @send-prompt="$emit('send-prompt', $event)"
+          />
+
+          <!-- Widget block -->
+          <GenerativeWidget
+            v-else-if="block.type === 'widget'"
+            :html="(block as WidgetBlockType).html"
+            :title="(block as WidgetBlockType).title"
+            :height="(block as WidgetBlockType).height"
+            :streaming="message.streaming && !(block as WidgetBlockType).done"
+            @send-prompt="$emit('send-prompt', $event)"
+          />
+
+          <!-- Text block -->
+          <div
+            v-else-if="block.type === 'text' && block.content"
+            class="prose prose-sm dark:prose-invert max-w-none *:first:mt-0"
+          >
+            <MarkdownRender
+              :content="block.content"
+              custom-id="chat-msg"
+            />
+          </div>
+
+          <!-- Attachment block -->
+          <AttachmentBlock
+            v-else-if="block.type === 'attachment'"
+            :block="(block as AttachmentBlockType)"
+            :on-open-media="onOpenMedia"
+          />
+        </template>
+
+        <!-- Streaming indicator -->
+        <div
+          v-if="message.streaming && message.blocks.length === 0"
+          class="flex items-center gap-2 text-sm text-muted-foreground h-8"
+        >
+          <FontAwesomeIcon
+            :icon="['fas', 'spinner']"
+            class="size-3.5 animate-spin"
+          />
+          Thinking...
+        </div>
+        <p
+          class="text-xs text-muted-foreground/80 mt-1"
+          :title="fullTimestamp"
+        >
+          {{ relativeTimestamp }}
+        </p>
+      </div>
+    </div>
+
+    <!-- Self user avatar (right side) -->
+    <div
+      v-if="message.role === 'user' && isSelf"
+      class="relative shrink-0"
+    >
+      <Avatar class="size-8">
+        <AvatarImage
+          v-if="selfAvatarUrl"
+          :src="selfAvatarUrl"
+          alt=""
+        />
+        <AvatarFallback class="text-xs">
+          {{ selfFallback }}
+        </AvatarFallback>
+      </Avatar>
+      <span
+        v-if="message.platform"
+        class="absolute -bottom-1 -right-1 text-[10px] bg-muted rounded-full px-1"
+      >{{ message.platform }}</span>
+    </div>
+  </div>
+</template>
+
+<script setup lang="ts">
+import { computed } from 'vue'
+import { formatRelativeTime, formatDateTime } from '@/utils/date-time'
+import { Avatar, AvatarImage, AvatarFallback } from '@memoh/ui'
+import MarkdownRender, { enableKatex, enableMermaid } from 'markstream-vue'
+import ThinkingBlock from './thinking-block.vue'
+import ToolCallBlock from './tool-call-block.vue'
+import AttachmentBlock from './attachment-block.vue'
+import { useAppStore } from '@/stores/app'
+import { useChatStore } from '@/stores/chat'
+import { storeToRefs } from 'pinia'
+import { GenerativeWidget } from '@memoh/ui'
+import type {
+  ChatMessage,
+  ThinkingBlock as ThinkingBlockType,
+  ToolCallBlock as ToolCallBlockType,
+  AttachmentBlock as AttachmentBlockType,
+  WidgetBlock as WidgetBlockType,
+} from '@/stores/chat'
+
+enableKatex()
+enableMermaid()
+
+const props = defineProps<{
+  message: ChatMessage
+  onOpenMedia?: (src: string) => void
+}>()
+
+defineEmits<{
+  'send-prompt': [prompt: string]
+}>()
+
+const appStore = useAppStore()
+const chatStore = useChatStore()
+const { currentBotId, bots } = storeToRefs(chatStore)
+
+const isSelf = computed(() => props.message.isSelf !== false)
+
+const currentBot = computed(() =>
+  bots.value.find((b) => b.id === currentBotId.value) ?? null,
+)
+
+const botAvatarUrl = computed(() => (currentBot.value as Record<string, unknown>)?.avatar_url as string ?? '')
+const botName = computed(() => (currentBot.value as Record<string, unknown>)?.display_name as string ?? appStore.botName ?? '')
+
+const selfAvatarUrl = computed(() =>
+  props.message.senderAvatarUrl || '',
+)
+const selfFallback = computed(() => {
+  const name = props.message.senderDisplayName || ''
+  return name.slice(0, 2).toUpperCase() || 'U'
+})
+
+const senderFallbackName = computed(() => {
+  const p = (props.message.platform ?? '').trim()
+  return p ? `${p.charAt(0).toUpperCase()}${p.slice(1)} User` : 'Unknown User'
+})
+
+const senderFallback = computed(() => {
+  const name = props.message.senderDisplayName ?? ''
+  return name.slice(0, 2).toUpperCase() || '?'
+})
+
+function cleanUserText(content?: string): string {
+  if (!content) return ''
+  return content
+    .split('\n')
+    .filter((line) => !/^\[attachment:\w+\]\s/.test(line.trim()))
+    .join('\n')
+    .trim()
+}
+
+const contentClass = computed(() => {
+  if (props.message.role === 'user') return 'max-w-[80%]'
+  return 'flex-1 max-w-full'
+})
+
+const relativeTimestamp = computed(() =>
+  formatRelativeTime(props.message.timestamp),
+)
+const fullTimestamp = computed(() =>
+  formatDateTime(props.message.timestamp.toISOString()),
+)
+</script>

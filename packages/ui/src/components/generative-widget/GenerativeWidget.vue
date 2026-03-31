@@ -56,7 +56,7 @@ function createPurifyInstance() {
   const purify = DOMPurify(window)
 
   // Allow only onclick="sendPrompt('...')" — strict match, no trailing code
-  purify.addHook('uponSanitizeAttribute', (node: Element, data) => {
+  purify.addHook('uponSanitizeAttribute', (_node: Element, data) => {
     if (data.attrName === 'onclick') {
       const val = data.attrValue.trim()
       // Only allow: sendPrompt('...') or sendPrompt("...") — nothing after closing paren

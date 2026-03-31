@@ -2,10 +2,10 @@
   "$schema": "https://wails.io/schemas/config.v2.json",
   "name": "greatclaw-desktop",
   "outputfilename": "greatclaw",
-  "frontend:install": "pnpm install",
-  "frontend:build": "pnpm build",
-  "frontend:dev:watcher": "pnpm dev",
-  "frontend:dev:serverUrl": "auto",
+  "frontend:install": "cd ../.. && pnpm install",
+  "frontend:build": "cd ../../apps/desktop && pnpm build && rm -rf ../../greatclaw-desktop/frontend/dist && cp -r dist ../../greatclaw-desktop/frontend/dist",
+  "frontend:dev:watcher": "tail -f /dev/null",
+  "frontend:dev:serverUrl": "http://localhost:34115",
   "author": {
     "name": "Memoh"
   }
