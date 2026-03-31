@@ -814,6 +814,7 @@
       "webhookCallbackPending": "保存平台配置后会生成回调地址。",
       "noAvailableTypes": "所有平台类型均已配置",
       "types": {
+        "dingtalk": "钉钉",
         "feishu": "飞书",
         "discord": "Discord",
         "qq": "QQ",
@@ -822,6 +823,7 @@
         "local": "本地"
       },
       "typesShort": {
+        "dingtalk": "钉",
         "feishu": "飞",
         "discord": "DC",
         "qq": "QQ",

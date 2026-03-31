@@ -818,6 +818,7 @@
       "webhookCallbackPending": "Save this platform configuration to generate the callback URL.",
       "noAvailableTypes": "All platform types have been configured",
       "types": {
+        "dingtalk": "DingTalk",
         "feishu": "Feishu",
         "discord": "Discord",
         "qq": "QQ",
@@ -826,6 +827,7 @@
         "local": "Local"
       },
       "typesShort": {
+        "dingtalk": "DT",
         "feishu": "FS",
         "discord": "DC",
         "qq": "QQ",

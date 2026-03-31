@@ -104,6 +104,7 @@ memory.db
 config.toml
 
 .workdocs/
+.worktrees/
 data
 _main-ref/
 .playwright-mcp/
