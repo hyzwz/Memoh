@@ -25,6 +25,7 @@ import {
 } from '@memoh/sdk'
 import type { HandlersFsFileInfo } from '@memoh/sdk'
 import { resolveApiErrorMessage } from '@/utils/api-error'
+import { buildFileDownloadUrl } from './download-url'
 import { pathSegments, joinPath } from './utils'
 import FileList from './file-list.vue'
 import FileViewer from './file-viewer.vue'
@@ -238,7 +239,8 @@ async function handleDelete() {
 
 // Download
 function handleDownload(entry: HandlersFsFileInfo) {
-  const url = `/api/bots/${props.botId}/container/fs/download?path=${encodeURIComponent(entry.path ?? '')}`
+  const token = localStorage.getItem('token') ?? ''
+  const url = buildFileDownloadUrl(props.botId, entry.path ?? '', token)
   const a = document.createElement('a')
   a.href = url
   a.download = entry.name ?? 'file'

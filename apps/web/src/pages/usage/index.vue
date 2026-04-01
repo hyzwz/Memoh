@@ -286,6 +286,7 @@ import { getBotsQuery } from '@memoh/sdk/colada'
 import { getBotsByBotIdTokenUsage } from '@memoh/sdk'
 import type { HandlersDailyTokenUsage, HandlersModelTokenUsage } from '@memoh/sdk'
 import { useSyncedQueryParam } from '@/composables/useSyncedQueryParam'
+import { buildDailyTokensSeries } from './daily-tokens'
 
 use([CanvasRenderer, LineChart, BarChart, PieChart, GridComponent, TooltipComponent, LegendComponent])
 
@@ -499,8 +500,8 @@ const dailyTokensOption = computed(() => {
   const hbMap = buildDayMap(usageData.value?.heartbeat)
   return {
     tooltip: { trigger: 'axis' as const },
-    legend: { 
-      data: [t('usage.chatInput'), t('usage.chatOutput'), t('usage.heartbeatInput'), t('usage.heartbeatOutput')],
+    legend: {
+      data: [t('usage.totalInputTokens'), t('usage.totalOutputTokens')],
       bottom: 0,
       left: 'center',
       itemGap: 16,
@@ -508,36 +509,10 @@ const dailyTokensOption = computed(() => {
     grid: { left: 60, right: 20, bottom: 50, top: 20 },
     xAxis: { type: 'category' as const, data: days },
     yAxis: { type: 'value' as const },
-    series: [
-      {
-        name: t('usage.chatInput'),
-        type: 'line' as const,
-        stack: 'input',
-        areaStyle: {},
-        data: days.map(d => chatMap.get(d)?.input_tokens ?? 0),
-      },
-      {
-        name: t('usage.heartbeatInput'),
-        type: 'line' as const,
-        stack: 'input',
-        areaStyle: {},
-        data: days.map(d => hbMap.get(d)?.input_tokens ?? 0),
-      },
-      {
-        name: t('usage.chatOutput'),
-        type: 'line' as const,
-        stack: 'output',
-        areaStyle: {},
-        data: days.map(d => chatMap.get(d)?.output_tokens ?? 0),
-      },
-      {
-        name: t('usage.heartbeatOutput'),
-        type: 'line' as const,
-        stack: 'output',
-        areaStyle: {},
-        data: days.map(d => hbMap.get(d)?.output_tokens ?? 0),
-      },
-    ],
+    series: buildDailyTokensSeries(days, chatMap, hbMap, {
+      totalInput: t('usage.totalInputTokens'),
+      totalOutput: t('usage.totalOutputTokens'),
+    }),
   }
 })
 

@@ -195,7 +195,12 @@ func execPTY(stream pb.ContainerService_ExecServer, firstMsg *pb.ExecInput) erro
 		workDir = defaultWorkDir
 	}
 
-	cmd := exec.CommandContext(stream.Context(), "/bin/sh", "-c", command) //nolint:gosec // G204: intentional
+	var cmd *exec.Cmd
+	if isBarePath(command) {
+		cmd = exec.CommandContext(stream.Context(), command) //nolint:gosec // G204: intentional
+	} else {
+		cmd = exec.CommandContext(stream.Context(), "/bin/sh", "-c", command) //nolint:gosec // G204: intentional
+	}
 	cmd.Dir = workDir
 	cmd.Env = append(os.Environ(), firstMsg.GetEnv()...)
 	cmd.Env = append(cmd.Env, "TERM=xterm-256color")
@@ -249,6 +254,10 @@ func execPTY(stream pb.ContainerService_ExecServer, firstMsg *pb.ExecInput) erro
 		Stream:   pb.ExecOutput_EXIT,
 		ExitCode: exitCode,
 	})
+}
+
+func isBarePath(command string) bool {
+	return strings.HasPrefix(command, "/") && !strings.ContainsAny(command, " \t\r\n")
 }
 
 func execPipe(stream pb.ContainerService_ExecServer, firstMsg *pb.ExecInput) error {

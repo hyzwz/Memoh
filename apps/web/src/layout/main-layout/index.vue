@@ -11,6 +11,7 @@
 </template>
 <script setup lang="ts">
 import { SidebarProvider } from '@memoh/ui'
+import { getSidebarDefaultOpen } from '../sidebar-default-open'
 
-const sidebarDefaultOpen = document.cookie.includes('sidebar_state=true')
+const sidebarDefaultOpen = getSidebarDefaultOpen(document.cookie)
 </script>

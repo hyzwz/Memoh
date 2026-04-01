@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"log/slog"
 	"net/http"
+	"os/exec"
 	"strconv"
 
 	"github.com/gorilla/websocket"
@@ -53,7 +54,7 @@ func (h *ContainerdHandler) GetTerminalInfo(c echo.Context) error {
 
 	return c.JSON(http.StatusOK, terminalInfoResponse{
 		Available: true,
-		Shell:     "/bin/sh",
+		Shell:     detectShell(),
 	})
 }
 
@@ -103,7 +104,7 @@ func (h *ContainerdHandler) HandleTerminalWS(c echo.Context) error {
 	execCtx, execCancel := context.WithCancel(context.Background())
 	defer execCancel()
 
-	execStream, err := client.ExecStreamPTY(execCtx, "/bin/sh", "/data", cols, rows)
+	execStream, err := client.ExecStreamPTY(execCtx, detectShell(), "/data", cols, rows)
 	if err != nil {
 		h.logger.Error("terminal ws: exec failed",
 			slog.String("bot_id", botID), slog.Any("error", err))
@@ -191,4 +192,19 @@ func parseUint32Query(c echo.Context, name string, fallback uint32) uint32 {
 		return fallback
 	}
 	return uint32(v) //nolint:gosec // G115
+}
+
+func detectShell() string {
+	return preferredTerminalShell(func(path string) bool {
+		return exec.Command("test", "-x", path).Run() == nil
+	})
+}
+
+func preferredTerminalShell(exists func(path string) bool) string {
+	for _, sh := range []string{"/bin/bash", "/usr/bin/bash", "/bin/zsh", "/usr/bin/zsh"} {
+		if exists(sh) {
+			return sh
+		}
+	}
+	return "/bin/sh"
 }

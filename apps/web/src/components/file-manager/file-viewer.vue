@@ -12,6 +12,7 @@ import {
 import type { HandlersFsFileInfo } from '@memoh/sdk'
 import { resolveApiErrorMessage } from '@/utils/api-error'
 import MonacoEditor from '@/components/monaco-editor/index.vue'
+import { buildFileDownloadUrl } from './download-url'
 import { isTextFile, isImageFile, formatFileSize } from './utils'
 
 const props = defineProps<{
@@ -93,7 +94,8 @@ async function handleSave() {
 }
 
 function handleDownload() {
-  const url = `/api/bots/${props.botId}/container/fs/download?path=${encodeURIComponent(filePath.value)}`
+  const token = localStorage.getItem('token') ?? ''
+  const url = buildFileDownloadUrl(props.botId, filePath.value, token)
   const a = document.createElement('a')
   a.href = url
   a.download = filename.value

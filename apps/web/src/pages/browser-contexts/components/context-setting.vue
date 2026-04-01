@@ -172,28 +172,30 @@
         </div>
       </div>
 
-      <Separator class="my-6" />
-
-      <div class="flex gap-2 items-center justify-between">
+      <section class="flex justify-end mt-6 gap-4">
         <ConfirmPopover
-          :title="$t('browserContext.deleteConfirm')"
+          :message="$t('browserContext.deleteConfirm')"
           :confirm-text="$t('common.delete')"
+          :loading="isDeleting"
           @confirm="handleDelete"
         >
-          <Button
-            variant="destructive"
-            type="button"
-          >
-            <FontAwesomeIcon :icon="['fas', 'trash']" />
-          </Button>
+          <template #trigger>
+            <Button
+              type="button"
+              variant="outline"
+              :aria-label="$t('common.delete')"
+            >
+              <FontAwesomeIcon :icon="['far', 'trash-can']" />
+            </Button>
+          </template>
         </ConfirmPopover>
-        <Button
+        <LoadingButton
           type="submit"
-          :disabled="isSaving"
+          :loading="isSaving"
         >
           {{ $t('common.save') }}
-        </Button>
-      </div>
+        </LoadingButton>
+      </section>
     </form>
   </div>
 </template>
@@ -220,6 +222,7 @@ import { useI18n } from 'vue-i18n'
 import { toast } from 'vue-sonner'
 import { useDialogMutation } from '@/composables/useDialogMutation'
 import ConfirmPopover from '@/components/confirm-popover/index.vue'
+import LoadingButton from '@/components/loading-button/index.vue'
 import { resolveApiErrorMessage } from '@/utils/api-error'
 
 const { t } = useI18n()
@@ -293,7 +296,7 @@ const { mutateAsync: updateMutation, isLoading: isSaving } = useMutation({
   onSettled: () => queryCache.invalidateQueries({ key: ['browser-contexts'] }),
 })
 
-const { mutateAsync: deleteMutation } = useMutation({
+const { mutateAsync: deleteMutation, isLoading: isDeleting } = useMutation({
   mutation: async (id: string) => {
     await deleteBrowserContextsById({
       path: { id },
