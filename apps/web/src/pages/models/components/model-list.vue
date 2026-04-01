@@ -21,7 +21,7 @@
         <InputGroupAddon align="inline-start">
           <FontAwesomeIcon
             :icon="['fas', 'magnifying-glass']"
-            class="text-muted-foreground"
+            class="size-3.5 text-muted-foreground"
           />
         </InputGroupAddon>
         <InputGroupInput

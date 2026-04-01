@@ -101,7 +101,7 @@
           </div>
 
           <section>
-            <InputGroup>
+            <InputGroup class="border-border! bg-transparent overflow-hidden shadow-none! ring-0!">
               <InputGroupTextarea
                 v-model="inputText"
                 class=" max-h-15 resize-none break-all!"

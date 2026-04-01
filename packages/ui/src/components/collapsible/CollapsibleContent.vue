@@ -9,6 +9,7 @@ const props = defineProps<CollapsibleContentProps>()
   <CollapsibleContent
     data-slot="collapsible-content"
     v-bind="props"
+    class=""
   >
     <slot />
   </CollapsibleContent>
