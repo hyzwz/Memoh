@@ -1,6 +1,6 @@
 import { Elysia } from 'elysia'
 import z from 'zod'
-import { createAgent, ModelConfig, type AgentStreamAction } from '@memoh/agent'
+import { createAgent, ModelConfig } from '@memoh/agent'
 import { createAuthFetcher, getBaseUrl } from '../index'
 import { bearerMiddleware } from '../middlewares/bearer'
 import { AgentSkillModel, AttachmentModel, HeartbeatModel, IdentityContextModel, InboxItemModel, LoopDetectionModel, MCPConnectionModel, ModelConfigModel, ScheduleModel } from '../models'

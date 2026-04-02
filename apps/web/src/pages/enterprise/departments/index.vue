@@ -622,7 +622,7 @@ import { ref, computed, reactive, watch, defineComponent, h } from 'vue'
 import { useQuery } from '@pinia/colada'
 import { toast } from 'vue-sonner'
 import {
-  Button, Card, CardContent,
+  Button,
   Dialog, DialogContent, DialogHeader, DialogTitle,
   Input, Label, Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
   Separator, Sheet, SheetContent, SheetHeader, SheetTitle, Spinner,

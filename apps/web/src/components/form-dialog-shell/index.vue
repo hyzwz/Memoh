@@ -55,8 +55,6 @@ import {
   DialogTrigger,
   Spinner
 } from '@memoh/ui'
-import { Form, Field } from 'vee-validate'
-
 withDefaults(defineProps<{
   title: string
   description?: string

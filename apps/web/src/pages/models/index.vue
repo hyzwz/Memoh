@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import { computed, ref, provide, watch, reactive } from 'vue'
 import modelSetting from './model-setting.vue'
-import { useQueryCache } from '@pinia/colada'
 import {
   ScrollArea,
   InputGroup, InputGroupAddon, InputGroupButton, InputGroupInput,
@@ -32,8 +31,6 @@ const { data: providerData } = useQuery({
     return data
   },
 })
-const queryCache = useQueryCache()
-
 const curProvider = ref<ProvidersGetResponse>()
 provide('curProvider', curProvider)
 

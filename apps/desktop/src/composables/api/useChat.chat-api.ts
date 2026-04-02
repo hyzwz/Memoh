@@ -36,7 +36,7 @@ export async function createChat(botId: string): Promise<ChatSummary> {
   return { id, bot_id: id, kind: 'bot' }
 }
 
-export async function deleteChat(botId: string, _chatId: string): Promise<void> {
+export async function deleteChat(botId: string): Promise<void> {
   const { baseUrl, token } = getApiBase()
   const res = await fetch(`${baseUrl}/bots/${encodeURIComponent(botId)}/messages`, {
     method: 'DELETE',
