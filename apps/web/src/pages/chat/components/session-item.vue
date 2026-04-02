@@ -9,7 +9,10 @@
   >
     <div class="flex items-start gap-3">
       <div class="mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary">
-        <FontAwesomeIcon :icon="icon" class="size-4" />
+        <FontAwesomeIcon
+          :icon="icon"
+          class="size-4"
+        />
       </div>
       <div class="min-w-0 flex-1">
         <div class="truncate text-sm font-medium text-foreground">

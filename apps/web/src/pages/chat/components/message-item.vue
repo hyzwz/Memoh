@@ -56,7 +56,7 @@
     >
       <!-- Sender name for non-self user messages -->
       <p
-      v-if="message.role === 'user' && !isSelf && !isSpecialUserMessage"
+        v-if="message.role === 'user' && !isSelf && !isSpecialUserMessage"
         class="text-xs text-muted-foreground mb-1"
       >
         {{ message.senderDisplayName || senderFallbackName }}
