@@ -72,7 +72,6 @@ import {
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
-  SidebarHeader
  } from '@memoh/ui'
 
 

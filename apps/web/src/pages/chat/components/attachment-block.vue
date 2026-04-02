@@ -64,7 +64,7 @@
 
 <script setup lang="ts">
 import type { AttachmentBlock } from '@/store/chat-list'
-import { resolveUrl, isMediaType } from '../composables/useMediaGallery'
+import { resolveUrl } from '../composables/useMediaGallery'
 
 const props = defineProps<{
   block: AttachmentBlock

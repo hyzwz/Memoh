@@ -203,8 +203,8 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch, nextTick, onMounted, provide } from 'vue'
-import { Textarea, Button, Avatar, AvatarImage, AvatarFallback, Badge, InputGroup, InputGroupAddon, InputGroupButton, InputGroupText, InputGroupTextarea, Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from '@memoh/ui'
+import { ref, watch, nextTick, onMounted, provide } from 'vue'
+import { Button, InputGroup, InputGroupAddon, InputGroupTextarea, Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from '@memoh/ui'
 import { useChatStore } from '@/store/chat-list'
 import { storeToRefs } from 'pinia'
 import MessageItem from './message-item.vue'
@@ -250,7 +250,6 @@ const {
   messages,
   streaming,
   currentBotId,
-  bots,
   activeChatReadOnly,
   loadingOlder,
   loadingChats,
@@ -266,10 +265,6 @@ const {
 
 const inputText = ref('')
 const scrollContainer = ref<HTMLElement>()
-
-const currentBot = computed(() =>
-  bots.value.find((b) => b.id === currentBotId.value) ?? null,
-)
 
 onMounted(() => {
   void chatStore.initialize()
@@ -345,14 +340,6 @@ function handleKeydown(e: KeyboardEvent) {
   if (e.isComposing) return
   e.preventDefault()
   handleSend()
-}
-
-function handleFileSelect(e: Event) {
-  const input = e.target as HTMLInputElement
-  if (input.files) {
-    pendingFiles.value.push(...Array.from(input.files))
-  }
-  input.value = ''
 }
 
 function handlePaste(e: ClipboardEvent) {

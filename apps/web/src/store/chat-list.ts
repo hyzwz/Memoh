@@ -14,10 +14,6 @@ import {
   fetchBots,
   fetchMessages,
   fetchChats,
-  extractMessageText,
-  extractToolCalls,
-  extractAllToolResults,
-  extractMessageReasoning,
   sendLocalChannelMessage,
   streamLocalChannel,
   streamMessageEvents,
@@ -154,17 +150,6 @@ export const useChatStore = defineStore('chat', () => {
 
   const isPendingBot = (bot: Bot | null | undefined) =>
     bot?.status === 'creating' || bot?.status === 'deleting'
-
-  function resolveIsSelf(raw: Message): boolean {
-    const platform = (raw.platform ?? '').trim().toLowerCase()
-    if (!platform || platform === 'web') return true
-    const senderUserId = (raw.sender_user_id ?? '').trim()
-    if (!senderUserId) return false
-    const userStore = useUserStore()
-    const currentUserId = (userStore.userInfo.id ?? '').trim()
-    if (!currentUserId) return false
-    return senderUserId === currentUserId
-  }
 
   function resolveCrossChannelIsSelf(senderUserId: string): boolean {
     if (!senderUserId) return false
