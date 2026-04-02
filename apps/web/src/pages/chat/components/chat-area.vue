@@ -55,8 +55,10 @@
             v-for="msg in messages"
             :key="msg.id"
             :message="msg"
+            :session-type="chatStore.activeChat?.type"
             :on-open-media="galleryOpenBySrc"
             @send-prompt="handleSendPrompt"
+            @open-session="handleOpenSession"
           />
         </div>
       </div>
@@ -384,6 +386,12 @@ function handleSendPrompt(prompt: string) {
   const text = prompt.trim()
   if (!text || streaming.value || activeChatReadOnly.value) return
   chatStore.sendMessage(text)
+}
+
+async function handleOpenSession(sessionId: string) {
+  const id = sessionId.trim()
+  if (!id) return
+  await chatStore.selectChat(id)
 }
 
 async function handleSend() {

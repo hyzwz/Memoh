@@ -55,6 +55,18 @@
         {{ $t('chat.toolResult') }}
       </CollapsibleTrigger>
       <CollapsibleContent>
+        <div
+          v-if="sessionId"
+          class="px-3 pt-2"
+        >
+          <button
+            type="button"
+            class="text-xs text-primary hover:underline"
+            @click="$emit('open-session', sessionId)"
+          >
+            Open related session
+          </button>
+        </div>
         <pre class="px-3 pb-2 text-xs text-muted-foreground overflow-x-auto whitespace-pre-wrap break-all">{{ formatJson(block.result) }}</pre>
       </CollapsibleContent>
     </Collapsible>
@@ -62,16 +74,26 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue'
+import { computed, ref } from 'vue'
 import { Badge, Collapsible, CollapsibleTrigger, CollapsibleContent } from '@memoh/ui'
 import type { ToolCallBlock } from '@/store/chat-list'
 
-defineProps<{
+const props = defineProps<{
   block: ToolCallBlock
+}>()
+
+defineEmits<{
+  'open-session': [sessionId: string]
 }>()
 
 const inputOpen = ref(false)
 const resultOpen = ref(false)
+const sessionId = computed(() => {
+  const result = props.block.result
+  if (!result || typeof result !== 'object') return ''
+  const id = Reflect.get(result, 'session_id')
+  return typeof id === 'string' ? id.trim() : ''
+})
 
 function formatJson(val: unknown): string {
   if (typeof val === 'string') return val

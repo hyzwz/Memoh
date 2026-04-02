@@ -143,6 +143,15 @@
     "thinkingInProgress": "思考中…",
     "thinkingDone": "思考完成",
     "currentBot": "当前 Bot",
+    "sessions": "会话",
+    "selectBotFirst": "请先选择 Bot 查看会话",
+    "emptySessions": "暂无会话",
+    "sessionType": {
+      "chat": "聊天",
+      "heartbeat": "心跳",
+      "schedule": "定时任务",
+      "subagent": "子智能体"
+    },
     "inputPlaceholder": "输入你的问题…",
     "readonlyHint": "该聊天为只读",
     "readonlyPlaceholder": "该聊天为只读，无法发送消息",

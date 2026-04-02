@@ -342,7 +342,7 @@ import MemoryProviderSelect from './memory-provider-select.vue'
 import TtsModelSelect from './tts-model-select.vue'
 import BrowserContextSelect from './browser-context-select.vue'
 import { useQuery, useMutation, useQueryCache } from '@pinia/colada'
-import { getBotsByBotIdSettings, putBotsByBotIdSettings, deleteBotsById, getModels, getProviders, getSearchProviders, getMemoryProviders, getTtsProviders, getBrowserContexts, getBotsByBotIdMemoryStatus, postBotsByBotIdMemoryRebuild } from '@memoh/sdk'
+import { getBotsByBotIdSettings, putBotsByBotIdSettings, deleteBotsById, getModels, getProviders, getSearchProviders, getMemoryProviders, getBrowserContexts, getBotsByBotIdMemoryStatus, postBotsByBotIdMemoryRebuild } from '@memoh/sdk'
 import type { SettingsSettings } from '@memoh/sdk'
 import type { Ref } from 'vue'
 import { resolveApiErrorMessage } from '@/utils/api-error'
@@ -406,8 +406,13 @@ const { data: memoryProviderData } = useQuery({
 const { data: ttsProviderData } = useQuery({
   key: ['tts-providers'],
   query: async () => {
-    const { data } = await getTtsProviders({ throwOnError: true })
-    return data
+    const apiBase = import.meta.env.VITE_API_URL?.trim() || '/api'
+    const token = localStorage.getItem('token')
+    const resp = await fetch(`${apiBase}/tts-providers`, {
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+    })
+    if (!resp.ok) throw new Error('Failed to fetch TTS providers')
+    return resp.json()
   },
 })
 

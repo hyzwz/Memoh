@@ -26,6 +26,7 @@ import {
   type ChatWebSocket,
 } from '@/composables/api/useChat'
 import { convertMessagesToChats } from './chat-history'
+import { isSessionReadOnly } from './session-readonly'
 
 // ---- Message model (blocks-based, aligned with main branch) ----
 
@@ -131,7 +132,7 @@ export const useChatStore = defineStore('chat', () => {
     chats.value.find((c) => c.id === chatId.value) ?? null,
   )
   const activeChatReadOnly = computed(() =>
-    activeChat.value?.access_mode === 'channel_identity_observed',
+    isSessionReadOnly(activeChat.value),
   )
 
   watch(currentBotId, (newId) => {

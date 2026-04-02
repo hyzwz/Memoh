@@ -6,6 +6,12 @@ export interface ChatSummary {
   id: string
   bot_id: string
   kind: string
+  type?: string
+  channel_type?: string
+  route_id?: string
+  route_conversation_type?: string
+  route_metadata?: Record<string, unknown>
+  metadata?: Record<string, unknown>
   title?: string
   created_at?: string
   updated_at?: string

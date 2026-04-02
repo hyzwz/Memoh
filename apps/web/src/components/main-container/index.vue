@@ -34,17 +34,25 @@
         </Breadcrumb>
       </div>
     </header>
-    <section class="w-full relative">
+    <section class="w-full relative min-h-0">
       <h1 class="sr-only">
         {{ currentPageTitle }}
       </h1>
-      <ScrollArea class="absolute! inset-0">
-        <router-view v-slot="{ Component }">
-          <KeepAlive>
+      <router-view v-slot="{ Component }">
+        <KeepAlive>
+          <component
+            :is="Component"
+            v-if="route.path === '/chat'"
+            class="absolute inset-0"
+          />
+          <ScrollArea
+            v-else
+            class="absolute! inset-0"
+          >
             <component :is="Component" />
-          </KeepAlive>
-        </router-view>
-      </ScrollArea>
+          </ScrollArea>
+        </KeepAlive>
+      </router-view>
     </section>
   </SidebarInset>
 </template>
@@ -58,10 +66,10 @@ import {
   BreadcrumbPage,
   BreadcrumbSeparator,
   Separator,
-  ScrollArea,
 } from '@memoh/ui'
 import { useRoute } from 'vue-router'
 import { computed, unref } from 'vue'
+import { ScrollArea } from '@memoh/ui'
 
 const route = useRoute()
 

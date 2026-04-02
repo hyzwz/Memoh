@@ -224,6 +224,7 @@ func runServe() {
 			provideServerHandler(provideAuthHandler),
 			provideServerHandler(provideMemoryHandler),
 			provideServerHandler(provideMessageHandler),
+			provideServerHandler(handlers.NewSessionsHandler),
 			provideServerHandler(handlers.NewSwaggerHandler),
 			provideServerHandler(handlers.NewProvidersHandler),
 			provideServerHandler(handlers.NewSearchProvidersHandler),

@@ -52,6 +52,163 @@ export type AccountsUpdateProfileRequest = {
     display_name?: string;
 };
 
+export type AdaptersCdfPoint = {
+    /**
+     * cumulative weight fraction [0.0, 1.0]
+     */
+    cumulative?: number;
+    /**
+     * rank position (1-based, sorted by value desc)
+     */
+    k?: number;
+};
+
+export type AdaptersCompactResult = {
+    after_count?: number;
+    before_count?: number;
+    ratio?: number;
+    results?: Array<AdaptersMemoryItem>;
+};
+
+export type AdaptersDeleteResponse = {
+    message?: string;
+};
+
+export type AdaptersHealthStatus = {
+    error?: string;
+    ok?: boolean;
+};
+
+export type AdaptersMemoryItem = {
+    agent_id?: string;
+    bot_id?: string;
+    cdf_curve?: Array<AdaptersCdfPoint>;
+    created_at?: string;
+    hash?: string;
+    id?: string;
+    memory?: string;
+    metadata?: {
+        [key: string]: unknown;
+    };
+    run_id?: string;
+    score?: number;
+    top_k_buckets?: Array<AdaptersTopKBucket>;
+    updated_at?: string;
+};
+
+export type AdaptersMemoryStatusResponse = {
+    can_manual_sync?: boolean;
+    encoder?: AdaptersHealthStatus;
+    indexed_count?: number;
+    markdown_file_count?: number;
+    memory_mode?: string;
+    overview_path?: string;
+    provider_type?: string;
+    qdrant?: AdaptersHealthStatus;
+    qdrant_collection?: string;
+    source_count?: number;
+    source_dir?: string;
+};
+
+export type AdaptersMessage = {
+    content?: string;
+    role?: string;
+};
+
+export type AdaptersProviderCollectionStatus = {
+    exists?: boolean;
+    name?: string;
+    points?: number;
+    qdrant?: AdaptersHealthStatus;
+};
+
+export type AdaptersProviderConfigSchema = {
+    fields?: {
+        [key: string]: AdaptersProviderFieldSchema;
+    };
+};
+
+export type AdaptersProviderCreateRequest = {
+    config?: {
+        [key: string]: unknown;
+    };
+    name?: string;
+    provider?: AdaptersProviderType;
+};
+
+export type AdaptersProviderFieldSchema = {
+    description?: string;
+    example?: unknown;
+    required?: boolean;
+    secret?: boolean;
+    title?: string;
+    type?: string;
+};
+
+export type AdaptersProviderGetResponse = {
+    config?: {
+        [key: string]: unknown;
+    };
+    created_at?: string;
+    id?: string;
+    is_default?: boolean;
+    name?: string;
+    provider?: string;
+    updated_at?: string;
+};
+
+export type AdaptersProviderMeta = {
+    config_schema?: AdaptersProviderConfigSchema;
+    display_name?: string;
+    provider?: string;
+};
+
+export type AdaptersProviderStatusResponse = {
+    collections?: Array<AdaptersProviderCollectionStatus>;
+    embedding_model_id?: string;
+    memory_mode?: string;
+    provider_type?: string;
+};
+
+export type AdaptersProviderType = 'builtin' | 'mem0' | 'openviking';
+
+export type AdaptersProviderUpdateRequest = {
+    config?: {
+        [key: string]: unknown;
+    };
+    name?: string;
+};
+
+export type AdaptersRebuildResult = {
+    fs_count?: number;
+    missing_count?: number;
+    restored_count?: number;
+    storage_count?: number;
+};
+
+export type AdaptersSearchResponse = {
+    relations?: Array<unknown>;
+    results?: Array<AdaptersMemoryItem>;
+};
+
+export type AdaptersTopKBucket = {
+    /**
+     * sparse dimension index (term hash)
+     */
+    index?: number;
+    /**
+     * weight (term frequency)
+     */
+    value?: number;
+};
+
+export type AdaptersUsageResponse = {
+    avg_text_bytes?: number;
+    count?: number;
+    estimated_storage_bytes?: number;
+    total_text_bytes?: number;
+};
+
 export type BotsBot = {
     allow_guest?: boolean;
     avatar_url?: string;
@@ -331,6 +488,46 @@ export type ChannelUpsertConfigRequest = {
     verified_at?: string;
 };
 
+export type ConversationConversation = {
+    bot_id?: string;
+    created_at?: string;
+    created_by?: string;
+    id?: string;
+    kind?: string;
+    metadata?: {
+        [key: string]: unknown;
+    };
+    parent_chat_id?: string;
+    title?: string;
+    updated_at?: string;
+};
+
+export type ConversationConversationListItem = {
+    access_mode?: string;
+    bot_id?: string;
+    created_at?: string;
+    created_by?: string;
+    id?: string;
+    kind?: string;
+    last_observed_at?: string;
+    metadata?: {
+        [key: string]: unknown;
+    };
+    parent_chat_id?: string;
+    participant_role?: string;
+    title?: string;
+    updated_at?: string;
+};
+
+export type ConversationCreateRequest = {
+    kind?: string;
+    metadata?: {
+        [key: string]: unknown;
+    };
+    parent_chat_id?: string;
+    title?: string;
+};
+
 export type EmailBindingResponse = {
     bot_id?: string;
     can_delete?: boolean;
@@ -450,8 +647,46 @@ export type GithubComMemohaiMemohInternalMcpConnection = {
     updated_at?: string;
 };
 
+export type HandlersAddSkillTemplateRequest = {
+    template_id?: string;
+};
+
 export type HandlersBatchDeleteRequest = {
     ids?: Array<string>;
+};
+
+export type HandlersBotBriefDto = {
+    display_name?: string;
+    id?: string;
+};
+
+export type HandlersBotDepartmentAssignRequest = {
+    department_id?: string;
+};
+
+export type HandlersBotSyncError = {
+    bot_id?: string;
+    message?: string;
+};
+
+export type HandlersBudgetCheckDto = {
+    action?: string;
+    alert?: boolean;
+    allowed?: boolean;
+    limit?: number;
+    percentage?: number;
+    spent?: number;
+};
+
+export type HandlersBudgetDto = {
+    action_on_exceed?: string;
+    alert_threshold?: number;
+    id?: string;
+    is_enabled?: boolean;
+    limit_amount?: number;
+    period?: string;
+    scope_id?: string;
+    scope_type?: string;
 };
 
 export type HandlersChannelMeta = {
@@ -462,6 +697,24 @@ export type HandlersChannelMeta = {
     target_spec?: ChannelTargetSpec;
     type?: string;
     user_config_schema?: ChannelConfigSchema;
+};
+
+export type HandlersCockpitSummaryDto = {
+    average_efficiency_multiple?: number;
+    labor_cost_cny?: number;
+    total_ai_time_minutes?: number;
+    total_innovations?: number;
+    total_reports?: number;
+    total_saved_hours?: number;
+};
+
+export type HandlersCreateBudgetRequest = {
+    action_on_exceed?: string;
+    alert_threshold?: number;
+    limit_amount?: number;
+    period?: string;
+    scope_id?: string;
+    scope_type?: string;
 };
 
 export type HandlersCreateContainerRequest = {
@@ -476,6 +729,27 @@ export type HandlersCreateContainerResponse = {
     image?: string;
     snapshotter?: string;
     started?: boolean;
+};
+
+export type HandlersCreateDepartmentRequest = {
+    description?: string;
+    name?: string;
+    parent_id?: string;
+};
+
+export type HandlersCreateHandRequest = {
+    markdown?: string;
+};
+
+export type HandlersCreateModelRouteRequest = {
+    complexity_tier?: string;
+    is_enabled?: boolean;
+    metadata?: {
+        [key: string]: unknown;
+    };
+    model_id?: string;
+    name?: string;
+    priority?: number;
 };
 
 export type HandlersCreateSnapshotRequest = {
@@ -499,6 +773,37 @@ export type HandlersDailyTokenUsage = {
     input_tokens?: number;
     output_tokens?: number;
     reasoning_tokens?: number;
+};
+
+export type HandlersDepartmentDto = {
+    description?: string;
+    id?: string;
+    name?: string;
+    parent_id?: string;
+};
+
+export type HandlersDesktopLoginRequest = {
+    hostname?: string;
+    password?: string;
+    platform?: string;
+    ts_ip?: string;
+    ts_node_key?: string;
+    username?: string;
+};
+
+export type HandlersDesktopLoginResponse = {
+    access_token?: string;
+    api_token?: string;
+    bot_id?: string;
+    bot_name?: string;
+    device_id?: string;
+    expires_at?: string;
+    token_type?: string;
+    user_id?: string;
+};
+
+export type HandlersDirectoryTemplatesRequest = {
+    paths?: Array<string>;
 };
 
 export type HandlersErrorResponse = {
@@ -561,6 +866,34 @@ export type HandlersGetContainerResponse = {
     updated_at?: string;
 };
 
+export type HandlersHandDto = {
+    content?: string;
+    description?: string;
+    id?: string;
+    is_enabled?: boolean;
+    metadata?: {
+        [key: string]: unknown;
+    };
+    name?: string;
+    schedule?: {
+        [key: string]: unknown;
+    };
+    triggers?: Array<unknown>;
+    type?: string;
+};
+
+export type HandlersHandExecutionResultDto = {
+    completed_at?: string;
+    error_message?: string;
+    result_text?: string;
+    started_at?: string;
+    status?: string;
+};
+
+export type HandlersInstallRequest = {
+    template_id?: string;
+};
+
 export type HandlersListSnapshotsResponse = {
     snapshots?: Array<HandlersSnapshotInfo>;
     snapshotter?: string;
@@ -599,6 +932,18 @@ export type HandlersMcpStdioResponse = {
     connection_id?: string;
     tools?: Array<string>;
     url?: string;
+};
+
+export type HandlersModelRouteDto = {
+    complexity_tier?: string;
+    id?: string;
+    is_enabled?: boolean;
+    metadata?: {
+        [key: string]: unknown;
+    };
+    model_id?: string;
+    name?: string;
+    priority?: number;
 };
 
 export type HandlersModelTokenUsage = {
@@ -643,6 +988,42 @@ export type HandlersSkillItem = {
     raw?: string;
 };
 
+export type HandlersSkillTemplateBriefDto = {
+    description?: string;
+    id?: string;
+    name?: string;
+    version?: number;
+};
+
+export type HandlersSkillTemplateRequest = {
+    author?: string;
+    category?: string;
+    content?: string;
+    description?: string;
+    icon?: string;
+    is_published?: boolean;
+    name?: string;
+    slug?: string;
+    tags?: Array<string>;
+};
+
+export type HandlersSkillTemplateResponse = {
+    author?: string;
+    category?: string;
+    content?: string;
+    created_at?: string;
+    description?: string;
+    icon?: string;
+    id?: string;
+    install_count?: number;
+    is_published?: boolean;
+    name?: string;
+    slug?: string;
+    tags?: Array<string>;
+    updated_at?: string;
+    version?: number;
+};
+
 export type HandlersSkillsDeleteRequest = {
     names?: Array<string>;
 };
@@ -672,10 +1053,52 @@ export type HandlersSnapshotInfo = {
     version?: number;
 };
 
+export type HandlersStoreTemplateResponse = {
+    author?: string;
+    category?: string;
+    content?: string;
+    created_at?: string;
+    customized?: boolean;
+    description?: string;
+    icon?: string;
+    id?: string;
+    install_count?: number;
+    installed?: boolean;
+    installed_version?: number;
+    is_published?: boolean;
+    name?: string;
+    slug?: string;
+    tags?: Array<string>;
+    update_available?: boolean;
+    updated_at?: string;
+    version?: number;
+};
+
+export type HandlersSyncResultDto = {
+    errors?: Array<HandlersBotSyncError>;
+    installed?: number;
+    skipped?: number;
+    total_bots?: number;
+};
+
 export type HandlersTokenUsageResponse = {
     by_model?: Array<HandlersModelTokenUsage>;
     chat?: Array<HandlersDailyTokenUsage>;
     heartbeat?: Array<HandlersDailyTokenUsage>;
+};
+
+export type HandlersUninstallRequest = {
+    template_id?: string;
+};
+
+export type HandlersUpdateDepartmentRequest = {
+    description?: string;
+    name?: string;
+    parent_id?: string;
+};
+
+export type HandlersUpdateInstallRequest = {
+    template_id?: string;
 };
 
 export type HandlersFsOpResponse = {
@@ -698,7 +1121,7 @@ export type HandlersMemoryAddPayload = {
     };
     infer?: boolean;
     message?: string;
-    messages?: Array<ProviderMessage>;
+    messages?: Array<AdaptersMessage>;
     metadata?: {
         [key: string]: unknown;
     };
@@ -744,6 +1167,11 @@ export type HandlersOauthExchangeRequest = {
 
 export type HandlersSkillsOpResponse = {
     ok?: boolean;
+};
+
+export type HandlersTerminalInfoResponse = {
+    available?: boolean;
+    shell?: string;
 };
 
 export type HeartbeatListLogsResponse = {
@@ -920,6 +1348,7 @@ export type ModelsAddRequest = {
     llm_provider_id?: string;
     model_id?: string;
     name?: string;
+    store?: boolean;
     supports_reasoning?: boolean;
     type?: ModelsModelType;
 };
@@ -943,6 +1372,7 @@ export type ModelsGetResponse = {
     llm_provider_id?: string;
     model_id?: string;
     name?: string;
+    store?: boolean;
     supports_reasoning?: boolean;
     type?: ModelsModelType;
 };
@@ -965,131 +1395,9 @@ export type ModelsUpdateRequest = {
     llm_provider_id?: string;
     model_id?: string;
     name?: string;
+    store?: boolean;
     supports_reasoning?: boolean;
     type?: ModelsModelType;
-};
-
-export type ProviderCdfPoint = {
-    /**
-     * cumulative weight fraction [0.0, 1.0]
-     */
-    cumulative?: number;
-    /**
-     * rank position (1-based, sorted by value desc)
-     */
-    k?: number;
-};
-
-export type ProviderCompactResult = {
-    after_count?: number;
-    before_count?: number;
-    ratio?: number;
-    results?: Array<ProviderMemoryItem>;
-};
-
-export type ProviderDeleteResponse = {
-    message?: string;
-};
-
-export type ProviderMemoryItem = {
-    agent_id?: string;
-    bot_id?: string;
-    cdf_curve?: Array<ProviderCdfPoint>;
-    created_at?: string;
-    hash?: string;
-    id?: string;
-    memory?: string;
-    metadata?: {
-        [key: string]: unknown;
-    };
-    run_id?: string;
-    score?: number;
-    top_k_buckets?: Array<ProviderTopKBucket>;
-    updated_at?: string;
-};
-
-export type ProviderMessage = {
-    content?: string;
-    role?: string;
-};
-
-export type ProviderProviderConfigSchema = {
-    fields?: {
-        [key: string]: ProviderProviderFieldSchema;
-    };
-};
-
-export type ProviderProviderCreateRequest = {
-    config?: {
-        [key: string]: unknown;
-    };
-    name?: string;
-    provider?: ProviderProviderType;
-};
-
-export type ProviderProviderFieldSchema = {
-    description?: string;
-    example?: unknown;
-    required?: boolean;
-    title?: string;
-    type?: string;
-};
-
-export type ProviderProviderGetResponse = {
-    config?: {
-        [key: string]: unknown;
-    };
-    created_at?: string;
-    id?: string;
-    is_default?: boolean;
-    name?: string;
-    provider?: string;
-    updated_at?: string;
-};
-
-export type ProviderProviderMeta = {
-    config_schema?: ProviderProviderConfigSchema;
-    display_name?: string;
-    provider?: string;
-};
-
-export type ProviderProviderType = 'builtin';
-
-export type ProviderProviderUpdateRequest = {
-    config?: {
-        [key: string]: unknown;
-    };
-    name?: string;
-};
-
-export type ProviderRebuildResult = {
-    fs_count?: number;
-    missing_count?: number;
-    qdrant_count?: number;
-    restored_count?: number;
-};
-
-export type ProviderSearchResponse = {
-    relations?: Array<unknown>;
-    results?: Array<ProviderMemoryItem>;
-};
-
-export type ProviderTopKBucket = {
-    /**
-     * sparse dimension index (term hash)
-     */
-    index?: number;
-    /**
-     * weight (term frequency)
-     */
-    value?: number;
-};
-
-export type ProviderUsageResponse = {
-    avg_text_bytes?: number;
-    count?: number;
-    estimated_storage_bytes?: number;
-    total_text_bytes?: number;
 };
 
 export type ProvidersCountResponse = {
@@ -1342,6 +1650,42 @@ export type SubagentUpdateSkillsRequest = {
     skills?: Array<string>;
 };
 
+export type PostApiV1AuthDesktopLoginData = {
+    /**
+     * Desktop login request
+     */
+    body: HandlersDesktopLoginRequest;
+    path?: never;
+    query?: never;
+    url: '/api/v1/auth/desktop/login';
+};
+
+export type PostApiV1AuthDesktopLoginErrors = {
+    /**
+     * Bad Request
+     */
+    400: HandlersErrorResponse;
+    /**
+     * Unauthorized
+     */
+    401: HandlersErrorResponse;
+    /**
+     * Internal Server Error
+     */
+    500: HandlersErrorResponse;
+};
+
+export type PostApiV1AuthDesktopLoginError = PostApiV1AuthDesktopLoginErrors[keyof PostApiV1AuthDesktopLoginErrors];
+
+export type PostApiV1AuthDesktopLoginResponses = {
+    /**
+     * OK
+     */
+    200: HandlersDesktopLoginResponse;
+};
+
+export type PostApiV1AuthDesktopLoginResponse = PostApiV1AuthDesktopLoginResponses[keyof PostApiV1AuthDesktopLoginResponses];
+
 export type PostAuthLoginData = {
     /**
      * Login request
@@ -1481,6 +1825,55 @@ export type PostBotsResponses = {
 
 export type PostBotsResponse = PostBotsResponses[keyof PostBotsResponses];
 
+export type GetBotsByBotIdAuditLogsData = {
+    body?: never;
+    path: {
+        /**
+         * Bot ID
+         */
+        bot_id: string;
+    };
+    query?: {
+        /**
+         * Filter by user
+         */
+        user_id?: string;
+        /**
+         * Filter by action
+         */
+        action?: string;
+        /**
+         * Limit
+         */
+        limit?: number;
+        /**
+         * Offset
+         */
+        offset?: number;
+    };
+    url: '/bots/{bot_id}/audit-logs';
+};
+
+export type GetBotsByBotIdAuditLogsErrors = {
+    /**
+     * Bad Request
+     */
+    400: HandlersErrorResponse;
+};
+
+export type GetBotsByBotIdAuditLogsError = GetBotsByBotIdAuditLogsErrors[keyof GetBotsByBotIdAuditLogsErrors];
+
+export type GetBotsByBotIdAuditLogsResponses = {
+    /**
+     * OK
+     */
+    200: {
+        [key: string]: unknown;
+    };
+};
+
+export type GetBotsByBotIdAuditLogsResponse = GetBotsByBotIdAuditLogsResponses[keyof GetBotsByBotIdAuditLogsResponses];
+
 export type PostBotsByBotIdCliMessagesData = {
     /**
      * Message payload
@@ -1590,6 +1983,78 @@ export type GetBotsByBotIdCliWsErrors = {
 };
 
 export type GetBotsByBotIdCliWsError = GetBotsByBotIdCliWsErrors[keyof GetBotsByBotIdCliWsErrors];
+
+export type PostBotsByBotIdCockpitGenerateReportData = {
+    body?: never;
+    path: {
+        /**
+         * Bot ID
+         */
+        bot_id: string;
+    };
+    query?: {
+        /**
+         * Report date (YYYY-MM-DD)
+         */
+        date?: string;
+    };
+    url: '/bots/{bot_id}/cockpit/generate-report';
+};
+
+export type PostBotsByBotIdCockpitGenerateReportErrors = {
+    /**
+     * Bad Request
+     */
+    400: HandlersErrorResponse;
+};
+
+export type PostBotsByBotIdCockpitGenerateReportError = PostBotsByBotIdCockpitGenerateReportErrors[keyof PostBotsByBotIdCockpitGenerateReportErrors];
+
+export type PostBotsByBotIdCockpitGenerateReportResponses = {
+    /**
+     * OK
+     */
+    200: {
+        [key: string]: string;
+    };
+};
+
+export type PostBotsByBotIdCockpitGenerateReportResponse = PostBotsByBotIdCockpitGenerateReportResponses[keyof PostBotsByBotIdCockpitGenerateReportResponses];
+
+export type GetBotsByBotIdCockpitSummaryData = {
+    body?: never;
+    path: {
+        /**
+         * Bot ID
+         */
+        bot_id: string;
+    };
+    query?: {
+        /**
+         * Number of days
+         */
+        days?: number;
+    };
+    url: '/bots/{bot_id}/cockpit/summary';
+};
+
+export type GetBotsByBotIdCockpitSummaryErrors = {
+    /**
+     * Bad Request
+     */
+    400: HandlersErrorResponse;
+};
+
+export type GetBotsByBotIdCockpitSummaryError = GetBotsByBotIdCockpitSummaryErrors[keyof GetBotsByBotIdCockpitSummaryErrors];
+
+export type GetBotsByBotIdCockpitSummaryResponses = {
+    /**
+     * OK
+     */
+    200: HandlersCockpitSummaryDto;
+};
+
+export type GetBotsByBotIdCockpitSummaryResponse = GetBotsByBotIdCockpitSummaryResponses[keyof GetBotsByBotIdCockpitSummaryResponses];
 
 export type DeleteBotsByBotIdContainerData = {
     body?: never;
@@ -2504,6 +2969,167 @@ export type PostBotsByBotIdContainerStopResponses = {
 
 export type PostBotsByBotIdContainerStopResponse = PostBotsByBotIdContainerStopResponses[keyof PostBotsByBotIdContainerStopResponses];
 
+export type GetBotsByBotIdContainerTerminalData = {
+    body?: never;
+    path: {
+        /**
+         * Bot ID
+         */
+        bot_id: string;
+    };
+    query?: never;
+    url: '/bots/{bot_id}/container/terminal';
+};
+
+export type GetBotsByBotIdContainerTerminalErrors = {
+    /**
+     * Not Found
+     */
+    404: HandlersErrorResponse;
+};
+
+export type GetBotsByBotIdContainerTerminalError = GetBotsByBotIdContainerTerminalErrors[keyof GetBotsByBotIdContainerTerminalErrors];
+
+export type GetBotsByBotIdContainerTerminalResponses = {
+    /**
+     * OK
+     */
+    200: HandlersTerminalInfoResponse;
+};
+
+export type GetBotsByBotIdContainerTerminalResponse = GetBotsByBotIdContainerTerminalResponses[keyof GetBotsByBotIdContainerTerminalResponses];
+
+export type GetBotsByBotIdContainerTerminalWsData = {
+    body?: never;
+    path: {
+        /**
+         * Bot ID
+         */
+        bot_id: string;
+    };
+    query?: {
+        /**
+         * Initial terminal columns
+         */
+        cols?: number;
+        /**
+         * Initial terminal rows
+         */
+        rows?: number;
+        /**
+         * Auth token
+         */
+        token?: string;
+    };
+    url: '/bots/{bot_id}/container/terminal/ws';
+};
+
+export type GetBotsByBotIdContainerTerminalWsErrors = {
+    /**
+     * Bad Request
+     */
+    400: HandlersErrorResponse;
+    /**
+     * Internal Server Error
+     */
+    500: HandlersErrorResponse;
+};
+
+export type GetBotsByBotIdContainerTerminalWsError = GetBotsByBotIdContainerTerminalWsErrors[keyof GetBotsByBotIdContainerTerminalWsErrors];
+
+export type GetBotsByBotIdDepartmentsData = {
+    body?: never;
+    path: {
+        /**
+         * Bot ID
+         */
+        bot_id: string;
+    };
+    query?: never;
+    url: '/bots/{bot_id}/departments';
+};
+
+export type GetBotsByBotIdDepartmentsErrors = {
+    /**
+     * Bad Request
+     */
+    400: HandlersErrorResponse;
+};
+
+export type GetBotsByBotIdDepartmentsError = GetBotsByBotIdDepartmentsErrors[keyof GetBotsByBotIdDepartmentsErrors];
+
+export type GetBotsByBotIdDepartmentsResponses = {
+    /**
+     * OK
+     */
+    200: Array<HandlersDepartmentDto>;
+};
+
+export type GetBotsByBotIdDepartmentsResponse = GetBotsByBotIdDepartmentsResponses[keyof GetBotsByBotIdDepartmentsResponses];
+
+export type PostBotsByBotIdDepartmentsData = {
+    /**
+     * Department to assign
+     */
+    body: HandlersBotDepartmentAssignRequest;
+    path: {
+        /**
+         * Bot ID
+         */
+        bot_id: string;
+    };
+    query?: never;
+    url: '/bots/{bot_id}/departments';
+};
+
+export type PostBotsByBotIdDepartmentsErrors = {
+    /**
+     * Bad Request
+     */
+    400: HandlersErrorResponse;
+};
+
+export type PostBotsByBotIdDepartmentsError = PostBotsByBotIdDepartmentsErrors[keyof PostBotsByBotIdDepartmentsErrors];
+
+export type PostBotsByBotIdDepartmentsResponses = {
+    /**
+     * No Content
+     */
+    204: unknown;
+};
+
+export type DeleteBotsByBotIdDepartmentsByDepartmentIdData = {
+    body?: never;
+    path: {
+        /**
+         * Bot ID
+         */
+        bot_id: string;
+        /**
+         * Department ID
+         */
+        department_id: string;
+    };
+    query?: never;
+    url: '/bots/{bot_id}/departments/{department_id}';
+};
+
+export type DeleteBotsByBotIdDepartmentsByDepartmentIdErrors = {
+    /**
+     * Bad Request
+     */
+    400: HandlersErrorResponse;
+};
+
+export type DeleteBotsByBotIdDepartmentsByDepartmentIdError = DeleteBotsByBotIdDepartmentsByDepartmentIdErrors[keyof DeleteBotsByBotIdDepartmentsByDepartmentIdErrors];
+
+export type DeleteBotsByBotIdDepartmentsByDepartmentIdResponses = {
+    /**
+     * No Content
+     */
+    204: unknown;
+};
+
 export type GetBotsByBotIdEmailBindingsData = {
     body?: never;
     path: {
@@ -2718,6 +3344,169 @@ export type GetBotsByBotIdEmailOutboxByIdResponses = {
 };
 
 export type GetBotsByBotIdEmailOutboxByIdResponse = GetBotsByBotIdEmailOutboxByIdResponses[keyof GetBotsByBotIdEmailOutboxByIdResponses];
+
+export type GetBotsByBotIdHandsData = {
+    body?: never;
+    path: {
+        /**
+         * Bot ID
+         */
+        bot_id: string;
+    };
+    query?: never;
+    url: '/bots/{bot_id}/hands';
+};
+
+export type GetBotsByBotIdHandsErrors = {
+    /**
+     * Bad Request
+     */
+    400: HandlersErrorResponse;
+};
+
+export type GetBotsByBotIdHandsError = GetBotsByBotIdHandsErrors[keyof GetBotsByBotIdHandsErrors];
+
+export type GetBotsByBotIdHandsResponses = {
+    /**
+     * OK
+     */
+    200: Array<HandlersHandDto>;
+};
+
+export type GetBotsByBotIdHandsResponse = GetBotsByBotIdHandsResponses[keyof GetBotsByBotIdHandsResponses];
+
+export type PostBotsByBotIdHandsData = {
+    /**
+     * Hand markdown
+     */
+    body: HandlersCreateHandRequest;
+    path: {
+        /**
+         * Bot ID
+         */
+        bot_id: string;
+    };
+    query?: never;
+    url: '/bots/{bot_id}/hands';
+};
+
+export type PostBotsByBotIdHandsErrors = {
+    /**
+     * Bad Request
+     */
+    400: HandlersErrorResponse;
+};
+
+export type PostBotsByBotIdHandsError = PostBotsByBotIdHandsErrors[keyof PostBotsByBotIdHandsErrors];
+
+export type PostBotsByBotIdHandsResponses = {
+    /**
+     * Created
+     */
+    201: HandlersHandDto;
+};
+
+export type PostBotsByBotIdHandsResponse = PostBotsByBotIdHandsResponses[keyof PostBotsByBotIdHandsResponses];
+
+export type DeleteBotsByBotIdHandsByHandIdData = {
+    body?: never;
+    path: {
+        /**
+         * Bot ID
+         */
+        bot_id: string;
+        /**
+         * Hand ID
+         */
+        hand_id: string;
+    };
+    query?: never;
+    url: '/bots/{bot_id}/hands/{hand_id}';
+};
+
+export type DeleteBotsByBotIdHandsByHandIdErrors = {
+    /**
+     * Bad Request
+     */
+    400: HandlersErrorResponse;
+};
+
+export type DeleteBotsByBotIdHandsByHandIdError = DeleteBotsByBotIdHandsByHandIdErrors[keyof DeleteBotsByBotIdHandsByHandIdErrors];
+
+export type DeleteBotsByBotIdHandsByHandIdResponses = {
+    /**
+     * No Content
+     */
+    204: unknown;
+};
+
+export type GetBotsByBotIdHandsByHandIdData = {
+    body?: never;
+    path: {
+        /**
+         * Bot ID
+         */
+        bot_id: string;
+        /**
+         * Hand ID
+         */
+        hand_id: string;
+    };
+    query?: never;
+    url: '/bots/{bot_id}/hands/{hand_id}';
+};
+
+export type GetBotsByBotIdHandsByHandIdErrors = {
+    /**
+     * Not Found
+     */
+    404: HandlersErrorResponse;
+};
+
+export type GetBotsByBotIdHandsByHandIdError = GetBotsByBotIdHandsByHandIdErrors[keyof GetBotsByBotIdHandsByHandIdErrors];
+
+export type GetBotsByBotIdHandsByHandIdResponses = {
+    /**
+     * OK
+     */
+    200: HandlersHandDto;
+};
+
+export type GetBotsByBotIdHandsByHandIdResponse = GetBotsByBotIdHandsByHandIdResponses[keyof GetBotsByBotIdHandsByHandIdResponses];
+
+export type PostBotsByBotIdHandsByHandIdExecuteData = {
+    body?: never;
+    path: {
+        /**
+         * Bot ID
+         */
+        bot_id: string;
+        /**
+         * Hand ID
+         */
+        hand_id: string;
+    };
+    query?: never;
+    url: '/bots/{bot_id}/hands/{hand_id}/execute';
+};
+
+export type PostBotsByBotIdHandsByHandIdExecuteErrors = {
+    /**
+     * Bad Request
+     */
+    400: HandlersErrorResponse;
+};
+
+export type PostBotsByBotIdHandsByHandIdExecuteError = PostBotsByBotIdHandsByHandIdExecuteErrors[keyof PostBotsByBotIdHandsByHandIdExecuteErrors];
+
+export type PostBotsByBotIdHandsByHandIdExecuteResponses = {
+    /**
+     * OK
+     */
+    200: HandlersHandExecutionResultDto;
+};
+
+export type PostBotsByBotIdHandsByHandIdExecuteResponse = PostBotsByBotIdHandsByHandIdExecuteResponses[keyof PostBotsByBotIdHandsByHandIdExecuteResponses];
 
 export type DeleteBotsByBotIdHeartbeatLogsData = {
     body?: never;
@@ -3674,7 +4463,7 @@ export type DeleteBotsByBotIdMemoryResponses = {
     /**
      * OK
      */
-    200: ProviderDeleteResponse;
+    200: AdaptersDeleteResponse;
 };
 
 export type DeleteBotsByBotIdMemoryResponse = DeleteBotsByBotIdMemoryResponses[keyof DeleteBotsByBotIdMemoryResponses];
@@ -3721,7 +4510,7 @@ export type GetBotsByBotIdMemoryResponses = {
     /**
      * OK
      */
-    200: ProviderSearchResponse;
+    200: AdaptersSearchResponse;
 };
 
 export type GetBotsByBotIdMemoryResponse = GetBotsByBotIdMemoryResponses[keyof GetBotsByBotIdMemoryResponses];
@@ -3766,7 +4555,7 @@ export type PostBotsByBotIdMemoryResponses = {
     /**
      * OK
      */
-    200: ProviderSearchResponse;
+    200: AdaptersSearchResponse;
 };
 
 export type PostBotsByBotIdMemoryResponse = PostBotsByBotIdMemoryResponses[keyof PostBotsByBotIdMemoryResponses];
@@ -3811,7 +4600,7 @@ export type PostBotsByBotIdMemoryCompactResponses = {
     /**
      * OK
      */
-    200: ProviderCompactResult;
+    200: AdaptersCompactResult;
 };
 
 export type PostBotsByBotIdMemoryCompactResponse = PostBotsByBotIdMemoryCompactResponses[keyof PostBotsByBotIdMemoryCompactResponses];
@@ -3838,6 +4627,10 @@ export type PostBotsByBotIdMemoryRebuildErrors = {
      */
     403: HandlersErrorResponse;
     /**
+     * Conflict
+     */
+    409: HandlersErrorResponse;
+    /**
      * Internal Server Error
      */
     500: HandlersErrorResponse;
@@ -3853,7 +4646,7 @@ export type PostBotsByBotIdMemoryRebuildResponses = {
     /**
      * OK
      */
-    200: ProviderRebuildResult;
+    200: AdaptersRebuildResult;
 };
 
 export type PostBotsByBotIdMemoryRebuildResponse = PostBotsByBotIdMemoryRebuildResponses[keyof PostBotsByBotIdMemoryRebuildResponses];
@@ -3902,10 +4695,56 @@ export type PostBotsByBotIdMemorySearchResponses = {
     /**
      * OK
      */
-    200: ProviderSearchResponse;
+    200: AdaptersSearchResponse;
 };
 
 export type PostBotsByBotIdMemorySearchResponse = PostBotsByBotIdMemorySearchResponses[keyof PostBotsByBotIdMemorySearchResponses];
+
+export type GetBotsByBotIdMemoryStatusData = {
+    body?: never;
+    path: {
+        /**
+         * Bot ID
+         */
+        bot_id: string;
+    };
+    query?: never;
+    url: '/bots/{bot_id}/memory/status';
+};
+
+export type GetBotsByBotIdMemoryStatusErrors = {
+    /**
+     * Bad Request
+     */
+    400: HandlersErrorResponse;
+    /**
+     * Forbidden
+     */
+    403: HandlersErrorResponse;
+    /**
+     * Conflict
+     */
+    409: HandlersErrorResponse;
+    /**
+     * Internal Server Error
+     */
+    500: HandlersErrorResponse;
+    /**
+     * Service Unavailable
+     */
+    503: HandlersErrorResponse;
+};
+
+export type GetBotsByBotIdMemoryStatusError = GetBotsByBotIdMemoryStatusErrors[keyof GetBotsByBotIdMemoryStatusErrors];
+
+export type GetBotsByBotIdMemoryStatusResponses = {
+    /**
+     * OK
+     */
+    200: AdaptersMemoryStatusResponse;
+};
+
+export type GetBotsByBotIdMemoryStatusResponse = GetBotsByBotIdMemoryStatusResponses[keyof GetBotsByBotIdMemoryStatusResponses];
 
 export type GetBotsByBotIdMemoryUsageData = {
     body?: never;
@@ -3944,7 +4783,7 @@ export type GetBotsByBotIdMemoryUsageResponses = {
     /**
      * OK
      */
-    200: ProviderUsageResponse;
+    200: AdaptersUsageResponse;
 };
 
 export type GetBotsByBotIdMemoryUsageResponse = GetBotsByBotIdMemoryUsageResponses[keyof GetBotsByBotIdMemoryUsageResponses];
@@ -3990,7 +4829,7 @@ export type DeleteBotsByBotIdMemoryByIdResponses = {
     /**
      * OK
      */
-    200: ProviderDeleteResponse;
+    200: AdaptersDeleteResponse;
 };
 
 export type DeleteBotsByBotIdMemoryByIdResponse = DeleteBotsByBotIdMemoryByIdResponses[keyof DeleteBotsByBotIdMemoryByIdResponses];
@@ -4079,6 +4918,101 @@ export type GetBotsByBotIdMessagesResponses = {
 };
 
 export type GetBotsByBotIdMessagesResponse = GetBotsByBotIdMessagesResponses[keyof GetBotsByBotIdMessagesResponses];
+
+export type GetBotsByBotIdModelRoutesData = {
+    body?: never;
+    path: {
+        /**
+         * Bot ID
+         */
+        bot_id: string;
+    };
+    query?: never;
+    url: '/bots/{bot_id}/model-routes';
+};
+
+export type GetBotsByBotIdModelRoutesErrors = {
+    /**
+     * Bad Request
+     */
+    400: HandlersErrorResponse;
+};
+
+export type GetBotsByBotIdModelRoutesError = GetBotsByBotIdModelRoutesErrors[keyof GetBotsByBotIdModelRoutesErrors];
+
+export type GetBotsByBotIdModelRoutesResponses = {
+    /**
+     * OK
+     */
+    200: Array<HandlersModelRouteDto>;
+};
+
+export type GetBotsByBotIdModelRoutesResponse = GetBotsByBotIdModelRoutesResponses[keyof GetBotsByBotIdModelRoutesResponses];
+
+export type PostBotsByBotIdModelRoutesData = {
+    /**
+     * Route data
+     */
+    body: HandlersCreateModelRouteRequest;
+    path: {
+        /**
+         * Bot ID
+         */
+        bot_id: string;
+    };
+    query?: never;
+    url: '/bots/{bot_id}/model-routes';
+};
+
+export type PostBotsByBotIdModelRoutesErrors = {
+    /**
+     * Bad Request
+     */
+    400: HandlersErrorResponse;
+};
+
+export type PostBotsByBotIdModelRoutesError = PostBotsByBotIdModelRoutesErrors[keyof PostBotsByBotIdModelRoutesErrors];
+
+export type PostBotsByBotIdModelRoutesResponses = {
+    /**
+     * Created
+     */
+    201: HandlersModelRouteDto;
+};
+
+export type PostBotsByBotIdModelRoutesResponse = PostBotsByBotIdModelRoutesResponses[keyof PostBotsByBotIdModelRoutesResponses];
+
+export type DeleteBotsByBotIdModelRoutesByRouteIdData = {
+    body?: never;
+    path: {
+        /**
+         * Bot ID
+         */
+        bot_id: string;
+        /**
+         * Route ID
+         */
+        route_id: string;
+    };
+    query?: never;
+    url: '/bots/{bot_id}/model-routes/{route_id}';
+};
+
+export type DeleteBotsByBotIdModelRoutesByRouteIdErrors = {
+    /**
+     * Bad Request
+     */
+    400: HandlersErrorResponse;
+};
+
+export type DeleteBotsByBotIdModelRoutesByRouteIdError = DeleteBotsByBotIdModelRoutesByRouteIdErrors[keyof DeleteBotsByBotIdModelRoutesByRouteIdErrors];
+
+export type DeleteBotsByBotIdModelRoutesByRouteIdResponses = {
+    /**
+     * No Content
+     */
+    204: unknown;
+};
 
 export type GetBotsByBotIdScheduleData = {
     body?: never;
@@ -4248,6 +5182,127 @@ export type PutBotsByBotIdScheduleByIdResponses = {
 
 export type PutBotsByBotIdScheduleByIdResponse = PutBotsByBotIdScheduleByIdResponses[keyof PutBotsByBotIdScheduleByIdResponses];
 
+export type GetBotsByBotIdSessionsData = {
+    body?: never;
+    path: {
+        /**
+         * Bot ID
+         */
+        bot_id: string;
+    };
+    query?: never;
+    url: '/bots/{bot_id}/sessions';
+};
+
+export type GetBotsByBotIdSessionsErrors = {
+    /**
+     * Bad Request
+     */
+    400: HandlersErrorResponse;
+    /**
+     * Unauthorized
+     */
+    401: HandlersErrorResponse;
+    /**
+     * Internal Server Error
+     */
+    500: HandlersErrorResponse;
+};
+
+export type GetBotsByBotIdSessionsError = GetBotsByBotIdSessionsErrors[keyof GetBotsByBotIdSessionsErrors];
+
+export type GetBotsByBotIdSessionsResponses = {
+    /**
+     * OK
+     */
+    200: {
+        [key: string]: Array<ConversationConversationListItem>;
+    };
+};
+
+export type GetBotsByBotIdSessionsResponse = GetBotsByBotIdSessionsResponses[keyof GetBotsByBotIdSessionsResponses];
+
+export type PostBotsByBotIdSessionsData = {
+    /**
+     * Session payload
+     */
+    body: ConversationCreateRequest;
+    path: {
+        /**
+         * Bot ID
+         */
+        bot_id: string;
+    };
+    query?: never;
+    url: '/bots/{bot_id}/sessions';
+};
+
+export type PostBotsByBotIdSessionsErrors = {
+    /**
+     * Bad Request
+     */
+    400: HandlersErrorResponse;
+    /**
+     * Unauthorized
+     */
+    401: HandlersErrorResponse;
+    /**
+     * Internal Server Error
+     */
+    500: HandlersErrorResponse;
+};
+
+export type PostBotsByBotIdSessionsError = PostBotsByBotIdSessionsErrors[keyof PostBotsByBotIdSessionsErrors];
+
+export type PostBotsByBotIdSessionsResponses = {
+    /**
+     * Created
+     */
+    201: ConversationConversation;
+};
+
+export type PostBotsByBotIdSessionsResponse = PostBotsByBotIdSessionsResponses[keyof PostBotsByBotIdSessionsResponses];
+
+export type DeleteBotsByBotIdSessionsByIdData = {
+    body?: never;
+    path: {
+        /**
+         * Bot ID
+         */
+        bot_id: string;
+        /**
+         * Session ID
+         */
+        id: string;
+    };
+    query?: never;
+    url: '/bots/{bot_id}/sessions/{id}';
+};
+
+export type DeleteBotsByBotIdSessionsByIdErrors = {
+    /**
+     * Bad Request
+     */
+    400: HandlersErrorResponse;
+    /**
+     * Unauthorized
+     */
+    401: HandlersErrorResponse;
+    /**
+     * Internal Server Error
+     */
+    500: HandlersErrorResponse;
+};
+
+export type DeleteBotsByBotIdSessionsByIdError = DeleteBotsByBotIdSessionsByIdErrors[keyof DeleteBotsByBotIdSessionsByIdErrors];
+
+export type DeleteBotsByBotIdSessionsByIdResponses = {
+    /**
+     * No Content
+     */
+    204: unknown;
+};
+
 export type DeleteBotsByBotIdSettingsData = {
     body?: never;
     path?: never;
@@ -4367,6 +5422,172 @@ export type PutBotsByBotIdSettingsResponses = {
 };
 
 export type PutBotsByBotIdSettingsResponse = PutBotsByBotIdSettingsResponses[keyof PutBotsByBotIdSettingsResponses];
+
+export type GetBotsByBotIdSkillStoreData = {
+    body?: never;
+    path: {
+        /**
+         * Bot ID
+         */
+        bot_id: string;
+    };
+    query?: {
+        /**
+         * Filter by category
+         */
+        category?: string;
+    };
+    url: '/bots/{bot_id}/skill-store';
+};
+
+export type GetBotsByBotIdSkillStoreErrors = {
+    /**
+     * Bad Request
+     */
+    400: HandlersErrorResponse;
+    /**
+     * Internal Server Error
+     */
+    500: HandlersErrorResponse;
+};
+
+export type GetBotsByBotIdSkillStoreError = GetBotsByBotIdSkillStoreErrors[keyof GetBotsByBotIdSkillStoreErrors];
+
+export type GetBotsByBotIdSkillStoreResponses = {
+    /**
+     * OK
+     */
+    200: Array<HandlersStoreTemplateResponse>;
+};
+
+export type GetBotsByBotIdSkillStoreResponse = GetBotsByBotIdSkillStoreResponses[keyof GetBotsByBotIdSkillStoreResponses];
+
+export type PostBotsByBotIdSkillStoreInstallData = {
+    /**
+     * Install request
+     */
+    body: HandlersInstallRequest;
+    path: {
+        /**
+         * Bot ID
+         */
+        bot_id: string;
+    };
+    query?: never;
+    url: '/bots/{bot_id}/skill-store/install';
+};
+
+export type PostBotsByBotIdSkillStoreInstallErrors = {
+    /**
+     * Bad Request
+     */
+    400: HandlersErrorResponse;
+    /**
+     * Not Found
+     */
+    404: HandlersErrorResponse;
+    /**
+     * Conflict
+     */
+    409: HandlersErrorResponse;
+    /**
+     * Internal Server Error
+     */
+    500: HandlersErrorResponse;
+};
+
+export type PostBotsByBotIdSkillStoreInstallError = PostBotsByBotIdSkillStoreInstallErrors[keyof PostBotsByBotIdSkillStoreInstallErrors];
+
+export type PostBotsByBotIdSkillStoreInstallResponses = {
+    /**
+     * OK
+     */
+    200: HandlersSkillsOpResponse;
+};
+
+export type PostBotsByBotIdSkillStoreInstallResponse = PostBotsByBotIdSkillStoreInstallResponses[keyof PostBotsByBotIdSkillStoreInstallResponses];
+
+export type PostBotsByBotIdSkillStoreUninstallData = {
+    /**
+     * Uninstall request
+     */
+    body: HandlersUninstallRequest;
+    path: {
+        /**
+         * Bot ID
+         */
+        bot_id: string;
+    };
+    query?: never;
+    url: '/bots/{bot_id}/skill-store/uninstall';
+};
+
+export type PostBotsByBotIdSkillStoreUninstallErrors = {
+    /**
+     * Bad Request
+     */
+    400: HandlersErrorResponse;
+    /**
+     * Not Found
+     */
+    404: HandlersErrorResponse;
+    /**
+     * Internal Server Error
+     */
+    500: HandlersErrorResponse;
+};
+
+export type PostBotsByBotIdSkillStoreUninstallError = PostBotsByBotIdSkillStoreUninstallErrors[keyof PostBotsByBotIdSkillStoreUninstallErrors];
+
+export type PostBotsByBotIdSkillStoreUninstallResponses = {
+    /**
+     * OK
+     */
+    200: HandlersSkillsOpResponse;
+};
+
+export type PostBotsByBotIdSkillStoreUninstallResponse = PostBotsByBotIdSkillStoreUninstallResponses[keyof PostBotsByBotIdSkillStoreUninstallResponses];
+
+export type PostBotsByBotIdSkillStoreUpdateData = {
+    /**
+     * Update request
+     */
+    body: HandlersUpdateInstallRequest;
+    path: {
+        /**
+         * Bot ID
+         */
+        bot_id: string;
+    };
+    query?: never;
+    url: '/bots/{bot_id}/skill-store/update';
+};
+
+export type PostBotsByBotIdSkillStoreUpdateErrors = {
+    /**
+     * Bad Request
+     */
+    400: HandlersErrorResponse;
+    /**
+     * Not Found
+     */
+    404: HandlersErrorResponse;
+    /**
+     * Internal Server Error
+     */
+    500: HandlersErrorResponse;
+};
+
+export type PostBotsByBotIdSkillStoreUpdateError = PostBotsByBotIdSkillStoreUpdateErrors[keyof PostBotsByBotIdSkillStoreUpdateErrors];
+
+export type PostBotsByBotIdSkillStoreUpdateResponses = {
+    /**
+     * OK
+     */
+    200: HandlersSkillsOpResponse;
+};
+
+export type PostBotsByBotIdSkillStoreUpdateResponse = PostBotsByBotIdSkillStoreUpdateResponses[keyof PostBotsByBotIdSkillStoreUpdateResponses];
 
 export type GetBotsByBotIdSubagentsData = {
     body?: never;
@@ -5744,6 +6965,117 @@ export type PutBrowserContextsByIdResponses = {
 
 export type PutBrowserContextsByIdResponse = PutBrowserContextsByIdResponses[keyof PutBrowserContextsByIdResponses];
 
+export type GetBudgetsData = {
+    body?: never;
+    path?: never;
+    query?: {
+        /**
+         * Filter by scope type
+         */
+        scope_type?: string;
+    };
+    url: '/budgets';
+};
+
+export type GetBudgetsResponses = {
+    /**
+     * OK
+     */
+    200: Array<HandlersBudgetDto>;
+};
+
+export type GetBudgetsResponse = GetBudgetsResponses[keyof GetBudgetsResponses];
+
+export type PostBudgetsData = {
+    /**
+     * Budget data
+     */
+    body: HandlersCreateBudgetRequest;
+    path?: never;
+    query?: never;
+    url: '/budgets';
+};
+
+export type PostBudgetsErrors = {
+    /**
+     * Bad Request
+     */
+    400: HandlersErrorResponse;
+};
+
+export type PostBudgetsError = PostBudgetsErrors[keyof PostBudgetsErrors];
+
+export type PostBudgetsResponses = {
+    /**
+     * Created
+     */
+    201: HandlersBudgetDto;
+};
+
+export type PostBudgetsResponse = PostBudgetsResponses[keyof PostBudgetsResponses];
+
+export type GetBudgetsCheckData = {
+    body?: never;
+    path?: never;
+    query: {
+        /**
+         * Scope type
+         */
+        scope_type: string;
+        /**
+         * Scope ID
+         */
+        scope_id: string;
+    };
+    url: '/budgets/check';
+};
+
+export type GetBudgetsCheckErrors = {
+    /**
+     * Bad Request
+     */
+    400: HandlersErrorResponse;
+};
+
+export type GetBudgetsCheckError = GetBudgetsCheckErrors[keyof GetBudgetsCheckErrors];
+
+export type GetBudgetsCheckResponses = {
+    /**
+     * OK
+     */
+    200: HandlersBudgetCheckDto;
+};
+
+export type GetBudgetsCheckResponse = GetBudgetsCheckResponses[keyof GetBudgetsCheckResponses];
+
+export type DeleteBudgetsByBudgetIdData = {
+    body?: never;
+    path: {
+        /**
+         * Budget ID
+         */
+        budget_id: string;
+    };
+    query?: never;
+    url: '/budgets/{budget_id}';
+};
+
+export type DeleteBudgetsByBudgetIdErrors = {
+    /**
+     * Bad Request
+     */
+    400: HandlersErrorResponse;
+};
+
+export type DeleteBudgetsByBudgetIdError = DeleteBudgetsByBudgetIdErrors[keyof DeleteBudgetsByBudgetIdErrors];
+
+export type DeleteBudgetsByBudgetIdResponses = {
+    /**
+     * No Content
+     */
+    204: unknown;
+};
+
 export type GetChannelsData = {
     body?: never;
     path?: never;
@@ -5802,6 +7134,385 @@ export type GetChannelsByPlatformResponses = {
 };
 
 export type GetChannelsByPlatformResponse = GetChannelsByPlatformResponses[keyof GetChannelsByPlatformResponses];
+
+export type GetDepartmentsData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/departments';
+};
+
+export type GetDepartmentsResponses = {
+    /**
+     * OK
+     */
+    200: Array<HandlersDepartmentDto>;
+};
+
+export type GetDepartmentsResponse = GetDepartmentsResponses[keyof GetDepartmentsResponses];
+
+export type PostDepartmentsData = {
+    /**
+     * Department data
+     */
+    body: HandlersCreateDepartmentRequest;
+    path?: never;
+    query?: never;
+    url: '/departments';
+};
+
+export type PostDepartmentsErrors = {
+    /**
+     * Bad Request
+     */
+    400: HandlersErrorResponse;
+};
+
+export type PostDepartmentsError = PostDepartmentsErrors[keyof PostDepartmentsErrors];
+
+export type PostDepartmentsResponses = {
+    /**
+     * Created
+     */
+    201: HandlersDepartmentDto;
+};
+
+export type PostDepartmentsResponse = PostDepartmentsResponses[keyof PostDepartmentsResponses];
+
+export type DeleteDepartmentsByDepartmentIdData = {
+    body?: never;
+    path: {
+        /**
+         * Department ID
+         */
+        department_id: string;
+    };
+    query?: never;
+    url: '/departments/{department_id}';
+};
+
+export type DeleteDepartmentsByDepartmentIdErrors = {
+    /**
+     * Bad Request
+     */
+    400: HandlersErrorResponse;
+};
+
+export type DeleteDepartmentsByDepartmentIdError = DeleteDepartmentsByDepartmentIdErrors[keyof DeleteDepartmentsByDepartmentIdErrors];
+
+export type DeleteDepartmentsByDepartmentIdResponses = {
+    /**
+     * No Content
+     */
+    204: unknown;
+};
+
+export type GetDepartmentsByDepartmentIdData = {
+    body?: never;
+    path: {
+        /**
+         * Department ID
+         */
+        department_id: string;
+    };
+    query?: never;
+    url: '/departments/{department_id}';
+};
+
+export type GetDepartmentsByDepartmentIdErrors = {
+    /**
+     * Bad Request
+     */
+    400: HandlersErrorResponse;
+};
+
+export type GetDepartmentsByDepartmentIdError = GetDepartmentsByDepartmentIdErrors[keyof GetDepartmentsByDepartmentIdErrors];
+
+export type GetDepartmentsByDepartmentIdResponses = {
+    /**
+     * OK
+     */
+    200: HandlersDepartmentDto;
+};
+
+export type GetDepartmentsByDepartmentIdResponse = GetDepartmentsByDepartmentIdResponses[keyof GetDepartmentsByDepartmentIdResponses];
+
+export type PutDepartmentsByDepartmentIdData = {
+    /**
+     * Department data
+     */
+    body: HandlersUpdateDepartmentRequest;
+    path: {
+        /**
+         * Department ID
+         */
+        department_id: string;
+    };
+    query?: never;
+    url: '/departments/{department_id}';
+};
+
+export type PutDepartmentsByDepartmentIdErrors = {
+    /**
+     * Bad Request
+     */
+    400: HandlersErrorResponse;
+};
+
+export type PutDepartmentsByDepartmentIdError = PutDepartmentsByDepartmentIdErrors[keyof PutDepartmentsByDepartmentIdErrors];
+
+export type PutDepartmentsByDepartmentIdResponses = {
+    /**
+     * OK
+     */
+    200: HandlersDepartmentDto;
+};
+
+export type PutDepartmentsByDepartmentIdResponse = PutDepartmentsByDepartmentIdResponses[keyof PutDepartmentsByDepartmentIdResponses];
+
+export type GetDepartmentsByDepartmentIdBotsData = {
+    body?: never;
+    path: {
+        /**
+         * Department ID
+         */
+        department_id: string;
+    };
+    query?: never;
+    url: '/departments/{department_id}/bots';
+};
+
+export type GetDepartmentsByDepartmentIdBotsErrors = {
+    /**
+     * Bad Request
+     */
+    400: HandlersErrorResponse;
+};
+
+export type GetDepartmentsByDepartmentIdBotsError = GetDepartmentsByDepartmentIdBotsErrors[keyof GetDepartmentsByDepartmentIdBotsErrors];
+
+export type GetDepartmentsByDepartmentIdBotsResponses = {
+    /**
+     * OK
+     */
+    200: Array<HandlersBotBriefDto>;
+};
+
+export type GetDepartmentsByDepartmentIdBotsResponse = GetDepartmentsByDepartmentIdBotsResponses[keyof GetDepartmentsByDepartmentIdBotsResponses];
+
+export type GetDepartmentsByDepartmentIdDirectoryTemplatesData = {
+    body?: never;
+    path: {
+        /**
+         * Department ID
+         */
+        department_id: string;
+    };
+    query?: never;
+    url: '/departments/{department_id}/directory-templates';
+};
+
+export type GetDepartmentsByDepartmentIdDirectoryTemplatesErrors = {
+    /**
+     * Bad Request
+     */
+    400: HandlersErrorResponse;
+};
+
+export type GetDepartmentsByDepartmentIdDirectoryTemplatesError = GetDepartmentsByDepartmentIdDirectoryTemplatesErrors[keyof GetDepartmentsByDepartmentIdDirectoryTemplatesErrors];
+
+export type GetDepartmentsByDepartmentIdDirectoryTemplatesResponses = {
+    /**
+     * OK
+     */
+    200: HandlersDirectoryTemplatesRequest;
+};
+
+export type GetDepartmentsByDepartmentIdDirectoryTemplatesResponse = GetDepartmentsByDepartmentIdDirectoryTemplatesResponses[keyof GetDepartmentsByDepartmentIdDirectoryTemplatesResponses];
+
+export type PutDepartmentsByDepartmentIdDirectoryTemplatesData = {
+    /**
+     * Directory templates
+     */
+    body: HandlersDirectoryTemplatesRequest;
+    path: {
+        /**
+         * Department ID
+         */
+        department_id: string;
+    };
+    query?: never;
+    url: '/departments/{department_id}/directory-templates';
+};
+
+export type PutDepartmentsByDepartmentIdDirectoryTemplatesErrors = {
+    /**
+     * Bad Request
+     */
+    400: HandlersErrorResponse;
+};
+
+export type PutDepartmentsByDepartmentIdDirectoryTemplatesError = PutDepartmentsByDepartmentIdDirectoryTemplatesErrors[keyof PutDepartmentsByDepartmentIdDirectoryTemplatesErrors];
+
+export type PutDepartmentsByDepartmentIdDirectoryTemplatesResponses = {
+    /**
+     * No Content
+     */
+    204: unknown;
+};
+
+export type GetDepartmentsByDepartmentIdSkillTemplatesData = {
+    body?: never;
+    path: {
+        /**
+         * Department ID
+         */
+        department_id: string;
+    };
+    query?: never;
+    url: '/departments/{department_id}/skill-templates';
+};
+
+export type GetDepartmentsByDepartmentIdSkillTemplatesErrors = {
+    /**
+     * Bad Request
+     */
+    400: HandlersErrorResponse;
+};
+
+export type GetDepartmentsByDepartmentIdSkillTemplatesError = GetDepartmentsByDepartmentIdSkillTemplatesErrors[keyof GetDepartmentsByDepartmentIdSkillTemplatesErrors];
+
+export type GetDepartmentsByDepartmentIdSkillTemplatesResponses = {
+    /**
+     * OK
+     */
+    200: Array<HandlersSkillTemplateBriefDto>;
+};
+
+export type GetDepartmentsByDepartmentIdSkillTemplatesResponse = GetDepartmentsByDepartmentIdSkillTemplatesResponses[keyof GetDepartmentsByDepartmentIdSkillTemplatesResponses];
+
+export type PostDepartmentsByDepartmentIdSkillTemplatesData = {
+    /**
+     * Skill template to add
+     */
+    body: HandlersAddSkillTemplateRequest;
+    path: {
+        /**
+         * Department ID
+         */
+        department_id: string;
+    };
+    query?: never;
+    url: '/departments/{department_id}/skill-templates';
+};
+
+export type PostDepartmentsByDepartmentIdSkillTemplatesErrors = {
+    /**
+     * Bad Request
+     */
+    400: HandlersErrorResponse;
+};
+
+export type PostDepartmentsByDepartmentIdSkillTemplatesError = PostDepartmentsByDepartmentIdSkillTemplatesErrors[keyof PostDepartmentsByDepartmentIdSkillTemplatesErrors];
+
+export type PostDepartmentsByDepartmentIdSkillTemplatesResponses = {
+    /**
+     * No Content
+     */
+    204: unknown;
+};
+
+export type DeleteDepartmentsByDepartmentIdSkillTemplatesByTemplateIdData = {
+    body?: never;
+    path: {
+        /**
+         * Department ID
+         */
+        department_id: string;
+        /**
+         * Template ID
+         */
+        template_id: string;
+    };
+    query?: never;
+    url: '/departments/{department_id}/skill-templates/{template_id}';
+};
+
+export type DeleteDepartmentsByDepartmentIdSkillTemplatesByTemplateIdErrors = {
+    /**
+     * Bad Request
+     */
+    400: HandlersErrorResponse;
+};
+
+export type DeleteDepartmentsByDepartmentIdSkillTemplatesByTemplateIdError = DeleteDepartmentsByDepartmentIdSkillTemplatesByTemplateIdErrors[keyof DeleteDepartmentsByDepartmentIdSkillTemplatesByTemplateIdErrors];
+
+export type DeleteDepartmentsByDepartmentIdSkillTemplatesByTemplateIdResponses = {
+    /**
+     * No Content
+     */
+    204: unknown;
+};
+
+export type PostDepartmentsByDepartmentIdSyncDirectoriesData = {
+    body?: never;
+    path: {
+        /**
+         * Department ID
+         */
+        department_id: string;
+    };
+    query?: never;
+    url: '/departments/{department_id}/sync-directories';
+};
+
+export type PostDepartmentsByDepartmentIdSyncDirectoriesErrors = {
+    /**
+     * Bad Request
+     */
+    400: HandlersErrorResponse;
+};
+
+export type PostDepartmentsByDepartmentIdSyncDirectoriesError = PostDepartmentsByDepartmentIdSyncDirectoriesErrors[keyof PostDepartmentsByDepartmentIdSyncDirectoriesErrors];
+
+export type PostDepartmentsByDepartmentIdSyncDirectoriesResponses = {
+    /**
+     * OK
+     */
+    200: HandlersSyncResultDto;
+};
+
+export type PostDepartmentsByDepartmentIdSyncDirectoriesResponse = PostDepartmentsByDepartmentIdSyncDirectoriesResponses[keyof PostDepartmentsByDepartmentIdSyncDirectoriesResponses];
+
+export type PostDepartmentsByDepartmentIdSyncSkillsData = {
+    body?: never;
+    path: {
+        /**
+         * Department ID
+         */
+        department_id: string;
+    };
+    query?: never;
+    url: '/departments/{department_id}/sync-skills';
+};
+
+export type PostDepartmentsByDepartmentIdSyncSkillsErrors = {
+    /**
+     * Bad Request
+     */
+    400: HandlersErrorResponse;
+};
+
+export type PostDepartmentsByDepartmentIdSyncSkillsError = PostDepartmentsByDepartmentIdSyncSkillsErrors[keyof PostDepartmentsByDepartmentIdSyncSkillsErrors];
+
+export type PostDepartmentsByDepartmentIdSyncSkillsResponses = {
+    /**
+     * OK
+     */
+    200: HandlersSyncResultDto;
+};
+
+export type PostDepartmentsByDepartmentIdSyncSkillsResponse = PostDepartmentsByDepartmentIdSyncSkillsResponses[keyof PostDepartmentsByDepartmentIdSyncSkillsResponses];
 
 export type GetEmailProvidersData = {
     body?: never;
@@ -6036,7 +7747,7 @@ export type GetMemoryProvidersResponses = {
     /**
      * OK
      */
-    200: Array<ProviderProviderGetResponse>;
+    200: Array<AdaptersProviderGetResponse>;
 };
 
 export type GetMemoryProvidersResponse = GetMemoryProvidersResponses[keyof GetMemoryProvidersResponses];
@@ -6045,7 +7756,7 @@ export type PostMemoryProvidersData = {
     /**
      * Memory provider configuration
      */
-    body: ProviderProviderCreateRequest;
+    body: AdaptersProviderCreateRequest;
     path?: never;
     query?: never;
     url: '/memory-providers';
@@ -6068,7 +7779,7 @@ export type PostMemoryProvidersResponses = {
     /**
      * Created
      */
-    201: ProviderProviderGetResponse;
+    201: AdaptersProviderGetResponse;
 };
 
 export type PostMemoryProvidersResponse = PostMemoryProvidersResponses[keyof PostMemoryProvidersResponses];
@@ -6084,7 +7795,7 @@ export type GetMemoryProvidersMetaResponses = {
     /**
      * OK
      */
-    200: Array<ProviderProviderMeta>;
+    200: Array<AdaptersProviderMeta>;
 };
 
 export type GetMemoryProvidersMetaResponse = GetMemoryProvidersMetaResponses[keyof GetMemoryProvidersMetaResponses];
@@ -6150,7 +7861,7 @@ export type GetMemoryProvidersByIdResponses = {
     /**
      * OK
      */
-    200: ProviderProviderGetResponse;
+    200: AdaptersProviderGetResponse;
 };
 
 export type GetMemoryProvidersByIdResponse = GetMemoryProvidersByIdResponses[keyof GetMemoryProvidersByIdResponses];
@@ -6159,7 +7870,7 @@ export type PutMemoryProvidersByIdData = {
     /**
      * Updated configuration
      */
-    body: ProviderProviderUpdateRequest;
+    body: AdaptersProviderUpdateRequest;
     path: {
         /**
          * Provider ID
@@ -6187,10 +7898,48 @@ export type PutMemoryProvidersByIdResponses = {
     /**
      * OK
      */
-    200: ProviderProviderGetResponse;
+    200: AdaptersProviderGetResponse;
 };
 
 export type PutMemoryProvidersByIdResponse = PutMemoryProvidersByIdResponses[keyof PutMemoryProvidersByIdResponses];
+
+export type GetMemoryProvidersByIdStatusData = {
+    body?: never;
+    path: {
+        /**
+         * Provider ID
+         */
+        id: string;
+    };
+    query?: never;
+    url: '/memory-providers/{id}/status';
+};
+
+export type GetMemoryProvidersByIdStatusErrors = {
+    /**
+     * Bad Request
+     */
+    400: HandlersErrorResponse;
+    /**
+     * Not Found
+     */
+    404: HandlersErrorResponse;
+    /**
+     * Internal Server Error
+     */
+    500: HandlersErrorResponse;
+};
+
+export type GetMemoryProvidersByIdStatusError = GetMemoryProvidersByIdStatusErrors[keyof GetMemoryProvidersByIdStatusErrors];
+
+export type GetMemoryProvidersByIdStatusResponses = {
+    /**
+     * OK
+     */
+    200: AdaptersProviderStatusResponse;
+};
+
+export type GetMemoryProvidersByIdStatusResponse = GetMemoryProvidersByIdStatusResponses[keyof GetMemoryProvidersByIdStatusResponses];
 
 export type GetModelsData = {
     body?: never;
@@ -7117,6 +8866,175 @@ export type PutSearchProvidersByIdResponses = {
 };
 
 export type PutSearchProvidersByIdResponse = PutSearchProvidersByIdResponses[keyof PutSearchProvidersByIdResponses];
+
+export type GetSkillTemplatesData = {
+    body?: never;
+    path?: never;
+    query?: {
+        /**
+         * Filter by category
+         */
+        category?: string;
+    };
+    url: '/skill-templates';
+};
+
+export type GetSkillTemplatesErrors = {
+    /**
+     * Internal Server Error
+     */
+    500: HandlersErrorResponse;
+};
+
+export type GetSkillTemplatesError = GetSkillTemplatesErrors[keyof GetSkillTemplatesErrors];
+
+export type GetSkillTemplatesResponses = {
+    /**
+     * OK
+     */
+    200: Array<HandlersSkillTemplateResponse>;
+};
+
+export type GetSkillTemplatesResponse = GetSkillTemplatesResponses[keyof GetSkillTemplatesResponses];
+
+export type PostSkillTemplatesData = {
+    /**
+     * Template data
+     */
+    body: HandlersSkillTemplateRequest;
+    path?: never;
+    query?: never;
+    url: '/skill-templates';
+};
+
+export type PostSkillTemplatesErrors = {
+    /**
+     * Bad Request
+     */
+    400: HandlersErrorResponse;
+    /**
+     * Conflict
+     */
+    409: HandlersErrorResponse;
+    /**
+     * Internal Server Error
+     */
+    500: HandlersErrorResponse;
+};
+
+export type PostSkillTemplatesError = PostSkillTemplatesErrors[keyof PostSkillTemplatesErrors];
+
+export type PostSkillTemplatesResponses = {
+    /**
+     * Created
+     */
+    201: HandlersSkillTemplateResponse;
+};
+
+export type PostSkillTemplatesResponse = PostSkillTemplatesResponses[keyof PostSkillTemplatesResponses];
+
+export type DeleteSkillTemplatesByIdData = {
+    body?: never;
+    path: {
+        /**
+         * Template ID
+         */
+        id: string;
+    };
+    query?: never;
+    url: '/skill-templates/{id}';
+};
+
+export type DeleteSkillTemplatesByIdErrors = {
+    /**
+     * Internal Server Error
+     */
+    500: HandlersErrorResponse;
+};
+
+export type DeleteSkillTemplatesByIdError = DeleteSkillTemplatesByIdErrors[keyof DeleteSkillTemplatesByIdErrors];
+
+export type DeleteSkillTemplatesByIdResponses = {
+    /**
+     * No Content
+     */
+    204: unknown;
+};
+
+export type GetSkillTemplatesByIdData = {
+    body?: never;
+    path: {
+        /**
+         * Template ID
+         */
+        id: string;
+    };
+    query?: never;
+    url: '/skill-templates/{id}';
+};
+
+export type GetSkillTemplatesByIdErrors = {
+    /**
+     * Not Found
+     */
+    404: HandlersErrorResponse;
+    /**
+     * Internal Server Error
+     */
+    500: HandlersErrorResponse;
+};
+
+export type GetSkillTemplatesByIdError = GetSkillTemplatesByIdErrors[keyof GetSkillTemplatesByIdErrors];
+
+export type GetSkillTemplatesByIdResponses = {
+    /**
+     * OK
+     */
+    200: HandlersSkillTemplateResponse;
+};
+
+export type GetSkillTemplatesByIdResponse = GetSkillTemplatesByIdResponses[keyof GetSkillTemplatesByIdResponses];
+
+export type PutSkillTemplatesByIdData = {
+    /**
+     * Template data
+     */
+    body: HandlersSkillTemplateRequest;
+    path: {
+        /**
+         * Template ID
+         */
+        id: string;
+    };
+    query?: never;
+    url: '/skill-templates/{id}';
+};
+
+export type PutSkillTemplatesByIdErrors = {
+    /**
+     * Bad Request
+     */
+    400: HandlersErrorResponse;
+    /**
+     * Not Found
+     */
+    404: HandlersErrorResponse;
+    /**
+     * Internal Server Error
+     */
+    500: HandlersErrorResponse;
+};
+
+export type PutSkillTemplatesByIdError = PutSkillTemplatesByIdErrors[keyof PutSkillTemplatesByIdErrors];
+
+export type PutSkillTemplatesByIdResponses = {
+    /**
+     * OK
+     */
+    200: HandlersSkillTemplateResponse;
+};
+
+export type PutSkillTemplatesByIdResponse = PutSkillTemplatesByIdResponses[keyof PutSkillTemplatesByIdResponses];
 
 export type GetUsersData = {
     body?: never;

@@ -147,6 +147,15 @@
     "thinkingInProgress": "Thinking…",
     "thinkingDone": "Thinking complete",
     "currentBot": "Current Bot",
+    "sessions": "Sessions",
+    "selectBotFirst": "Select a bot to view sessions",
+    "emptySessions": "No sessions yet",
+    "sessionType": {
+      "chat": "Chat",
+      "heartbeat": "Heartbeat",
+      "schedule": "Schedule",
+      "subagent": "Subagent"
+    },
     "inputPlaceholder": "Type your question…",
     "readonlyHint": "This chat is read-only",
     "readonlyPlaceholder": "This chat is read-only. Sending messages is disabled.",

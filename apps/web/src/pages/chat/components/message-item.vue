@@ -1,7 +1,7 @@
 <template>
   <div
     class="flex gap-3 items-start"
-    :class="message.role === 'user' && isSelf ? 'justify-end' : ''"
+    :class="message.role === 'user' && isSelf && !isSpecialUserMessage ? 'justify-end' : ''"
   >
     <!-- Assistant avatar -->
     <div
@@ -29,7 +29,7 @@
 
     <!-- User avatar (other sender, left-aligned) -->
     <div
-      v-if="message.role === 'user' && !isSelf"
+      v-if="message.role === 'user' && !isSelf && !isSpecialUserMessage"
       class="relative shrink-0"
     >
       <Avatar class="size-8">
@@ -56,7 +56,7 @@
     >
       <!-- Sender name for non-self user messages -->
       <p
-        v-if="message.role === 'user' && !isSelf"
+      v-if="message.role === 'user' && !isSelf && !isSpecialUserMessage"
         class="text-xs text-muted-foreground mb-1"
       >
         {{ message.senderDisplayName || senderFallbackName }}
@@ -71,8 +71,25 @@
           v-for="(block, i) in message.blocks"
           :key="i"
         >
+          <HeartbeatTriggerBlock
+            v-if="block.type === 'text' && sessionType === 'heartbeat' && block.content"
+            :text="block.content"
+          />
+          <ScheduleTriggerBlock
+            v-else-if="block.type === 'text' && sessionType === 'schedule' && block.content"
+            :text="block.content"
+          />
           <div
-            v-if="block.type === 'text' && cleanUserText(block.content)"
+            v-else-if="block.type === 'text' && sessionType === 'subagent' && block.content"
+            class="rounded-xl border border-violet-200 bg-violet-50/80 px-4 py-3 text-sm text-foreground dark:border-violet-900/60 dark:bg-violet-950/30"
+          >
+            <MarkdownRender
+              :content="block.content"
+              custom-id="chat-msg-subagent"
+            />
+          </div>
+          <div
+            v-else-if="block.type === 'text' && cleanUserText(block.content)"
             class="rounded-2xl px-4 py-2.5 text-sm whitespace-pre-wrap"
             :class="isSelf
               ? 'rounded-tr-sm bg-primary text-primary-foreground'
@@ -123,6 +140,7 @@
             v-else-if="block.type === 'tool_call'"
             :block="(block as ToolCallBlockType)"
             @send-prompt="$emit('send-prompt', $event)"
+            @open-session="$emit('open-session', $event)"
           />
 
           <!-- Widget block -->
@@ -176,7 +194,7 @@
 
     <!-- Self user avatar (right side) -->
     <div
-      v-if="message.role === 'user' && isSelf"
+      v-if="message.role === 'user' && isSelf && !isSpecialUserMessage"
       class="relative shrink-0"
     >
       <Avatar class="size-8">
@@ -205,6 +223,8 @@ import MarkdownRender, { enableKatex, enableMermaid } from 'markstream-vue'
 import ThinkingBlock from './thinking-block.vue'
 import ToolCallBlock from './tool-call-block.vue'
 import AttachmentBlock from './attachment-block.vue'
+import HeartbeatTriggerBlock from './heartbeat-trigger-block.vue'
+import ScheduleTriggerBlock from './schedule-trigger-block.vue'
 import ChannelBadge from '@/components/chat-list/channel-badge/index.vue'
 import { useUserStore } from '@/store/user'
 import { useChatStore } from '@/store/chat-list'
@@ -224,11 +244,13 @@ enableMermaid()
 
 const props = defineProps<{
   message: ChatMessage
+  sessionType?: string
   onOpenMedia?: (src: string) => void
 }>()
 
 defineEmits<{
   'send-prompt': [prompt: string]
+  'open-session': [sessionId: string]
 }>()
 
 const userStore = useUserStore()
@@ -236,6 +258,10 @@ const chatStore = useChatStore()
 const { currentBotId, bots } = storeToRefs(chatStore)
 
 const isSelf = computed(() => props.message.isSelf !== false)
+const isSpecialUserMessage = computed(() =>
+  props.message.role === 'user'
+  && ['heartbeat', 'schedule', 'subagent'].includes(props.sessionType ?? ''),
+)
 
 const currentBot = computed(() =>
   bots.value.find((b) => b.id === currentBotId.value) ?? null,
@@ -280,6 +306,7 @@ function cleanUserText(content?: string): string {
 }
 
 const contentClass = computed(() => {
+  if (isSpecialUserMessage.value) return 'flex-1 max-w-full'
   if (props.message.role === 'user') return 'max-w-[80%]'
   return 'flex-1 max-w-full'
 })

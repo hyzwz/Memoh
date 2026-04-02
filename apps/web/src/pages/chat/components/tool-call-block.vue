@@ -35,6 +35,7 @@
   <ToolCallGeneric
     v-else
     :block="block"
+    @open-session="$emit('open-session', $event)"
   />
 </template>
 
@@ -56,6 +57,7 @@ defineProps<{
 
 defineEmits<{
   'send-prompt': [prompt: string]
+  'open-session': [sessionId: string]
 }>()
 
 const scheduleTools = new Set([

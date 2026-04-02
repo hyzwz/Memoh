@@ -76,6 +76,245 @@ definitions:
       display_name:
         type: string
     type: object
+  adapters.CDFPoint:
+    properties:
+      cumulative:
+        description: cumulative weight fraction [0.0, 1.0]
+        type: number
+      k:
+        description: rank position (1-based, sorted by value desc)
+        type: integer
+    type: object
+  adapters.CompactResult:
+    properties:
+      after_count:
+        type: integer
+      before_count:
+        type: integer
+      ratio:
+        type: number
+      results:
+        items:
+          $ref: '#/definitions/adapters.MemoryItem'
+        type: array
+    type: object
+  adapters.DeleteResponse:
+    properties:
+      message:
+        type: string
+    type: object
+  adapters.HealthStatus:
+    properties:
+      error:
+        type: string
+      ok:
+        type: boolean
+    type: object
+  adapters.MemoryItem:
+    properties:
+      agent_id:
+        type: string
+      bot_id:
+        type: string
+      cdf_curve:
+        items:
+          $ref: '#/definitions/adapters.CDFPoint'
+        type: array
+      created_at:
+        type: string
+      hash:
+        type: string
+      id:
+        type: string
+      memory:
+        type: string
+      metadata:
+        additionalProperties: {}
+        type: object
+      run_id:
+        type: string
+      score:
+        type: number
+      top_k_buckets:
+        items:
+          $ref: '#/definitions/adapters.TopKBucket'
+        type: array
+      updated_at:
+        type: string
+    type: object
+  adapters.MemoryStatusResponse:
+    properties:
+      can_manual_sync:
+        type: boolean
+      encoder:
+        $ref: '#/definitions/adapters.HealthStatus'
+      indexed_count:
+        type: integer
+      markdown_file_count:
+        type: integer
+      memory_mode:
+        type: string
+      overview_path:
+        type: string
+      provider_type:
+        type: string
+      qdrant:
+        $ref: '#/definitions/adapters.HealthStatus'
+      qdrant_collection:
+        type: string
+      source_count:
+        type: integer
+      source_dir:
+        type: string
+    type: object
+  adapters.Message:
+    properties:
+      content:
+        type: string
+      role:
+        type: string
+    type: object
+  adapters.ProviderCollectionStatus:
+    properties:
+      exists:
+        type: boolean
+      name:
+        type: string
+      points:
+        type: integer
+      qdrant:
+        $ref: '#/definitions/adapters.HealthStatus'
+    type: object
+  adapters.ProviderConfigSchema:
+    properties:
+      fields:
+        additionalProperties:
+          $ref: '#/definitions/adapters.ProviderFieldSchema'
+        type: object
+    type: object
+  adapters.ProviderCreateRequest:
+    properties:
+      config:
+        additionalProperties: {}
+        type: object
+      name:
+        type: string
+      provider:
+        $ref: '#/definitions/adapters.ProviderType'
+    type: object
+  adapters.ProviderFieldSchema:
+    properties:
+      description:
+        type: string
+      example: {}
+      required:
+        type: boolean
+      secret:
+        type: boolean
+      title:
+        type: string
+      type:
+        type: string
+    type: object
+  adapters.ProviderGetResponse:
+    properties:
+      config:
+        additionalProperties: {}
+        type: object
+      created_at:
+        type: string
+      id:
+        type: string
+      is_default:
+        type: boolean
+      name:
+        type: string
+      provider:
+        type: string
+      updated_at:
+        type: string
+    type: object
+  adapters.ProviderMeta:
+    properties:
+      config_schema:
+        $ref: '#/definitions/adapters.ProviderConfigSchema'
+      display_name:
+        type: string
+      provider:
+        type: string
+    type: object
+  adapters.ProviderStatusResponse:
+    properties:
+      collections:
+        items:
+          $ref: '#/definitions/adapters.ProviderCollectionStatus'
+        type: array
+      embedding_model_id:
+        type: string
+      memory_mode:
+        type: string
+      provider_type:
+        type: string
+    type: object
+  adapters.ProviderType:
+    enum:
+    - builtin
+    - mem0
+    - openviking
+    type: string
+    x-enum-varnames:
+    - ProviderBuiltin
+    - ProviderMem0
+    - ProviderOpenViking
+  adapters.ProviderUpdateRequest:
+    properties:
+      config:
+        additionalProperties: {}
+        type: object
+      name:
+        type: string
+    type: object
+  adapters.RebuildResult:
+    properties:
+      fs_count:
+        type: integer
+      missing_count:
+        type: integer
+      restored_count:
+        type: integer
+      storage_count:
+        type: integer
+    type: object
+  adapters.SearchResponse:
+    properties:
+      relations:
+        items: {}
+        type: array
+      results:
+        items:
+          $ref: '#/definitions/adapters.MemoryItem'
+        type: array
+    type: object
+  adapters.TopKBucket:
+    properties:
+      index:
+        description: sparse dimension index (term hash)
+        type: integer
+      value:
+        description: weight (term frequency)
+        type: number
+    type: object
+  adapters.UsageResponse:
+    properties:
+      avg_text_bytes:
+        type: integer
+      count:
+        type: integer
+      estimated_storage_bytes:
+        type: integer
+      total_text_bytes:
+        type: integer
+    type: object
   bots.Bot:
     properties:
       allow_guest:
@@ -563,6 +802,68 @@ definitions:
       verified_at:
         type: string
     type: object
+  conversation.Conversation:
+    properties:
+      bot_id:
+        type: string
+      created_at:
+        type: string
+      created_by:
+        type: string
+      id:
+        type: string
+      kind:
+        type: string
+      metadata:
+        additionalProperties: {}
+        type: object
+      parent_chat_id:
+        type: string
+      title:
+        type: string
+      updated_at:
+        type: string
+    type: object
+  conversation.ConversationListItem:
+    properties:
+      access_mode:
+        type: string
+      bot_id:
+        type: string
+      created_at:
+        type: string
+      created_by:
+        type: string
+      id:
+        type: string
+      kind:
+        type: string
+      last_observed_at:
+        type: string
+      metadata:
+        additionalProperties: {}
+        type: object
+      parent_chat_id:
+        type: string
+      participant_role:
+        type: string
+      title:
+        type: string
+      updated_at:
+        type: string
+    type: object
+  conversation.CreateRequest:
+    properties:
+      kind:
+        type: string
+      metadata:
+        additionalProperties: {}
+        type: object
+      parent_chat_id:
+        type: string
+      title:
+        type: string
+    type: object
   email.BindingResponse:
     properties:
       bot_id:
@@ -755,12 +1056,70 @@ definitions:
       updated_at:
         type: string
     type: object
+  handlers.AddSkillTemplateRequest:
+    properties:
+      template_id:
+        type: string
+    type: object
   handlers.BatchDeleteRequest:
     properties:
       ids:
         items:
           type: string
         type: array
+    type: object
+  handlers.BotBriefDTO:
+    properties:
+      display_name:
+        type: string
+      id:
+        type: string
+    type: object
+  handlers.BotDepartmentAssignRequest:
+    properties:
+      department_id:
+        type: string
+    type: object
+  handlers.BotSyncError:
+    properties:
+      bot_id:
+        type: string
+      message:
+        type: string
+    type: object
+  handlers.BudgetCheckDTO:
+    properties:
+      action:
+        type: string
+      alert:
+        type: boolean
+      allowed:
+        type: boolean
+      limit:
+        type: number
+      percentage:
+        type: number
+      spent:
+        type: number
+    type: object
+  handlers.BudgetDTO:
+    properties:
+      action_on_exceed:
+        type: string
+      alert_threshold:
+        type: number
+      id:
+        type: string
+      is_enabled:
+        type: boolean
+      limit_amount:
+        type: number
+      period:
+        type: string
+      scope_id:
+        type: string
+      scope_type:
+        type: string
     type: object
   handlers.ChannelMeta:
     properties:
@@ -778,6 +1137,36 @@ definitions:
         type: string
       user_config_schema:
         $ref: '#/definitions/channel.ConfigSchema'
+    type: object
+  handlers.CockpitSummaryDTO:
+    properties:
+      average_efficiency_multiple:
+        type: number
+      labor_cost_cny:
+        type: number
+      total_ai_time_minutes:
+        type: integer
+      total_innovations:
+        type: integer
+      total_reports:
+        type: integer
+      total_saved_hours:
+        type: number
+    type: object
+  handlers.CreateBudgetRequest:
+    properties:
+      action_on_exceed:
+        type: string
+      alert_threshold:
+        type: number
+      limit_amount:
+        type: number
+      period:
+        type: string
+      scope_id:
+        type: string
+      scope_type:
+        type: string
     type: object
   handlers.CreateContainerRequest:
     properties:
@@ -800,6 +1189,36 @@ definitions:
         type: string
       started:
         type: boolean
+    type: object
+  handlers.CreateDepartmentRequest:
+    properties:
+      description:
+        type: string
+      name:
+        type: string
+      parent_id:
+        type: string
+    type: object
+  handlers.CreateHandRequest:
+    properties:
+      markdown:
+        type: string
+    type: object
+  handlers.CreateModelRouteRequest:
+    properties:
+      complexity_tier:
+        type: string
+      is_enabled:
+        type: boolean
+      metadata:
+        additionalProperties: {}
+        type: object
+      model_id:
+        type: string
+      name:
+        type: string
+      priority:
+        type: integer
     type: object
   handlers.CreateSnapshotRequest:
     properties:
@@ -837,6 +1256,58 @@ definitions:
         type: integer
       reasoning_tokens:
         type: integer
+    type: object
+  handlers.DepartmentDTO:
+    properties:
+      description:
+        type: string
+      id:
+        type: string
+      name:
+        type: string
+      parent_id:
+        type: string
+    type: object
+  handlers.DesktopLoginRequest:
+    properties:
+      hostname:
+        type: string
+      password:
+        type: string
+      platform:
+        type: string
+      ts_ip:
+        type: string
+      ts_node_key:
+        type: string
+      username:
+        type: string
+    type: object
+  handlers.DesktopLoginResponse:
+    properties:
+      access_token:
+        type: string
+      api_token:
+        type: string
+      bot_id:
+        type: string
+      bot_name:
+        type: string
+      device_id:
+        type: string
+      expires_at:
+        type: string
+      token_type:
+        type: string
+      user_id:
+        type: string
+    type: object
+  handlers.DirectoryTemplatesRequest:
+    properties:
+      paths:
+        items:
+          type: string
+        type: array
     type: object
   handlers.ErrorResponse:
     properties:
@@ -930,6 +1401,48 @@ definitions:
       updated_at:
         type: string
     type: object
+  handlers.HandDTO:
+    properties:
+      content:
+        type: string
+      description:
+        type: string
+      id:
+        type: string
+      is_enabled:
+        type: boolean
+      metadata:
+        additionalProperties: {}
+        type: object
+      name:
+        type: string
+      schedule:
+        additionalProperties: {}
+        type: object
+      triggers:
+        items: {}
+        type: array
+      type:
+        type: string
+    type: object
+  handlers.HandExecutionResultDTO:
+    properties:
+      completed_at:
+        type: string
+      error_message:
+        type: string
+      result_text:
+        type: string
+      started_at:
+        type: string
+      status:
+        type: string
+    type: object
+  handlers.InstallRequest:
+    properties:
+      template_id:
+        type: string
+    type: object
   handlers.ListSnapshotsResponse:
     properties:
       snapshots:
@@ -996,6 +1509,24 @@ definitions:
       url:
         type: string
     type: object
+  handlers.ModelRouteDTO:
+    properties:
+      complexity_tier:
+        type: string
+      id:
+        type: string
+      is_enabled:
+        type: boolean
+      metadata:
+        additionalProperties: {}
+        type: object
+      model_id:
+        type: string
+      name:
+        type: string
+      priority:
+        type: integer
+    type: object
   handlers.ModelTokenUsage:
     properties:
       input_tokens:
@@ -1061,6 +1592,73 @@ definitions:
       raw:
         type: string
     type: object
+  handlers.SkillTemplateBriefDTO:
+    properties:
+      description:
+        type: string
+      id:
+        type: string
+      name:
+        type: string
+      version:
+        type: integer
+    type: object
+  handlers.SkillTemplateRequest:
+    properties:
+      author:
+        type: string
+      category:
+        type: string
+      content:
+        type: string
+      description:
+        type: string
+      icon:
+        type: string
+      is_published:
+        type: boolean
+      name:
+        type: string
+      slug:
+        type: string
+      tags:
+        items:
+          type: string
+        type: array
+    type: object
+  handlers.SkillTemplateResponse:
+    properties:
+      author:
+        type: string
+      category:
+        type: string
+      content:
+        type: string
+      created_at:
+        type: string
+      description:
+        type: string
+      icon:
+        type: string
+      id:
+        type: string
+      install_count:
+        type: integer
+      is_published:
+        type: boolean
+      name:
+        type: string
+      slug:
+        type: string
+      tags:
+        items:
+          type: string
+        type: array
+      updated_at:
+        type: string
+      version:
+        type: integer
+    type: object
   handlers.SkillsDeleteRequest:
     properties:
       names:
@@ -1111,6 +1709,60 @@ definitions:
       version:
         type: integer
     type: object
+  handlers.StoreTemplateResponse:
+    properties:
+      author:
+        type: string
+      category:
+        type: string
+      content:
+        type: string
+      created_at:
+        type: string
+      customized:
+        type: boolean
+      description:
+        type: string
+      icon:
+        type: string
+      id:
+        type: string
+      install_count:
+        type: integer
+      installed:
+        type: boolean
+      installed_version:
+        type: integer
+      is_published:
+        type: boolean
+      name:
+        type: string
+      slug:
+        type: string
+      tags:
+        items:
+          type: string
+        type: array
+      update_available:
+        type: boolean
+      updated_at:
+        type: string
+      version:
+        type: integer
+    type: object
+  handlers.SyncResultDTO:
+    properties:
+      errors:
+        items:
+          $ref: '#/definitions/handlers.BotSyncError'
+        type: array
+      installed:
+        type: integer
+      skipped:
+        type: integer
+      total_bots:
+        type: integer
+    type: object
   handlers.TokenUsageResponse:
     properties:
       by_model:
@@ -1125,6 +1777,25 @@ definitions:
         items:
           $ref: '#/definitions/handlers.DailyTokenUsage'
         type: array
+    type: object
+  handlers.UninstallRequest:
+    properties:
+      template_id:
+        type: string
+    type: object
+  handlers.UpdateDepartmentRequest:
+    properties:
+      description:
+        type: string
+      name:
+        type: string
+      parent_id:
+        type: string
+    type: object
+  handlers.UpdateInstallRequest:
+    properties:
+      template_id:
+        type: string
     type: object
   handlers.fsOpResponse:
     properties:
@@ -1160,7 +1831,7 @@ definitions:
         type: string
       messages:
         items:
-          $ref: '#/definitions/provider.Message'
+          $ref: '#/definitions/adapters.Message'
         type: array
       metadata:
         additionalProperties: {}
@@ -1229,6 +1900,13 @@ definitions:
     properties:
       ok:
         type: boolean
+    type: object
+  handlers.terminalInfoResponse:
+    properties:
+      available:
+        type: boolean
+      shell:
+        type: string
     type: object
   heartbeat.ListLogsResponse:
     properties:
@@ -1517,6 +2195,8 @@ definitions:
         type: string
       name:
         type: string
+      store:
+        type: boolean
       supports_reasoning:
         type: boolean
       type:
@@ -1564,6 +2244,8 @@ definitions:
         type: string
       name:
         type: string
+      store:
+        type: boolean
       supports_reasoning:
         type: boolean
       type:
@@ -1614,187 +2296,12 @@ definitions:
         type: string
       name:
         type: string
+      store:
+        type: boolean
       supports_reasoning:
         type: boolean
       type:
         $ref: '#/definitions/models.ModelType'
-    type: object
-  provider.CDFPoint:
-    properties:
-      cumulative:
-        description: cumulative weight fraction [0.0, 1.0]
-        type: number
-      k:
-        description: rank position (1-based, sorted by value desc)
-        type: integer
-    type: object
-  provider.CompactResult:
-    properties:
-      after_count:
-        type: integer
-      before_count:
-        type: integer
-      ratio:
-        type: number
-      results:
-        items:
-          $ref: '#/definitions/provider.MemoryItem'
-        type: array
-    type: object
-  provider.DeleteResponse:
-    properties:
-      message:
-        type: string
-    type: object
-  provider.MemoryItem:
-    properties:
-      agent_id:
-        type: string
-      bot_id:
-        type: string
-      cdf_curve:
-        items:
-          $ref: '#/definitions/provider.CDFPoint'
-        type: array
-      created_at:
-        type: string
-      hash:
-        type: string
-      id:
-        type: string
-      memory:
-        type: string
-      metadata:
-        additionalProperties: {}
-        type: object
-      run_id:
-        type: string
-      score:
-        type: number
-      top_k_buckets:
-        items:
-          $ref: '#/definitions/provider.TopKBucket'
-        type: array
-      updated_at:
-        type: string
-    type: object
-  provider.Message:
-    properties:
-      content:
-        type: string
-      role:
-        type: string
-    type: object
-  provider.ProviderConfigSchema:
-    properties:
-      fields:
-        additionalProperties:
-          $ref: '#/definitions/provider.ProviderFieldSchema'
-        type: object
-    type: object
-  provider.ProviderCreateRequest:
-    properties:
-      config:
-        additionalProperties: {}
-        type: object
-      name:
-        type: string
-      provider:
-        $ref: '#/definitions/provider.ProviderType'
-    type: object
-  provider.ProviderFieldSchema:
-    properties:
-      description:
-        type: string
-      example: {}
-      required:
-        type: boolean
-      title:
-        type: string
-      type:
-        type: string
-    type: object
-  provider.ProviderGetResponse:
-    properties:
-      config:
-        additionalProperties: {}
-        type: object
-      created_at:
-        type: string
-      id:
-        type: string
-      is_default:
-        type: boolean
-      name:
-        type: string
-      provider:
-        type: string
-      updated_at:
-        type: string
-    type: object
-  provider.ProviderMeta:
-    properties:
-      config_schema:
-        $ref: '#/definitions/provider.ProviderConfigSchema'
-      display_name:
-        type: string
-      provider:
-        type: string
-    type: object
-  provider.ProviderType:
-    enum:
-    - builtin
-    type: string
-    x-enum-varnames:
-    - ProviderBuiltin
-  provider.ProviderUpdateRequest:
-    properties:
-      config:
-        additionalProperties: {}
-        type: object
-      name:
-        type: string
-    type: object
-  provider.RebuildResult:
-    properties:
-      fs_count:
-        type: integer
-      missing_count:
-        type: integer
-      qdrant_count:
-        type: integer
-      restored_count:
-        type: integer
-    type: object
-  provider.SearchResponse:
-    properties:
-      relations:
-        items: {}
-        type: array
-      results:
-        items:
-          $ref: '#/definitions/provider.MemoryItem'
-        type: array
-    type: object
-  provider.TopKBucket:
-    properties:
-      index:
-        description: sparse dimension index (term hash)
-        type: integer
-      value:
-        description: weight (term frequency)
-        type: number
-    type: object
-  provider.UsageResponse:
-    properties:
-      avg_text_bytes:
-        type: integer
-      count:
-        type: integer
-      estimated_storage_bytes:
-        type: integer
-      total_text_bytes:
-        type: integer
     type: object
   providers.CountResponse:
     properties:
@@ -2216,6 +2723,37 @@ info:
   title: Memoh API
   version: 1.0.0
 paths:
+  /api/v1/auth/desktop/login:
+    post:
+      description: Authenticate a desktop client with username/password and register
+        the device
+      parameters:
+      - description: Desktop login request
+        in: body
+        name: payload
+        required: true
+        schema:
+          $ref: '#/definitions/handlers.DesktopLoginRequest'
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/handlers.DesktopLoginResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+      summary: Desktop client login
+      tags:
+      - desktop-auth
   /auth/login:
     post:
       description: Validate user credentials and issue a JWT
@@ -2324,6 +2862,45 @@ paths:
       summary: Create bot user
       tags:
       - bots
+  /bots/{bot_id}/audit-logs:
+    get:
+      parameters:
+      - description: Bot ID
+        in: path
+        name: bot_id
+        required: true
+        type: string
+      - description: Filter by user
+        in: query
+        name: user_id
+        type: string
+      - description: Filter by action
+        in: query
+        name: action
+        type: string
+      - default: 50
+        description: Limit
+        in: query
+        name: limit
+        type: integer
+      - default: 0
+        description: Offset
+        in: query
+        name: offset
+        type: integer
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+      summary: List audit logs for a bot
+      tags:
+      - audit
   /bots/{bot_id}/cli/messages:
     post:
       consumes:
@@ -2428,6 +3005,58 @@ paths:
       summary: WebSocket chat endpoint
       tags:
       - local-channel
+  /bots/{bot_id}/cockpit/generate-report:
+    post:
+      parameters:
+      - description: Bot ID
+        in: path
+        name: bot_id
+        required: true
+        type: string
+      - default: yesterday
+        description: Report date (YYYY-MM-DD)
+        in: query
+        name: date
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+      summary: Generate daily cockpit report for a bot
+      tags:
+      - cockpit
+  /bots/{bot_id}/cockpit/summary:
+    get:
+      parameters:
+      - description: Bot ID
+        in: path
+        name: bot_id
+        required: true
+        type: string
+      - default: 7
+        description: Number of days
+        in: query
+        name: days
+        type: integer
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/handlers.CockpitSummaryDTO'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+      summary: Get cockpit efficiency summary
+      tags:
+      - cockpit
   /bots/{bot_id}/container:
     delete:
       parameters:
@@ -3144,6 +3773,130 @@ paths:
       summary: Stop container task for bot
       tags:
       - containerd
+  /bots/{bot_id}/container/terminal:
+    get:
+      parameters:
+      - description: Bot ID
+        in: path
+        name: bot_id
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/handlers.terminalInfoResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+      summary: Check terminal availability for bot container
+      tags:
+      - containerd
+  /bots/{bot_id}/container/terminal/ws:
+    get:
+      parameters:
+      - description: Bot ID
+        in: path
+        name: bot_id
+        required: true
+        type: string
+      - default: 80
+        description: Initial terminal columns
+        in: query
+        name: cols
+        type: integer
+      - default: 24
+        description: Initial terminal rows
+        in: query
+        name: rows
+        type: integer
+      - description: Auth token
+        in: query
+        name: token
+        type: string
+      responses:
+        "101":
+          description: WebSocket upgrade
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+      summary: Interactive WebSocket terminal for bot container
+      tags:
+      - containerd
+  /bots/{bot_id}/departments:
+    get:
+      parameters:
+      - description: Bot ID
+        in: path
+        name: bot_id
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/handlers.DepartmentDTO'
+            type: array
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+      summary: List departments for a bot
+      tags:
+      - departments
+    post:
+      parameters:
+      - description: Bot ID
+        in: path
+        name: bot_id
+        required: true
+        type: string
+      - description: Department to assign
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/handlers.BotDepartmentAssignRequest'
+      responses:
+        "204":
+          description: No Content
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+      summary: Assign a bot to a department
+      tags:
+      - departments
+  /bots/{bot_id}/departments/{department_id}:
+    delete:
+      parameters:
+      - description: Bot ID
+        in: path
+        name: bot_id
+        required: true
+        type: string
+      - description: Department ID
+        in: path
+        name: department_id
+        required: true
+        type: string
+      responses:
+        "204":
+          description: No Content
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+      summary: Remove a bot from a department
+      tags:
+      - departments
   /bots/{bot_id}/email-bindings:
     get:
       parameters:
@@ -3322,6 +4075,125 @@ paths:
       summary: Get outbox email detail
       tags:
       - email-outbox
+  /bots/{bot_id}/hands:
+    get:
+      parameters:
+      - description: Bot ID
+        in: path
+        name: bot_id
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/handlers.HandDTO'
+            type: array
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+      summary: List hands for a bot
+      tags:
+      - hands
+    post:
+      parameters:
+      - description: Bot ID
+        in: path
+        name: bot_id
+        required: true
+        type: string
+      - description: Hand markdown
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/handlers.CreateHandRequest'
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/handlers.HandDTO'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+      summary: Create a hand from markdown
+      tags:
+      - hands
+  /bots/{bot_id}/hands/{hand_id}:
+    delete:
+      parameters:
+      - description: Bot ID
+        in: path
+        name: bot_id
+        required: true
+        type: string
+      - description: Hand ID
+        in: path
+        name: hand_id
+        required: true
+        type: string
+      responses:
+        "204":
+          description: No Content
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+      summary: Delete a hand
+      tags:
+      - hands
+    get:
+      parameters:
+      - description: Bot ID
+        in: path
+        name: bot_id
+        required: true
+        type: string
+      - description: Hand ID
+        in: path
+        name: hand_id
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/handlers.HandDTO'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+      summary: Get a hand by ID
+      tags:
+      - hands
+  /bots/{bot_id}/hands/{hand_id}/execute:
+    post:
+      parameters:
+      - description: Bot ID
+        in: path
+        name: bot_id
+        required: true
+        type: string
+      - description: Hand ID
+        in: path
+        name: hand_id
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/handlers.HandExecutionResultDTO'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+      summary: Manually execute a hand
+      tags:
+      - hands
   /bots/{bot_id}/heartbeat/logs:
     delete:
       description: Delete all heartbeat execution logs for a bot
@@ -4075,7 +4947,7 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/provider.DeleteResponse'
+            $ref: '#/definitions/adapters.DeleteResponse'
         "400":
           description: Bad Request
           schema:
@@ -4113,7 +4985,7 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/provider.SearchResponse'
+            $ref: '#/definitions/adapters.SearchResponse'
         "400":
           description: Bad Request
           schema:
@@ -4155,7 +5027,7 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/provider.SearchResponse'
+            $ref: '#/definitions/adapters.SearchResponse'
         "400":
           description: Bad Request
           schema:
@@ -4195,7 +5067,7 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/provider.DeleteResponse'
+            $ref: '#/definitions/adapters.DeleteResponse'
         "400":
           description: Bad Request
           schema:
@@ -4246,7 +5118,7 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/provider.CompactResult'
+            $ref: '#/definitions/adapters.CompactResult'
         "400":
           description: Bad Request
           schema:
@@ -4282,13 +5154,17 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/provider.RebuildResult'
+            $ref: '#/definitions/adapters.RebuildResult'
         "400":
           description: Bad Request
           schema:
             $ref: '#/definitions/handlers.ErrorResponse'
         "403":
           description: Forbidden
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+        "409":
+          description: Conflict
           schema:
             $ref: '#/definitions/handlers.ErrorResponse'
         "500":
@@ -4325,7 +5201,7 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/provider.SearchResponse'
+            $ref: '#/definitions/adapters.SearchResponse'
         "400":
           description: Bad Request
           schema:
@@ -4349,6 +5225,46 @@ paths:
       summary: Search memory
       tags:
       - memory
+  /bots/{bot_id}/memory/status:
+    get:
+      description: Get the resolved memory runtime status for a bot, including index
+        health and source counts
+      parameters:
+      - description: Bot ID
+        in: path
+        name: bot_id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/adapters.MemoryStatusResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+        "503":
+          description: Service Unavailable
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+      summary: Get memory runtime status
+      tags:
+      - memory
   /bots/{bot_id}/memory/usage:
     get:
       description: Query the estimated storage usage of current memories
@@ -4364,7 +5280,7 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/provider.UsageResponse'
+            $ref: '#/definitions/adapters.UsageResponse'
         "400":
           description: Bad Request
           schema:
@@ -4455,6 +5371,76 @@ paths:
       summary: List bot history messages
       tags:
       - messages
+  /bots/{bot_id}/model-routes:
+    get:
+      parameters:
+      - description: Bot ID
+        in: path
+        name: bot_id
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/handlers.ModelRouteDTO'
+            type: array
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+      summary: List model routes for a bot
+      tags:
+      - model-routing
+    post:
+      parameters:
+      - description: Bot ID
+        in: path
+        name: bot_id
+        required: true
+        type: string
+      - description: Route data
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/handlers.CreateModelRouteRequest'
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/handlers.ModelRouteDTO'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+      summary: Create a model route
+      tags:
+      - model-routing
+  /bots/{bot_id}/model-routes/{route_id}:
+    delete:
+      parameters:
+      - description: Bot ID
+        in: path
+        name: bot_id
+        required: true
+        type: string
+      - description: Route ID
+        in: path
+        name: route_id
+        required: true
+        type: string
+      responses:
+        "204":
+          description: No Content
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+      summary: Delete a model route
+      tags:
+      - model-routing
   /bots/{bot_id}/schedule:
     get:
       description: List schedules for current user
@@ -4580,6 +5566,111 @@ paths:
       summary: Update schedule
       tags:
       - schedule
+  /bots/{bot_id}/sessions:
+    get:
+      description: List visible sessions for a bot and current channel identity
+      parameters:
+      - description: Bot ID
+        in: path
+        name: bot_id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties:
+              items:
+                $ref: '#/definitions/conversation.ConversationListItem'
+              type: array
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+      summary: List bot sessions
+      tags:
+      - sessions
+    post:
+      consumes:
+      - application/json
+      description: Create a new session for a bot and current channel identity
+      parameters:
+      - description: Bot ID
+        in: path
+        name: bot_id
+        required: true
+        type: string
+      - description: Session payload
+        in: body
+        name: payload
+        required: true
+        schema:
+          $ref: '#/definitions/conversation.CreateRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/conversation.Conversation'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+      summary: Create bot session
+      tags:
+      - sessions
+  /bots/{bot_id}/sessions/{id}:
+    delete:
+      description: Delete a bot session by ID
+      parameters:
+      - description: Bot ID
+        in: path
+        name: bot_id
+        required: true
+        type: string
+      - description: Session ID
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "204":
+          description: No Content
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+      summary: Delete bot session
+      tags:
+      - sessions
   /bots/{bot_id}/settings:
     delete:
       description: Remove agent settings for current user
@@ -4665,6 +5756,142 @@ paths:
       summary: Update user settings
       tags:
       - settings
+  /bots/{bot_id}/skill-store:
+    get:
+      parameters:
+      - description: Bot ID
+        in: path
+        name: bot_id
+        required: true
+        type: string
+      - description: Filter by category
+        in: query
+        name: category
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/handlers.StoreTemplateResponse'
+            type: array
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+      summary: Browse skill template store for a bot
+      tags:
+      - skill-store
+  /bots/{bot_id}/skill-store/install:
+    post:
+      parameters:
+      - description: Bot ID
+        in: path
+        name: bot_id
+        required: true
+        type: string
+      - description: Install request
+        in: body
+        name: payload
+        required: true
+        schema:
+          $ref: '#/definitions/handlers.InstallRequest'
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/handlers.skillsOpResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+      summary: Install a skill template to a bot
+      tags:
+      - skill-store
+  /bots/{bot_id}/skill-store/uninstall:
+    post:
+      parameters:
+      - description: Bot ID
+        in: path
+        name: bot_id
+        required: true
+        type: string
+      - description: Uninstall request
+        in: body
+        name: payload
+        required: true
+        schema:
+          $ref: '#/definitions/handlers.UninstallRequest'
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/handlers.skillsOpResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+      summary: Uninstall a skill template from a bot
+      tags:
+      - skill-store
+  /bots/{bot_id}/skill-store/update:
+    post:
+      parameters:
+      - description: Bot ID
+        in: path
+        name: bot_id
+        required: true
+        type: string
+      - description: Update request
+        in: body
+        name: payload
+        required: true
+        schema:
+          $ref: '#/definitions/handlers.UpdateInstallRequest'
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/handlers.skillsOpResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+      summary: Update an installed skill to the latest template version
+      tags:
+      - skill-store
   /bots/{bot_id}/subagents:
     get:
       description: List subagents for current user
@@ -5804,6 +7031,86 @@ paths:
       summary: Update a browser context
       tags:
       - browser-contexts
+  /budgets:
+    get:
+      parameters:
+      - description: Filter by scope type
+        in: query
+        name: scope_type
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/handlers.BudgetDTO'
+            type: array
+      summary: List budgets
+      tags:
+      - cost
+    post:
+      parameters:
+      - description: Budget data
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/handlers.CreateBudgetRequest'
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/handlers.BudgetDTO'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+      summary: Create a budget
+      tags:
+      - cost
+  /budgets/{budget_id}:
+    delete:
+      parameters:
+      - description: Budget ID
+        in: path
+        name: budget_id
+        required: true
+        type: string
+      responses:
+        "204":
+          description: No Content
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+      summary: Delete a budget
+      tags:
+      - cost
+  /budgets/check:
+    get:
+      parameters:
+      - description: Scope type
+        in: query
+        name: scope_type
+        required: true
+        type: string
+      - description: Scope ID
+        in: query
+        name: scope_id
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/handlers.BudgetCheckDTO'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+      summary: Check budget status
+      tags:
+      - cost
   /channels:
     get:
       description: List channel meta information including capabilities and schemas
@@ -5846,6 +7153,273 @@ paths:
       summary: Get channel capabilities and schemas
       tags:
       - channel
+  /departments:
+    get:
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/handlers.DepartmentDTO'
+            type: array
+      summary: List all departments
+      tags:
+      - departments
+    post:
+      parameters:
+      - description: Department data
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/handlers.CreateDepartmentRequest'
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/handlers.DepartmentDTO'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+      summary: Create a department
+      tags:
+      - departments
+  /departments/{department_id}:
+    delete:
+      parameters:
+      - description: Department ID
+        in: path
+        name: department_id
+        required: true
+        type: string
+      responses:
+        "204":
+          description: No Content
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+      summary: Delete a department
+      tags:
+      - departments
+    get:
+      parameters:
+      - description: Department ID
+        in: path
+        name: department_id
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/handlers.DepartmentDTO'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+      summary: Get a department by ID
+      tags:
+      - departments
+    put:
+      parameters:
+      - description: Department ID
+        in: path
+        name: department_id
+        required: true
+        type: string
+      - description: Department data
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/handlers.UpdateDepartmentRequest'
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/handlers.DepartmentDTO'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+      summary: Update a department
+      tags:
+      - departments
+  /departments/{department_id}/bots:
+    get:
+      parameters:
+      - description: Department ID
+        in: path
+        name: department_id
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/handlers.BotBriefDTO'
+            type: array
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+      summary: List bots in a department
+      tags:
+      - departments
+  /departments/{department_id}/directory-templates:
+    get:
+      parameters:
+      - description: Department ID
+        in: path
+        name: department_id
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/handlers.DirectoryTemplatesRequest'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+      summary: Get directory templates for a department
+      tags:
+      - departments
+    put:
+      parameters:
+      - description: Department ID
+        in: path
+        name: department_id
+        required: true
+        type: string
+      - description: Directory templates
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/handlers.DirectoryTemplatesRequest'
+      responses:
+        "204":
+          description: No Content
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+      summary: Update directory templates for a department
+      tags:
+      - departments
+  /departments/{department_id}/skill-templates:
+    get:
+      parameters:
+      - description: Department ID
+        in: path
+        name: department_id
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/handlers.SkillTemplateBriefDTO'
+            type: array
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+      summary: List skill templates assigned to a department
+      tags:
+      - departments
+    post:
+      parameters:
+      - description: Department ID
+        in: path
+        name: department_id
+        required: true
+        type: string
+      - description: Skill template to add
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/handlers.AddSkillTemplateRequest'
+      responses:
+        "204":
+          description: No Content
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+      summary: Add a skill template to a department
+      tags:
+      - departments
+  /departments/{department_id}/skill-templates/{template_id}:
+    delete:
+      parameters:
+      - description: Department ID
+        in: path
+        name: department_id
+        required: true
+        type: string
+      - description: Template ID
+        in: path
+        name: template_id
+        required: true
+        type: string
+      responses:
+        "204":
+          description: No Content
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+      summary: Remove a skill template from a department
+      tags:
+      - departments
+  /departments/{department_id}/sync-directories:
+    post:
+      parameters:
+      - description: Department ID
+        in: path
+        name: department_id
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/handlers.SyncResultDTO'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+      summary: Sync directory templates to all bots in a department
+      tags:
+      - departments
+  /departments/{department_id}/sync-skills:
+    post:
+      parameters:
+      - description: Department ID
+        in: path
+        name: department_id
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/handlers.SyncResultDTO'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+      summary: Sync skill templates to all bots in a department
+      tags:
+      - departments
   /email-providers:
     get:
       parameters:
@@ -6023,7 +7597,7 @@ paths:
           description: OK
           schema:
             items:
-              $ref: '#/definitions/provider.ProviderGetResponse'
+              $ref: '#/definitions/adapters.ProviderGetResponse'
             type: array
         "500":
           description: Internal Server Error
@@ -6042,14 +7616,14 @@ paths:
         name: request
         required: true
         schema:
-          $ref: '#/definitions/provider.ProviderCreateRequest'
+          $ref: '#/definitions/adapters.ProviderCreateRequest'
       produces:
       - application/json
       responses:
         "201":
           description: Created
           schema:
-            $ref: '#/definitions/provider.ProviderGetResponse'
+            $ref: '#/definitions/adapters.ProviderGetResponse'
         "400":
           description: Bad Request
           schema:
@@ -6098,7 +7672,7 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/provider.ProviderGetResponse'
+            $ref: '#/definitions/adapters.ProviderGetResponse'
         "400":
           description: Bad Request
           schema:
@@ -6125,14 +7699,14 @@ paths:
         name: request
         required: true
         schema:
-          $ref: '#/definitions/provider.ProviderUpdateRequest'
+          $ref: '#/definitions/adapters.ProviderUpdateRequest'
       produces:
       - application/json
       responses:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/provider.ProviderGetResponse'
+            $ref: '#/definitions/adapters.ProviderGetResponse'
         "400":
           description: Bad Request
           schema:
@@ -6144,6 +7718,37 @@ paths:
       summary: Update a memory provider
       tags:
       - memory-providers
+  /memory-providers/{id}/status:
+    get:
+      description: Get runtime status data for a memory provider
+      parameters:
+      - description: Provider ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/adapters.ProviderStatusResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+      summary: Get memory provider status
+      tags:
+      - memory-providers
   /memory-providers/meta:
     get:
       description: List available memory provider types and config schemas
@@ -6152,7 +7757,7 @@ paths:
           description: OK
           schema:
             items:
-              $ref: '#/definitions/provider.ProviderMeta'
+              $ref: '#/definitions/adapters.ProviderMeta'
             type: array
       summary: List memory provider metadata
       tags:
@@ -6928,6 +8533,129 @@ paths:
       summary: List search provider metadata
       tags:
       - search-providers
+  /skill-templates:
+    get:
+      parameters:
+      - description: Filter by category
+        in: query
+        name: category
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/handlers.SkillTemplateResponse'
+            type: array
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+      summary: List skill templates
+      tags:
+      - skill-templates
+    post:
+      parameters:
+      - description: Template data
+        in: body
+        name: payload
+        required: true
+        schema:
+          $ref: '#/definitions/handlers.SkillTemplateRequest'
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/handlers.SkillTemplateResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+      summary: Create a skill template
+      tags:
+      - skill-templates
+  /skill-templates/{id}:
+    delete:
+      parameters:
+      - description: Template ID
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "204":
+          description: No Content
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+      summary: Delete a skill template
+      tags:
+      - skill-templates
+    get:
+      parameters:
+      - description: Template ID
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/handlers.SkillTemplateResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+      summary: Get a skill template by ID
+      tags:
+      - skill-templates
+    put:
+      parameters:
+      - description: Template ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Template data
+        in: body
+        name: payload
+        required: true
+        schema:
+          $ref: '#/definitions/handlers.SkillTemplateRequest'
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/handlers.SkillTemplateResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+      summary: Update a skill template
+      tags:
+      - skill-templates
   /users:
     get:
       description: List users
