@@ -97,6 +97,7 @@ import z from 'zod'
 import { useForm } from 'vee-validate'
 import { useMutation, useQuery, useQueryCache } from '@pinia/colada'
 import { postEmailProviders, getEmailProvidersMeta } from '@memoh/sdk'
+import type { EmailCreateProviderRequest } from '@memoh/sdk'
 import { useI18n } from 'vue-i18n'
 import FormDialogShell from '@/components/form-dialog-shell/index.vue'
 import { useDialogMutation } from '@/composables/useDialogMutation'
@@ -115,8 +116,8 @@ const { data: providerMetas } = useQuery({
 
 const queryCache = useQueryCache()
 const { mutateAsync: createMutation, isLoading } = useMutation({
-  mutation: async (data: Record<string, unknown>) => {
-    const { data: result } = await postEmailProviders({ body: data as any, throwOnError: true })
+  mutation: async (data: EmailCreateProviderRequest) => {
+    const { data: result } = await postEmailProviders({ body: data, throwOnError: true })
     return result
   },
   onSettled: () => queryCache.invalidateQueries({ key: ['email-providers'] }),

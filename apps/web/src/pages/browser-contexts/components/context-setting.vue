@@ -216,7 +216,7 @@ import z from 'zod'
 import { useForm } from 'vee-validate'
 import { useMutation, useQueryCache } from '@pinia/colada'
 import { putBrowserContextsById, deleteBrowserContextsById } from '@memoh/sdk'
-import type { BrowsercontextsBrowserContext } from '@memoh/sdk'
+import type { BrowsercontextsBrowserContext, BrowsercontextsUpdateRequest } from '@memoh/sdk'
 import { inject, watch, type Ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { toast } from 'vue-sonner'
@@ -239,6 +239,12 @@ interface ConfigShape {
   locale?: string
   timezoneId?: string
   ignoreHTTPSErrors?: boolean
+}
+
+interface BrowserContextMutationData {
+  id: string
+  name: string
+  config: BrowsercontextsUpdateRequest['config']
 }
 
 function parseConfig(ctx: BrowsercontextsBrowserContext | undefined): ConfigShape {
@@ -285,10 +291,10 @@ watch(() => curContext?.value, (ctx) => {
 }, { immediate: true })
 
 const { mutateAsync: updateMutation, isLoading: isSaving } = useMutation({
-  mutation: async (data: { id: string; name: string; config: any }) => {
+  mutation: async (data: BrowserContextMutationData) => {
     const { data: result } = await putBrowserContextsById({
       path: { id: data.id },
-      body: { name: data.name, config: data.config } as any,
+      body: { name: data.name, config: data.config },
       throwOnError: true,
     })
     return result
@@ -310,19 +316,10 @@ const handleSave = form.handleSubmit(async (values) => {
   const id = curContext?.value?.id
   if (!id) return
 
-  const config: Record<string, any> = {}
+  const configEntries: number[] = []
   if (values.viewportWidth || values.viewportHeight) {
-    config.viewport = {
-      width: values.viewportWidth || 1280,
-      height: values.viewportHeight || 720,
-    }
+    configEntries.push(values.viewportWidth || 1280, values.viewportHeight || 720)
   }
-  if (values.userAgent) config.userAgent = values.userAgent
-  if (values.deviceScaleFactor) config.deviceScaleFactor = values.deviceScaleFactor
-  if (values.isMobile) config.isMobile = values.isMobile
-  if (values.locale) config.locale = values.locale
-  if (values.timezoneId) config.timezoneId = values.timezoneId
-  if (values.ignoreHTTPSErrors) config.ignoreHTTPSErrors = values.ignoreHTTPSErrors
 
   await run(
     () => updateMutation({ id, name: values.name, config }),

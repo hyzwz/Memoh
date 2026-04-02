@@ -7,9 +7,11 @@ interface BotStatusSource {
   check_issue_count?: number | null
 }
 
+type TranslateFn = (key: string, values?: Record<string, unknown>) => string
+
 export function useBotStatusMeta(
   bot: Ref<BotStatusSource | null | undefined>,
-  t: (...args: any[]) => string,
+  t: TranslateFn,
 ) {
   const isCreating = computed(() => bot.value?.status === 'creating')
   const isDeleting = computed(() => bot.value?.status === 'deleting')

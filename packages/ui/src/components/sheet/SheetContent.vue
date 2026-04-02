@@ -22,6 +22,8 @@ defineOptions({
 })
 
 const props = withDefaults(defineProps<SheetContentProps>(), {
+  class: undefined,
+  forceMount: undefined,
   side: 'right',
 })
 const emits = defineEmits<DialogContentEmits>()

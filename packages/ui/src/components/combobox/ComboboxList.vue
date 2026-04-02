@@ -10,9 +10,23 @@ defineOptions({
 })
 
 const props = withDefaults(defineProps<ComboboxContentProps & { class?: HTMLAttributes['class'] }>(), {
+  class: undefined,
   position: 'popper',
   align: 'center',
+  alignOffset: undefined,
+  avoidCollisions: undefined,
+  collisionBoundary: undefined,
+  collisionPadding: undefined,
+  disableUpdateOnLayoutShift: undefined,
+  forceMount: undefined,
+  hideWhenDetached: undefined,
+  positionStrategy: undefined,
+  priority: undefined,
+  reference: undefined,
+  side: undefined,
   sideOffset: 4,
+  sticky: undefined,
+  updatePositionStrategy: undefined,
 })
 const emits = defineEmits<ComboboxContentEmits>()
 

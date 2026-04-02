@@ -89,6 +89,7 @@ import {
   SelectItem,
 } from '@memoh/ui'
 import { postMemoryProviders } from '@memoh/sdk'
+import type { AdaptersProviderCreateRequest, AdaptersProviderType } from '@memoh/sdk'
 import { toast } from 'vue-sonner'
 import { useI18n } from 'vue-i18n'
 import { useQueryCache } from '@pinia/colada'
@@ -109,9 +110,9 @@ async function handleCreate() {
     await postMemoryProviders({
       body: {
         name: form.name.trim(),
-        provider: form.provider as any,
+        provider: form.provider as AdaptersProviderType,
         config: {},
-      },
+      } satisfies AdaptersProviderCreateRequest,
       throwOnError: true,
     })
     toast.success(t('memoryProvider.saveSuccess'))

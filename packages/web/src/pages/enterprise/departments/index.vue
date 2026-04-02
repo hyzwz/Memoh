@@ -30,9 +30,9 @@
       <div class="overflow-x-auto pb-8 -mx-6">
         <div class="inline-flex gap-12 min-w-full justify-center px-6 pt-2">
           <OrgChartNode
-            v-for="dept in rootDepartments"
-            :key="dept.id"
-            :dept="dept"
+            v-for="rootDept in rootDepartments"
+            :key="rootDept.id"
+            :dept="rootDept"
             :children-map="childrenMap"
             @select="openDetail"
           />
@@ -382,11 +382,11 @@
                 class="space-y-2"
               >
                 <div
-                  v-for="(p, idx) in dirPaths"
+                  v-for="(dirPath, idx) in dirPaths"
                   :key="idx"
                   class="flex items-center justify-between p-2 rounded-lg border bg-muted/30"
                 >
-                  <code class="text-sm font-mono truncate">{{ p }}</code>
+                  <code class="text-sm font-mono truncate">{{ dirPath }}</code>
                   <Button
                     size="sm"
                     variant="ghost"
@@ -622,7 +622,7 @@ import { ref, computed, reactive, watch, defineComponent, h } from 'vue'
 import { useQuery } from '@pinia/colada'
 import { toast } from 'vue-sonner'
 import {
-  Button, Card, CardContent,
+  Button,
   Dialog, DialogContent, DialogHeader, DialogTitle,
   Input, Label, Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
   Separator, Sheet, SheetContent, SheetHeader, SheetTitle, Spinner,

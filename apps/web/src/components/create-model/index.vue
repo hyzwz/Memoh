@@ -63,11 +63,11 @@
               class="mt-2"
               :show-group-headers="false"
             >
-              <template #trigger="{ open, displayLabel }">
+              <template #trigger="{ open: triggerOpen, displayLabel }">
                 <Button
                   variant="outline"
                   role="combobox"
-                  :aria-expanded="open"
+                  :aria-expanded="triggerOpen"
                   class="w-full justify-between font-normal mt-2"
                 >
                   <span class="truncate">
@@ -148,16 +148,16 @@
             </Label>
             <div class="flex flex-wrap gap-3 mt-2">
               <label
-                v-for="mod in availableInputModalities"
-                :key="mod"
+                v-for="inputModality in availableInputModalities"
+                :key="inputModality"
                 class="flex items-center gap-1.5 text-sm"
               >
                 <Checkbox
-                  :model-value="selectedModalities.includes(mod)"
-                  :disabled="mod === 'text'"
-                  @update:model-value="(val: boolean) => toggleModality(mod, val)"
+                  :model-value="selectedModalities.includes(inputModality)"
+                  :disabled="inputModality === 'text'"
+                  @update:model-value="(val: boolean) => toggleModality(inputModality, val)"
                 />
-                {{ $t(`models.modality.${mod}`) }}
+                {{ $t(`models.modality.${inputModality}`) }}
               </label>
             </div>
           </div>
@@ -219,7 +219,7 @@ import { toTypedSchema } from '@vee-validate/zod'
 import z from 'zod'
 import { useMutation, useQueryCache } from '@pinia/colada'
 import { postModels, putModelsById, putModelsModelByModelId } from '@memoh/sdk'
-import type { ModelsGetResponse } from '@memoh/sdk'
+import type { ModelsAddRequest, ModelsGetResponse, ModelsUpdateRequest } from '@memoh/sdk'
 import { useI18n } from 'vue-i18n'
 import { CLIENT_TYPE_LIST, CLIENT_TYPE_META } from '@/constants/client-types'
 import FormDialogShell from '@/components/form-dialog-shell/index.vue'
@@ -303,19 +303,21 @@ function onNameInput(e: Event) {
 
 const { id } = defineProps<{ id: string }>()
 
+type ModelPayload = ModelsAddRequest & ModelsUpdateRequest
+
 const queryCache = useQueryCache()
 const { mutateAsync: createModel, isLoading: createLoading } = useMutation({
-  mutation: async (data: Record<string, unknown>) => {
-    const { data: result } = await postModels({ body: data as any, throwOnError: true })
+  mutation: async (data: ModelPayload) => {
+    const { data: result } = await postModels({ body: data, throwOnError: true })
     return result
   },
   onSettled: () => queryCache.invalidateQueries({ key: ['provider-models'] }),
 })
 const { mutateAsync: updateModel, isLoading: updateLoading } = useMutation({
-  mutation: async ({ id, data }: { id: string; data: Record<string, unknown> }) => {
+  mutation: async ({ id, data }: { id: string; data: ModelPayload }) => {
     const { data: result } = await putModelsById({
       path: { id },
-      body: data as any,
+      body: data,
       throwOnError: true,
     })
     return result
@@ -323,10 +325,10 @@ const { mutateAsync: updateModel, isLoading: updateLoading } = useMutation({
   onSettled: () => queryCache.invalidateQueries({ key: ['provider-models'] }),
 })
 const { mutateAsync: updateModelByLegacyModelID, isLoading: updateLegacyLoading } = useMutation({
-  mutation: async ({ modelId, data }: { modelId: string; data: Record<string, unknown> }) => {
+  mutation: async ({ modelId, data }: { modelId: string; data: ModelPayload }) => {
     const { data: result } = await putModelsModelByModelId({
       path: { modelId },
-      body: data as any,
+      body: data,
       throwOnError: true,
     })
     return result
@@ -351,7 +353,7 @@ async function addModel() {
   if (!type || !model_id) return
   if (type === 'chat' && !client_type) return
 
-  const payload: Record<string, unknown> = {
+  const payload: ModelPayload = {
     type,
     model_id,
     llm_provider_id: id,
@@ -380,9 +382,9 @@ async function addModel() {
       if (isEdit) {
         const modelUUID = fallback?.id
         if (modelUUID) {
-          return updateModel({ id: modelUUID, data: payload as any })
+          return updateModel({ id: modelUUID, data: payload })
         }
-        return updateModelByLegacyModelID({ modelId: fallback!.model_id, data: payload as any })
+        return updateModelByLegacyModelID({ modelId: fallback!.model_id, data: payload })
       }
       return createModel(payload)
     },

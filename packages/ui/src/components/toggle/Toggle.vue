@@ -12,9 +12,11 @@ const props = withDefaults(defineProps<ToggleProps & {
   variant?: ToggleVariants['variant']
   size?: ToggleVariants['size']
 }>(), {
+  class: undefined,
   variant: 'default',
   size: 'default',
   disabled: false,
+  pressed: undefined,
 })
 
 const emits = defineEmits<ToggleEmits>()

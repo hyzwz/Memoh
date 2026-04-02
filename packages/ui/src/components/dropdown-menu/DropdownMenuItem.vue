@@ -10,6 +10,9 @@ const props = withDefaults(defineProps<DropdownMenuItemProps & {
   inset?: boolean
   variant?: 'default' | 'destructive'
 }>(), {
+  class: undefined,
+  disabled: undefined,
+  inset: false,
   variant: 'default',
 })
 

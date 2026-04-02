@@ -36,6 +36,8 @@ import {
   type ScheduleListResponse,
 } from '@memoh/sdk'
 
+type CreateModelBody = Parameters<typeof postModels>[0]['body']
+
 // ---------------------------------------------------------------------------
 // Initialize SDK client
 // ---------------------------------------------------------------------------
@@ -403,7 +405,7 @@ model
       if (modelType === 'chat' && clientType) {
         body.client_type = clientType
       }
-      await postModels({ body: body as any, throwOnError: true })
+      await postModels({ body: body as CreateModelBody, throwOnError: true })
       spinner.succeed('Model created')
     } catch (err: unknown) {
       spinner.fail(getErrorMessage(err) || 'Failed to create model')

@@ -12,6 +12,8 @@ const props = withDefaults(defineProps<PaginationLastProps & {
   size?: ButtonVariants['size']
   class?: HTMLAttributes['class']
 }>(), {
+  class: undefined,
+  disabled: undefined,
   size: 'default',
 })
 

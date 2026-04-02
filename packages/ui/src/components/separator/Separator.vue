@@ -8,8 +8,10 @@ import { cn } from '#/lib/utils'
 const props = withDefaults(defineProps<
   SeparatorProps & { class?: HTMLAttributes['class'] }
 >(), {
+  class: undefined,
   orientation: 'horizontal',
   decorative: true,
+  asChild: undefined,
 })
 
 const delegatedProps = reactiveOmit(props, 'class')

@@ -1,13 +1,23 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
 
+type LoginResult = {
+  access_token?: string
+  bot_name?: string
+  bot_id?: string
+  user_id?: string
+  device_id?: string
+  api_token?: string
+  hostname?: string
+}
+
 declare global {
   interface Window {
     go: {
       main: {
         App: {
-          LoginWithPassword(serverURL: string, username: string, password: string): Promise<Record<string, any>>
-          GetStatus(): Promise<Record<string, any>>
+          LoginWithPassword(serverURL: string, username: string, password: string): Promise<LoginResult>
+          GetStatus(): Promise<Record<string, unknown>>
         }
       }
     }

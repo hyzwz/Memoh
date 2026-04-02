@@ -180,7 +180,8 @@ import z from 'zod'
 import { useForm } from 'vee-validate'
 import { useMutation, useQuery, useQueryCache } from '@pinia/colada'
 import { putEmailProvidersById, deleteEmailProvidersById, getEmailProvidersMeta } from '@memoh/sdk'
-import type { EmailProviderResponse, EmailFieldSchema } from '@memoh/sdk'
+import type { EmailProviderMeta, EmailProviderResponse, EmailFieldSchema, HandlersErrorResponse } from '@memoh/sdk'
+import { resolveApiErrorMessage } from '@/utils/api-error'
 
 const { t } = useI18n()
 const curProvider = inject('curEmailProvider', ref<EmailProviderResponse>())
@@ -196,7 +197,7 @@ const { data: metaList } = useQuery({
 
 const currentMeta = computed(() => {
   if (!metaList.value || !curProvider.value?.provider) return null
-  return (metaList.value as any[]).find((m: any) => m.provider === curProvider.value?.provider)
+  return metaList.value.find((meta: EmailProviderMeta) => meta.provider === curProvider.value?.provider) ?? null
 })
 
 const orderedFields = computed<EmailFieldSchema[]>(() => {
@@ -254,8 +255,8 @@ const handleSave = form.handleSubmit(async (values) => {
   try {
     await submitUpdate({ name: values.name, config: { ...configData } })
     toast.success(t('provider.saveChanges'))
-  } catch (e: any) {
-    toast.error(e?.message || t('common.saveFailed'))
+  } catch (e: unknown) {
+    toast.error(resolveApiErrorMessage(e as HandlersErrorResponse, t('common.saveFailed')))
   }
 })
 
@@ -263,8 +264,8 @@ async function handleDelete() {
   try {
     await doDelete()
     toast.success(t('common.deleteSuccess'))
-  } catch (e: any) {
-    toast.error(e?.message || t('common.saveFailed'))
+  } catch (e: unknown) {
+    toast.error(resolveApiErrorMessage(e as HandlersErrorResponse, t('common.saveFailed')))
   }
 }
 </script>

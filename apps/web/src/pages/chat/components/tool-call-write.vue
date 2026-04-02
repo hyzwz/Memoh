@@ -1,4 +1,5 @@
 <template>
+  <!-- eslint-disable vue/no-v-html -->
   <div class="rounded-lg border bg-muted/30 text-sm overflow-hidden">
     <div class="flex items-center gap-2 px-3 py-2 bg-muted/50">
       <FontAwesomeIcon
@@ -63,6 +64,7 @@
       </CollapsibleContent>
     </Collapsible>
   </div>
+  <!-- eslint-enable vue/no-v-html -->
 </template>
 
 <script setup lang="ts">

@@ -9,6 +9,7 @@ const props = withDefaults(defineProps<{
   class?: HTMLAttributes['class']
   colspan?: number
 }>(), {
+  class: undefined,
   colspan: 1,
 })
 

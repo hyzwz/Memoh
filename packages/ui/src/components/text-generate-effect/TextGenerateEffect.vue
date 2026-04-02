@@ -10,7 +10,7 @@ const props = withDefaults(
     delay?: number;
     class?: HTMLAttributes['class'];
   }>(),
-  { duration: 0.7, delay: 0, filter: true },
+  { duration: 0.7, delay: 0, filter: true, class: undefined },
 )
 
 const scope = ref(null)

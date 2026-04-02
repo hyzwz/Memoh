@@ -8,14 +8,12 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 
-const props = withDefaults(defineProps<{
-  status: 'success' | 'error' | 'warning' | 'idle'
-}>(), {
-  status: 'idle',
-})
+const props = defineProps<{
+  status?: 'success' | 'error' | 'warning' | 'idle'
+}>()
 
 const colorClass = computed(() => {
-  switch (props.status) {
+  switch (props.status ?? 'idle') {
     case 'success': return 'bg-green-500'
     case 'error': return 'bg-red-500'
     case 'warning': return 'bg-yellow-500'

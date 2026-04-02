@@ -30,8 +30,8 @@ async function handleLogin() {
       chatStore.currentBotId = store.botID
     }
     router.push('/chat')
-  } catch (e: any) {
-    error.value = e.message || 'Login failed'
+  } catch (e: unknown) {
+    error.value = e instanceof Error ? e.message : 'Login failed'
   } finally {
     loading.value = false
   }

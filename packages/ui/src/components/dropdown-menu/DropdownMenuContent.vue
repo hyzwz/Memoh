@@ -16,7 +16,20 @@ defineOptions({
 const props = withDefaults(
   defineProps<DropdownMenuContentProps & { class?: HTMLAttributes['class'] }>(),
   {
+    class: undefined,
+    align: undefined,
+    alignOffset: undefined,
+    arrowPadding: undefined,
+    avoidCollisions: undefined,
+    collisionBoundary: undefined,
+    collisionPadding: undefined,
+    disableUpdateOnLayoutShift: undefined,
+    forceMount: undefined,
+    hideWhenDetached: undefined,
+    prioritizePosition: undefined,
+    side: undefined,
     sideOffset: 4,
+    sticky: undefined,
   },
 )
 const emits = defineEmits<DropdownMenuContentEmits>()

@@ -34,7 +34,7 @@ import ModelList from './components/model-list.vue'
 import { computed, inject, provide, reactive, ref, toRef, watch } from 'vue'
 import { useQuery, useMutation, useQueryCache } from '@pinia/colada'
 import { putProvidersById, deleteProvidersById, getProvidersByIdModels, deleteModelsById } from '@memoh/sdk'
-import type { ModelsGetResponse, ProvidersGetResponse } from '@memoh/sdk'
+import type { ModelsGetResponse, ProvidersGetResponse, ProvidersUpdateRequest } from '@memoh/sdk'
 
 // ---- Model 编辑状态（provide 给 CreateModel） ----
 const openModel = reactive<{
@@ -73,11 +73,11 @@ const { mutate: deleteProvider, isLoading: deleteLoading } = useMutation({
 })
 
 const { mutate: changeProvider, isLoading: editLoading } = useMutation({
-  mutation: async (data: Record<string, unknown>) => {
+  mutation: async (data: ProvidersUpdateRequest) => {
     if (!curProviderId.value) return
     const { data: result } = await putProvidersById({
       path: { id: curProviderId.value },
-      body: data as any,
+      body: data,
       throwOnError: true,
     })
     return result

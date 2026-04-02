@@ -18,7 +18,18 @@ defineOptions({
 const props = withDefaults(
   defineProps<SelectContentProps & { class?: HTMLAttributes['class'] }>(),
   {
+    class: undefined,
+    align: undefined,
+    alignOffset: undefined,
+    avoidCollisions: undefined,
+    collisionBoundary: undefined,
+    collisionPadding: undefined,
+    disableUpdateOnLayoutShift: undefined,
+    positionStrategy: undefined,
     position: 'popper',
+    side: undefined,
+    sideOffset: undefined,
+    sticky: undefined,
   },
 )
 const emits = defineEmits<SelectContentEmits>()

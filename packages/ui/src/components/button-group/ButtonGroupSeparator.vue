@@ -6,7 +6,9 @@ import { cn } from '#/lib/utils'
 import { Separator } from '#/components/separator'
 
 const props = withDefaults(defineProps<SeparatorProps & { class?: HTMLAttributes['class'] }>(), {
+  class: undefined,
   orientation: 'vertical',
+  decorative: undefined,
 })
 const delegatedProps = reactiveOmit(props, 'class')
 </script>

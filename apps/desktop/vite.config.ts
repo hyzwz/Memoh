@@ -2,6 +2,11 @@ import { defineConfig } from 'vite'
 import vue from '@vitejs/plugin-vue'
 import tailwindcss from '@tailwindcss/vite'
 import { fileURLToPath } from 'url'
+import type { IncomingMessage, ServerResponse } from 'node:http'
+
+function isServerResponse(value: unknown): value is ServerResponse<IncomingMessage> {
+  return typeof value === 'object' && value !== null && 'writeHead' in value && 'end' in value
+}
 
 // Dynamic proxy target — updated by the frontend at runtime via /__set_proxy_target
 let proxyTarget = 'http://localhost:8080'
@@ -44,7 +49,7 @@ export default defineConfig({
         rewrite: (path: string) => path.replace(/^\/api/, ''),
         configure: (proxy) => {
           // Dynamically route to the target set at runtime
-          proxy.on('proxyReq', (proxyReq, _req) => {
+          proxy.on('proxyReq', (proxyReq) => {
             try {
               const url = new URL(proxyTarget)
               proxyReq.setHeader('host', url.host)
@@ -52,10 +57,10 @@ export default defineConfig({
           })
           proxy.on('error', (err, _req, res) => {
             console.error('[proxy] error:', err.message)
-            if (res && 'writeHead' in res) {
+            if (isServerResponse(res)) {
               try {
-                (res as any).writeHead(502)
-                ;(res as any).end(`Proxy error: ${err.message}`)
+                res.writeHead(502)
+                res.end(`Proxy error: ${err.message}`)
               } catch { /* already sent */ }
             }
           })

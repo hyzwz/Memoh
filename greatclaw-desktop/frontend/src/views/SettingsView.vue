@@ -14,7 +14,7 @@ function addRoot() {
   }
 }
 
-function removeRoot(index: number) {
+function removeRoot(index) {
   store.removeShareRoot(index)
 }
 </script>
@@ -29,11 +29,15 @@ function removeRoot(index: number) {
         >
           &larr; Back
         </button>
-        <h1 class="text-lg font-semibold text-gray-900">Settings</h1>
+        <h1 class="text-lg font-semibold text-gray-900">
+          Settings
+        </h1>
       </div>
 
       <div class="rounded-lg border bg-white p-4 shadow-sm">
-        <h2 class="text-sm font-medium text-gray-900">Shared Directories</h2>
+        <h2 class="text-sm font-medium text-gray-900">
+          Shared Directories
+        </h2>
         <p class="mt-1 text-xs text-gray-500">
           These directories will be accessible to your AI bot.
         </p>
@@ -41,7 +45,7 @@ function removeRoot(index: number) {
         <div class="mt-3 space-y-2">
           <div
             v-for="(root, i) in store.shareRoots"
-            :key="i"
+            :key="root"
             class="flex items-center justify-between rounded-md bg-gray-50 px-3 py-2 text-sm"
           >
             <span class="font-mono text-gray-700">{{ root }}</span>
@@ -61,7 +65,7 @@ function removeRoot(index: number) {
             class="flex-1 rounded-md border border-gray-300 px-3 py-2 text-sm"
             placeholder="~/Documents/Projects"
             @keyup.enter="addRoot"
-          />
+          >
           <button
             class="rounded-md bg-gray-900 px-4 py-2 text-sm font-medium text-white hover:bg-gray-800"
             @click="addRoot"

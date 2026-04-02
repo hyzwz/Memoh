@@ -19,6 +19,9 @@ import { client } from '@memoh/sdk/client'
 import { ensureAuth, getErrorMessage, resolveBotId } from './shared'
 import { streamChat } from './stream'
 
+type BotMutationBody = Parameters<typeof postBots>[0]['body']
+type BotUpdateBody = Parameters<typeof putBotsById>[0]['body']
+
 const getModelId = (item: ModelsGetResponse) => item.model_id ?? ''
 const getModelType = (item: ModelsGetResponse) => item.type ?? 'chat'
 
@@ -115,7 +118,7 @@ export const registerBotCommands = (program: Command) => {
       const spinner = ora('Creating bot...').start()
       try {
         const { data } = await postBots({
-          body: body as any,
+          body: body as BotMutationBody,
           throwOnError: true,
         })
         spinner.succeed(`Bot created: ${data.display_name || data.id}`)
@@ -173,7 +176,7 @@ export const registerBotCommands = (program: Command) => {
       try {
         await putBotsById({
           path: { id: botId },
-          body: body as any,
+          body: body as BotUpdateBody,
           throwOnError: true,
         })
         spinner.succeed('Bot updated')

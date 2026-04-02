@@ -224,6 +224,15 @@ import {
 } from '@memoh/sdk'
 import type { EmailProviderResponse, EmailBindingResponse, EmailOutboxItemResponse } from '@memoh/sdk'
 import { formatDateTime } from '@/utils/date-time'
+import { resolveApiErrorMessage } from '@/utils/api-error'
+
+interface EmailOutboxListResponse {
+  items?: EmailOutboxItemResponse[]
+}
+
+interface EmailProviderConfig {
+  username?: string
+}
 
 const props = defineProps<{ botId: string }>()
 const { t } = useI18n()
@@ -273,7 +282,7 @@ async function loadOutbox() {
       query: { limit: 50, offset: 0 },
       throwOnError: true,
     })
-    outboxItems.value = (data as any)?.items ?? []
+    outboxItems.value = (data as EmailOutboxListResponse | undefined)?.items ?? []
   } finally {
     outboxLoading.value = false
   }
@@ -282,7 +291,7 @@ async function loadOutbox() {
 async function handleAddBinding(provider: EmailProviderResponse) {
   addingBinding.value = true
   addingProviderId.value = provider.id!
-  const emailAddr = (provider.config as any)?.username || provider.name || ''
+  const emailAddr = (provider.config as EmailProviderConfig | undefined)?.username || provider.name || ''
   try {
     await postBotsByBotIdEmailBindings({
       path: { bot_id: props.botId },
@@ -297,8 +306,8 @@ async function handleAddBinding(provider: EmailProviderResponse) {
     })
     await loadBindings()
     toast.success(t('bots.email.bindSuccess'))
-  } catch (e: any) {
-    toast.error(e?.message || t('common.saveFailed'))
+  } catch (error) {
+    toast.error(resolveApiErrorMessage(error, t('common.saveFailed')))
   } finally {
     addingBinding.value = false
     addingProviderId.value = ''
@@ -313,8 +322,8 @@ async function handleTogglePerm(binding: EmailBindingResponse, field: string, va
       throwOnError: true,
     })
     await loadBindings()
-  } catch (e: any) {
-    toast.error(e?.message || t('common.saveFailed'))
+  } catch (error) {
+    toast.error(resolveApiErrorMessage(error, t('common.saveFailed')))
   }
 }
 
@@ -327,8 +336,8 @@ async function handleDeleteBinding(id: string) {
     })
     await loadBindings()
     toast.success(t('bots.email.unbindSuccess'))
-  } catch (e: any) {
-    toast.error(e?.message || t('common.saveFailed'))
+  } catch (error) {
+    toast.error(resolveApiErrorMessage(error, t('common.saveFailed')))
   } finally {
     deletingId.value = ''
   }

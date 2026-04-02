@@ -105,6 +105,7 @@ import z from 'zod'
 import { useForm } from 'vee-validate'
 import { useMutation, useQueryCache } from '@pinia/colada'
 import { postSearchProviders } from '@memoh/sdk'
+import type { SearchprovidersCreateRequest } from '@memoh/sdk'
 import { useI18n } from 'vue-i18n'
 import FormDialogShell from '@/components/form-dialog-shell/index.vue'
 import { useDialogMutation } from '@/composables/useDialogMutation'
@@ -117,8 +118,8 @@ const { run } = useDialogMutation()
 
 const queryCache = useQueryCache()
 const { mutateAsync: createProviderMutation, isLoading } = useMutation({
-  mutation: async (data: Record<string, unknown>) => {
-    const { data: result } = await postSearchProviders({ body: data as any, throwOnError: true })
+  mutation: async (data: SearchprovidersCreateRequest) => {
+    const { data: result } = await postSearchProviders({ body: data, throwOnError: true })
     return result
   },
   onSettled: () => queryCache.invalidateQueries({ key: ['search-providers'] }),
